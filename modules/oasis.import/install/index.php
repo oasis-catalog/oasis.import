@@ -6,6 +6,7 @@ use Bitrix\Main\Config\Option;
 use Bitrix\Main\EventManager;
 use Bitrix\Main\Application;
 use Bitrix\Main\IO\Directory;
+use Bitrix\Main\Type\DateTime;
 
 Loc::loadMessages(__FILE__);
 
@@ -42,6 +43,14 @@ class oasis_import extends CModule
             ModuleManager::registerModule($this->MODULE_ID);
 
             $this->InstallEvents();
+
+            $objDateTime = new DateTime();
+            $dateImport = new DateTime($objDateTime, "d.m.Y");
+
+            Option::set("main", "agents_use_crontab", "N");
+            Option::set("main", "check_agents", "N");
+            \CAgent::AddAgent( "\\Oasis\\Import\\Cli::import();", "oasis.import", "N", 24*60*60, "", "Y", $dateImport->add("1 days 1 hours 30 min")->toString());
+            \CAgent::AddAgent( "\\Oasis\\Import\\Cli::upStock();", "oasis.import", "N", 30*60, "", "Y", $objDateTime->add("30 min")->format("d.m.Y H:i:s"));
         } else {
             $APPLICATION->ThrowException(
                 Loc::getMessage("OASIS_IMPORT_INSTALL_ERROR_VERSION")
@@ -58,6 +67,13 @@ class oasis_import extends CModule
 
     public function InstallFiles()
     {
+        CopyDirFiles(
+            __DIR__."/assets/php",
+            Application::getDocumentRoot()."/bitrix/php_interface/",
+            false,
+            true
+        );
+
         return false;
     }
 
@@ -73,14 +89,13 @@ class oasis_import extends CModule
             "OnBeforeEndBufferContent",
             $this->MODULE_ID,
             "Oasis\Import\Main",
-            "appendScriptsToPage"
         );
 
         EventManager::getInstance()->registerEventHandler(
             "api",
             "OnBeforeEndBufferContent",
             $this->MODULE_ID,
-            "Oasis\Import\Api"
+            "Oasis\Import\Api",
         );
 
         return false;
@@ -93,6 +108,8 @@ class oasis_import extends CModule
         $this->UnInstallFiles();
         $this->UnInstallDB();
         $this->UnInstallEvents();
+
+        \CAgent::RemoveModuleAgents("oasis.import");
 
         ModuleManager::unRegisterModule($this->MODULE_ID);
 
@@ -123,14 +140,13 @@ class oasis_import extends CModule
             "OnBeforeEndBufferContent",
             $this->MODULE_ID,
             "Oasis\Import\Main",
-            "appendScriptsToPage"
         );
 
         EventManager::getInstance()->unRegisterEventHandler(
             "api",
             "OnBeforeEndBufferContent",
             $this->MODULE_ID,
-            "Oasis\Import\Api"
+            "Oasis\Import\Api",
         );
 
         return false;

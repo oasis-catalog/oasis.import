@@ -8,15 +8,6 @@ use Oasis\Import\Api;
 class Main
 {
 
-    public function appendScriptsToPage()
-    {
-        if (!defined("ADMIN_SECTION") && ADMIN_SECTION !== true) {
-            $module_id = pathinfo(dirname(__DIR__))["basename"];
-        }
-
-        return false;
-    }
-
     /**
      * Get categories level 1
      *
