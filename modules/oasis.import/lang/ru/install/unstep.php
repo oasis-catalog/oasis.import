@@ -1,0 +1,5 @@
+<?php
+
+$MESS["OASIS_IMPORT_UNSTEP_BEFORE"] = "Модуль";
+$MESS["OASIS_IMPORT_UNSTEP_AFTER"] = "удален";
+$MESS["OASIS_IMPORT_UNSTEP_SUBMIT_BACK"] = "Вернуться в список";
