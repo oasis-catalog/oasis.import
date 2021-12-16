@@ -48,9 +48,7 @@ try {
             "categories",
             Loc::getMessage("OASIS_IMPORT_OPTIONS_TAB_CATEGORIES"),
             "Y",
-            [
-                "checkboxes", $mainCategories
-            ]
+            ["checkboxes", $mainCategories]
         ];
 
         $aTabs[0]["OPTIONS"] = array_merge($aTabs[0]["OPTIONS"], [
