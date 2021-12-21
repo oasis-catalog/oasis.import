@@ -2,16 +2,114 @@
 
 namespace Oasis\Import;
 
+use Bitrix\Catalog\GroupTable;
+use Bitrix\Catalog\PriceTable;
+use Bitrix\Catalog\ProductTable;
+use Bitrix\Catalog\StoreProductTable;
+use Bitrix\Catalog\StoreTable;
+use Bitrix\Iblock\ElementTable;
 use Bitrix\Iblock\IblockTable;
 use Bitrix\Iblock\Model\Section;
+use Bitrix\Iblock\PropertyTable;
 use Bitrix\Main\Config\Option;
 use Bitrix\Main\Diag\Debug;
+use Bitrix\Main\FileTable;
 use Bitrix\Main\Loader;
 use Bitrix\Main\Type\DateTime;
 use Bitrix\Main\UserFieldTable;
 
 class Main
 {
+
+    /**
+     * Checking properties product and create if absent
+     */
+    public static function checkProperties()
+    {
+        $properties = [
+            'ARTNUMBER'    => [
+                'name' => 'Артикул',
+                'type' => 'S',
+            ],
+            'MANUFACTURER' => [
+                'name' => 'Производитель',
+                'type' => 'S',
+            ],
+            'MATERIAL'     => [
+                'name' => 'Материал',
+                'type' => 'S',
+            ],
+            'COLOR'        => [
+                'name' => 'Цвет',
+                'type' => 'S',
+            ],
+        ];
+
+        try {
+            Loader::includeModule('iblock');
+
+            foreach ($properties as $key => $value) {
+                $dbProperty = PropertyTable::getList([
+                    'filter' => ['CODE' => $key],
+                ])->fetch();
+
+                if (!$dbProperty) {
+                    self::addProperty($key, $value);
+                }
+            }
+
+        } catch (\Exception $e) {
+        }
+    }
+
+    /**
+     * Add property product
+     *
+     * @param $code
+     * @param $data
+     */
+    private static function addProperty($code, $data)
+    {
+        try {
+            PropertyTable::add([
+                'IBLOCK_ID'        => self::getIblockId(),
+                'NAME'             => $data['name'],
+                'CODE'             => $code,
+                'PROPERTY_TYPE'    => $data['type'],
+                'XML_ID'           => $code,
+                'WITH_DESCRIPTION' => 'N',
+                'IS_REQUIRED'      => 'N',
+            ]);
+        } catch (\Exception $e) {
+        }
+    }
+
+    /**
+     * Get unique (not DB) code (alias)
+     *
+     * @param $name
+     * @param int $i
+     * @return string
+     * @throws \Bitrix\Main\ArgumentException
+     * @throws \Bitrix\Main\ObjectPropertyException
+     * @throws \Bitrix\Main\SystemException
+     */
+    public static function getUniqueCode($name, int $i = 0): string
+    {
+        $code = \Cutil::translit($name, 'ru', ['replace_space' => '-', 'replace_other' => '-']);
+        $code = $i === 0 ? $code : $code . '-' . $i;
+
+        $dbCode = ElementTable::getList([
+            'filter' => ['CODE' => $code],
+        ])->fetch();
+
+        if ($dbCode) {
+            $code = self::getUniqueCode($name, ++$i);
+        }
+
+        return $code;
+    }
+
 
     /**
      * Get array categories | add categories
@@ -28,8 +126,6 @@ class Main
             Loader::includeModule('iblock');
 
             $iblockId = self::getIblockId();
-
-            self::userFieldCategory($iblockId);
 
             foreach ($productCategories as $productCategory) {
                 $result[] = self::getCategoryId($oasisCategories, $productCategory, $iblockId);
@@ -120,34 +216,68 @@ class Main
     }
 
     /**
-     * Check user field UF_OASIS_ID_CATEGORY or add user field
+     * Check user fields UF_OASIS_ID_CATEGORY and UF_OASIS_ID_PRODUCT
      *
-     * @param $iblockId
+     * @throws \Bitrix\Main\ArgumentException
+     * @throws \Bitrix\Main\LoaderException
+     * @throws \Bitrix\Main\ObjectPropertyException
+     * @throws \Bitrix\Main\SystemException
+     */
+    public static function checkUserFields()
+    {
+        Loader::includeModule('iblock');
+
+        $dataField = [
+            'ENTITY_ID'  => 'PRODUCT',
+            'FIELD_NAME' => 'UF_OASIS_ID_PRODUCT',
+            'LABEL'      => [
+                'ru' => 'Oasis ID товара',
+                'en' => 'Oasis ID product',
+            ],
+        ];
+        self::addUserField($dataField);
+        unset($dataField);
+
+        $dataField = [
+            'ENTITY_ID'  => 'IBLOCK_' . self::getIblockId() . '_SECTION',
+            'FIELD_NAME' => 'UF_OASIS_ID_CATEGORY',
+            'LABEL'      => [
+                'ru' => 'Oasis ID категории',
+                'en' => 'Oasis ID category',
+            ],
+        ];
+        self::addUserField($dataField);
+    }
+
+    /**
+     * Check user field or add user field
+     *
+     * @param $data
      * @return int
      * @throws \Bitrix\Main\ArgumentException
      * @throws \Bitrix\Main\ObjectPropertyException
      * @throws \Bitrix\Main\SystemException
      */
-    private function userFieldCategory($iblockId): int
+    private function addUserField($data): int
     {
         $dbUserFields = UserFieldTable::getList([
             'select' => ['ID'],
-            'filter' => ['FIELD_NAME' => 'UF_OASIS_ID_CATEGORY'],
+            'filter' => ['FIELD_NAME' => 'UF_' . $data['FIELD_NAME']],
         ])->fetch();
 
         if (!$dbUserFields) {
             $oUserTypeEntity = new \CUserTypeEntity();
 
             $aUserFields = [
-                'ENTITY_ID'         => 'IBLOCK_' . $iblockId . '_SECTION',
-                'FIELD_NAME'        => 'UF_OASIS_ID_CATEGORY',
+                'ENTITY_ID'         => $data['ENTITY_ID'],
+                'FIELD_NAME'        => $data['FIELD_NAME'],
                 'USER_TYPE_ID'      => 'string',
-                'XML_ID'            => 'XML_ID_OASIS_ID_CATEGORY',
+                'XML_ID'            => $data['FIELD_NAME'],
                 'MULTIPLE'          => 'N',
                 'MANDATORY'         => 'N',
                 'SHOW_FILTER'       => 'N',
-                'SHOW_IN_LIST'      => '',
-                'EDIT_IN_LIST'      => '',
+                'SHOW_IN_LIST'      => 'N',
+                'EDIT_IN_LIST'      => 'N',
                 'IS_SEARCHABLE'     => 'N',
                 'SETTINGS'          => [
                     'DEFAULT_VALUE' => '',
@@ -157,18 +287,9 @@ class Main
                     'MAX_LENGTH'    => '0',
                     'REGEXP'        => '',
                 ],
-                'EDIT_FORM_LABEL'   => [
-                    'ru' => 'Oasis ID категории',
-                    'en' => 'Oasis ID category',
-                ],
-                'LIST_COLUMN_LABEL' => [
-                    'ru' => 'Oasis ID категории',
-                    'en' => 'Oasis ID category',
-                ],
-                'LIST_FILTER_LABEL' => [
-                    'ru' => 'Oasis ID категории',
-                    'en' => 'Oasis ID category',
-                ],
+                'EDIT_FORM_LABEL'   => $data['LABEL'],
+                'LIST_COLUMN_LABEL' => $data['LABEL'],
+                'LIST_FILTER_LABEL' => $data['LABEL'],
                 'HELP_MESSAGE'      => [
                     'ru' => '',
                     'en' => '',
@@ -204,7 +325,7 @@ class Main
             ])->fetch();
 
             if (!$arIblock) {
-                // Добавить инфоблок
+                //TODO Добавить инфоблок
                 print_r('Добавить инфоблок');
                 Debug::dumpToFile('Добавить инфоблок');
                 exit();
