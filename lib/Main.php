@@ -11,7 +11,6 @@ use Bitrix\Iblock\ElementTable;
 use Bitrix\Iblock\IblockTable;
 use Bitrix\Iblock\Model\Section;
 use Bitrix\Iblock\PropertyTable;
-use Bitrix\Main\Config\Option;
 use Bitrix\Main\Diag\Debug;
 use Bitrix\Main\FileTable;
 use Bitrix\Main\Loader;
@@ -20,6 +19,31 @@ use Bitrix\Main\UserFieldTable;
 
 class Main
 {
+
+    public static function upProduct($dbProduct, $oasisProduct, $oasisCategories, $simple)
+    {
+        try {
+            Loader::includeModule('iblock');
+            Loader::includeModule('catalog');
+
+            $data = [
+                'NAME'            => $oasisProduct->name,
+                'DETAIL_TEXT'     => '<p>' . $oasisProduct->description . '</p>' . self::getProductDetailText($oasisProduct),
+                'PROPERTY_VALUES' => self::getPropertiesArray($oasisProduct),
+                'ACTIVE'          => self::getStatusProduct($oasisProduct),
+            ];
+            $data += self::getIblockSectionProduct($oasisProduct, $oasisCategories);
+
+            $el = new \CIBlockElement;
+            $el->Update($dbProduct['ID'], $data);
+
+            self::executeProduct($dbProduct['ID'], $oasisProduct);
+            self::executeStoreProduct($dbProduct['ID'], $oasisProduct);
+            self::executePriceProduct($dbProduct['ID'], $oasisProduct);
+
+        } catch (\Exception $e) {
+        }
+    }
 
     /**
      * @param $product
@@ -34,12 +58,13 @@ class Main
         Loader::includeModule('catalog');
 
         return ProductTable::getList([
-            'select' => ['ID'],
             'filter' => ['UF_OASIS_ID_PRODUCT' => $product->id]
         ])->fetch();
     }
 
     /**
+     * Add simple product
+     *
      * @param $product
      * @param $oasisCategories
      * @param $simple
@@ -51,43 +76,7 @@ class Main
             Loader::includeModule('iblock');
             Loader::includeModule('catalog');
 
-            $rsGroup = GroupTable::getList([
-                'filter' => ['BASE' => 'Y']
-            ]);
-
-            if ($arGroup = $rsGroup->fetch()) {
-                $cCatalogGroupId = $arGroup['ID'];
-            } else {
-                $cCatalogGroupId = 1;
-            }
-
-            $properties = [
-                'ARTNUMBER' => $product->article,
-            ];
-
-            $productAttribute = [];
-
-            foreach ($product->attributes as $attribute) {
-                if (isset($attribute->id) && $attribute->id === 1000000001) {
-                    $properties['COLOR'] = $attribute->value;
-                } elseif (isset($attribute->id) && $attribute->id === 1000000002) {
-                    $properties['MATERIAL'] = $attribute->value;
-                } elseif ($attribute->name !== 'Размер') {
-                    $dim = isset($attribute->dim) ? ' ' . $attribute->dim : '';
-                    $needed = array_search($attribute->name, array_column($productAttribute, 'name'));
-
-                    if ($needed === false) {
-                        $productAttribute[] = [
-                            'name'  => $attribute->name,
-                            'value' => $attribute->value . $dim,
-                        ];
-                    } else {
-                        $productAttribute[$needed]['value'] .= ', ' . $attribute->value . $dim;
-                    }
-                    unset($needed);
-                }
-            }
-            unset($attribute);
+            $properties = self::getPropertiesArray($product);
 
             $i = 0;
             foreach ($product->images as $image) {
@@ -104,105 +93,187 @@ class Main
                 }
             }
 
-            if (!is_null($product->brand)) {
-                $properties['MANUFACTURER'] = $product->brand;
-            }
-
             $data = [
                 'NAME'             => $product->name,
                 'CODE'             => self::getUniqueCode($product->name),
                 'IBLOCK_ID'        => self::getIblockId(),
-                'DETAIL_TEXT'      => '<p>' . $product->description . '</p>',
+                'DETAIL_TEXT'      => '<p>' . $product->description . '</p>' . self::getProductDetailText($product),
                 'DETAIL_TEXT_TYPE' => 'html',
                 'PROPERTY_VALUES'  => $properties,
+                'ACTIVE'           => self::getStatusProduct($product),
             ];
 
-            $data['DETAIL_TEXT'] .= '
-<p><b>Дополнительное описание:</b></p>
-<ul>';
-            foreach ($productAttribute as $attribute) {
-                $data['DETAIL_TEXT'] .= '
-    <li>
-        <b>' . $attribute['name'] . '</b>: ' . $attribute['value'] . '
-    </li>';
-            }
-            unset($attribute);
-            $data['DETAIL_TEXT'] .= '
-</ul>';
-
-            if (!is_null($product->total_stock) || $product->rating === 5) {
-                $data['ACTIVE'] = 'Y';
-            } else {
-                $data['ACTIVE'] = 'N';
-            }
-
-            $categories = self::getCategories($oasisCategories, $product->full_categories);
-
-            if (count($categories) > 1) {
-                $data['IBLOCK_SECTION'] = $categories;
-            } else {
-                $data['IBLOCK_SECTION_ID'] = reset($categories);
-            }
+            $data += self::getIblockSectionProduct($product, $oasisCategories);
 
             $el = new \CIBlockElement;
-            $productId = $el->add($data);
+            $productId = $el->Add($data);
 
-            ProductTable::add([
-                'ID'                  => $productId,
-                'QUANTITY'            => is_null($product->total_stock) ? 0 : $product->total_stock,
-                'RECUR_SCHEME_LENGTH' => null,
-                'SELECT_BEST_PRICE'   => 'N',
-                'PURCHASING_CURRENCY' => 'RUB',
-                'LENGTH'              => null,
-                'WIDTH'               => null,
-                'HEIGHT'              => null,
-                'MEASURE'             => 5,
-                'AVAILABLE'           => 'Y',
-                'BUNDLE'              => 'N',
-                'UF_OASIS_ID_PRODUCT' => $product->id,
-            ]);
+            self::executeProduct($productId, $product);
+            self::executeStoreProduct($productId, $product);
+            self::executePriceProduct($productId, $product);
+        } catch (\Exception $e) {
+        }
 
+        return $productId;
+    }
+
+    /**
+     * Execute ProductTable
+     *
+     * @param $productId
+     * @param $product
+     */
+    public static function executeProduct($productId, $product)
+    {
+        try {
+            $dbProduct = ProductTable::getList([
+                'filter' => ['ID' => $productId]
+            ])->fetch();
+
+            if ($dbProduct) {
+                ProductTable::update($dbProduct['ID'], [
+                    'QUANTITY' => is_null($product->total_stock) ? 0 : $product->total_stock,
+                ]);
+            } else {
+                ProductTable::add([
+                    'ID'                  => $productId,
+                    'QUANTITY'            => is_null($product->total_stock) ? 0 : $product->total_stock,
+                    'RECUR_SCHEME_LENGTH' => null,
+                    'SELECT_BEST_PRICE'   => 'N',
+                    'PURCHASING_CURRENCY' => 'RUB',
+                    'LENGTH'              => null,
+                    'WIDTH'               => null,
+                    'HEIGHT'              => null,
+                    'MEASURE'             => 5,
+                    'AVAILABLE'           => 'Y',
+                    'BUNDLE'              => 'N',
+                    'UF_OASIS_ID_PRODUCT' => $product->id,
+                ]);
+            }
+        } catch (\Exception $e) {
+        }
+    }
+
+    /**
+     * Execute StoreProductTable
+     *
+     * @param $productId
+     * @param $product
+     */
+    public static function executeStoreProduct($productId, $product)
+    {
+        try {
             $arStore = StoreTable::getList([
                 'filter' => ['ACTIVE' => 'Y'],
             ])->fetch();
-
-            $storeId = $arStore['ID'];
 
             $rsStoreProduct = StoreProductTable::getList([
                 'filter' => ['=PRODUCT_ID' => $productId, 'STORE.ACTIVE' => 'Y'],
             ]);
 
+            $arField = [
+                'PRODUCT_ID' => intval($productId),
+                'STORE_ID'   => $arStore['ID'],
+                'AMOUNT'     => is_null($product->total_stock) ? 0 : $product->total_stock,
+            ];
+
             if ($arStoreProduct = $rsStoreProduct->fetch()) {
-
-                /**
-                 * TODO this delete
-                 */
-                echo '<pre>' . print_r($arStoreProduct['ID'], 1) . '</pre>' . PHP_EOL;
-
-                $updateStore = StoreProductTable::update($arStoreProduct['ID'], [
-                    'PRODUCT_ID' => intval($productId),
-                    'STORE_ID'   => $storeId,
-                    'AMOUNT'     => is_null($product->total_stock) ? 0 : $product->total_stock,
-                ]);
+                StoreProductTable::update($arStoreProduct['ID'], $arField);
             } else {
-                $addStore = StoreProductTable::add([
-                    'PRODUCT_ID' => intval($productId),
-                    'STORE_ID'   => $storeId,
-                    'AMOUNT'     => is_null($product->total_stock) ? 0 : $product->total_stock,
-                ]);
+                StoreProductTable::add($arField);
             }
+        } catch (\Exception $e) {
+        }
+    }
 
-            PriceTable::add([
-                'CATALOG_GROUP_ID' => $cCatalogGroupId,
+    /**
+     * Execute PriceTable
+     *
+     * @param $productId
+     * @param $product
+     */
+    public static function executePriceProduct($productId, $product)
+    {
+        try {
+            $dbPrice = PriceTable::getList([
+                'filter' => ['PRODUCT_ID' => $productId]
+            ])->fetch();
+
+            $arField = [
+                'CATALOG_GROUP_ID' => self::getBaseCatalogGroupId(),
                 'PRODUCT_ID'       => $productId,
                 'PRICE'            => $product->price,
                 'PRICE_SCALE'      => $product->price,
                 'CURRENCY'         => 'RUB',
-            ]);
+            ];
+
+            if ($dbPrice) {
+                PriceTable::update($dbPrice['ID'], $arField);
+            } else {
+                PriceTable::add($arField);
+            }
         } catch (\Exception $e) {
         }
+    }
 
-        return $productId;
+    /**
+     * Get base catalog group id
+     *
+     * @return int
+     * @throws \Bitrix\Main\ArgumentException
+     * @throws \Bitrix\Main\ObjectPropertyException
+     * @throws \Bitrix\Main\SystemException
+     */
+    public static function getBaseCatalogGroupId(): int
+    {
+        $rsGroup = GroupTable::getList([
+            'filter' => ['BASE' => 'Y']
+        ]);
+
+        if ($arGroup = $rsGroup->fetch()) {
+            $result = (int)$arGroup['ID'];
+        } else {
+            $result = 1;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Get status product
+     *
+     * @param $product
+     * @return string
+     */
+    public static function getStatusProduct($product): string
+    {
+        if (!is_null($product->total_stock) || $product->rating === 5) {
+            $status = 'Y';
+        } else {
+            $status = 'N';
+        }
+
+        return $status;
+    }
+
+    /**
+     * Get iblock section product
+     *
+     * @param $product
+     * @param $oasisCategories
+     * @return array
+     */
+    public static function getIblockSectionProduct($product, $oasisCategories): array
+    {
+        $categories = self::getCategories($oasisCategories, $product->full_categories);
+
+        if (count($categories) > 1) {
+            $result['IBLOCK_SECTION'] = $categories;
+        } else {
+            $result['IBLOCK_SECTION_ID'] = reset($categories);
+        }
+
+        return $result;
     }
 
     /**
@@ -266,6 +337,84 @@ class Main
             ]);
         } catch (\Exception $e) {
         }
+    }
+
+    /**
+     * Get array properties products
+     *
+     * @param $product
+     * @return array
+     */
+    public static function getPropertiesArray($product): array
+    {
+        $result = [
+            'ARTNUMBER' => $product->article
+        ];
+
+        foreach ($product->attributes as $attribute) {
+            if (isset($attribute->id) && $attribute->id === 1000000001) {
+                $result['COLOR'] = $attribute->value;
+            } elseif (isset($attribute->id) && $attribute->id === 1000000002) {
+                $result['MATERIAL'] = $attribute->value;
+            }
+        }
+        unset($attribute);
+
+        if (!is_null($product->brand)) {
+            $result['MANUFACTURER'] = $product->brand;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Get detail text from properties
+     *
+     * @param $product
+     * @return string
+     */
+    public static function getProductDetailText($product): string
+    {
+        $properties = [];
+
+        foreach ($product->attributes as $attribute) {
+            if ($attribute->name !== 'Размер') {
+                if (!(isset($attribute->id) && $attribute->id === 1000000001 || $attribute->id === 1000000002)) {
+                    $dim = isset($attribute->dim) ? ' ' . $attribute->dim : '';
+                    $needed = array_search($attribute->name, array_column($properties, 'name'));
+
+                    if ($needed === false) {
+                        $properties[] = [
+                            'name'  => $attribute->name,
+                            'value' => $attribute->value . $dim,
+                        ];
+                    } else {
+                        $properties[$needed]['value'] .= ', ' . $attribute->value . $dim;
+                    }
+                    unset($needed);
+                }
+            }
+        }
+        unset($attribute);
+
+        $html = '';
+
+        if ($properties) {
+            $html = '
+<p><b>Дополнительное описание:</b></p>
+<ul>';
+            foreach ($properties as $property) {
+                $html .= '
+    <li>
+        <b>' . $property['name'] . '</b>: ' . $property['value'] . '
+    </li>';
+            }
+            unset($property);
+            $html .= '
+</ul>';
+        }
+
+        return $html;
     }
 
     /**
@@ -442,7 +591,7 @@ class Main
      * @throws \Bitrix\Main\ObjectPropertyException
      * @throws \Bitrix\Main\SystemException
      */
-    private function addUserField($data): int
+    private static function addUserField($data): int
     {
         $dbUserFields = UserFieldTable::getList([
             'select' => ['ID'],
