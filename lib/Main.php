@@ -22,6 +22,190 @@ class Main
 {
 
     /**
+     * @param $product
+     * @return array|false
+     * @throws \Bitrix\Main\ArgumentException
+     * @throws \Bitrix\Main\LoaderException
+     * @throws \Bitrix\Main\ObjectPropertyException
+     * @throws \Bitrix\Main\SystemException
+     */
+    public static function checkProduct($product)
+    {
+        Loader::includeModule('catalog');
+
+        return ProductTable::getList([
+            'select' => ['ID'],
+            'filter' => ['UF_OASIS_ID_PRODUCT' => $product->id]
+        ])->fetch();
+    }
+
+    /**
+     * @param $product
+     * @param $oasisCategories
+     * @param $simple
+     * @return false|mixed
+     */
+    public static function addProduct($product, $oasisCategories, $simple)
+    {
+        try {
+            Loader::includeModule('iblock');
+            Loader::includeModule('catalog');
+
+            $rsGroup = GroupTable::getList([
+                'filter' => ['BASE' => 'Y']
+            ]);
+
+            if ($arGroup = $rsGroup->fetch()) {
+                $cCatalogGroupId = $arGroup['ID'];
+            } else {
+                $cCatalogGroupId = 1;
+            }
+
+            $properties = [
+                'ARTNUMBER' => $product->article,
+            ];
+
+            $productAttribute = [];
+
+            foreach ($product->attributes as $attribute) {
+                if (isset($attribute->id) && $attribute->id === 1000000001) {
+                    $properties['COLOR'] = $attribute->value;
+                } elseif (isset($attribute->id) && $attribute->id === 1000000002) {
+                    $properties['MATERIAL'] = $attribute->value;
+                } elseif ($attribute->name !== 'Размер') {
+                    $dim = isset($attribute->dim) ? ' ' . $attribute->dim : '';
+                    $needed = array_search($attribute->name, array_column($productAttribute, 'name'));
+
+                    if ($needed === false) {
+                        $productAttribute[] = [
+                            'name'  => $attribute->name,
+                            'value' => $attribute->value . $dim,
+                        ];
+                    } else {
+                        $productAttribute[$needed]['value'] .= ', ' . $attribute->value . $dim;
+                    }
+                    unset($needed);
+                }
+            }
+            unset($attribute);
+
+            $i = 0;
+            foreach ($product->images as $image) {
+                $existImg = FileTable::getList([
+                    'filter' => [
+                        'ORIGINAL_NAME' => pathinfo($image->superbig)['basename'],
+                    ],
+                ])->fetch();
+
+                if (!$existImg) {
+                    $properties['MORE_PHOTO']['n' . $i++] = [
+                        'VALUE' => \CFile::MakeFileArray($image->superbig),
+                    ];
+                }
+            }
+
+            if (!is_null($product->brand)) {
+                $properties['MANUFACTURER'] = $product->brand;
+            }
+
+            $data = [
+                'NAME'             => $product->name,
+                'CODE'             => self::getUniqueCode($product->name),
+                'IBLOCK_ID'        => self::getIblockId(),
+                'DETAIL_TEXT'      => '<p>' . $product->description . '</p>',
+                'DETAIL_TEXT_TYPE' => 'html',
+                'PROPERTY_VALUES'  => $properties,
+            ];
+
+            $data['DETAIL_TEXT'] .= '
+<p><b>Дополнительное описание:</b></p>
+<ul>';
+            foreach ($productAttribute as $attribute) {
+                $data['DETAIL_TEXT'] .= '
+    <li>
+        <b>' . $attribute['name'] . '</b>: ' . $attribute['value'] . '
+    </li>';
+            }
+            unset($attribute);
+            $data['DETAIL_TEXT'] .= '
+</ul>';
+
+            if (!is_null($product->total_stock) || $product->rating === 5) {
+                $data['ACTIVE'] = 'Y';
+            } else {
+                $data['ACTIVE'] = 'N';
+            }
+
+            $categories = self::getCategories($oasisCategories, $product->full_categories);
+
+            if (count($categories) > 1) {
+                $data['IBLOCK_SECTION'] = $categories;
+            } else {
+                $data['IBLOCK_SECTION_ID'] = reset($categories);
+            }
+
+            $el = new \CIBlockElement;
+            $productId = $el->add($data);
+
+            ProductTable::add([
+                'ID'                  => $productId,
+                'QUANTITY'            => is_null($product->total_stock) ? 0 : $product->total_stock,
+                'RECUR_SCHEME_LENGTH' => null,
+                'SELECT_BEST_PRICE'   => 'N',
+                'PURCHASING_CURRENCY' => 'RUB',
+                'LENGTH'              => null,
+                'WIDTH'               => null,
+                'HEIGHT'              => null,
+                'MEASURE'             => 5,
+                'AVAILABLE'           => 'Y',
+                'BUNDLE'              => 'N',
+                'UF_OASIS_ID_PRODUCT' => $product->id,
+            ]);
+
+            $arStore = StoreTable::getList([
+                'filter' => ['ACTIVE' => 'Y'],
+            ])->fetch();
+
+            $storeId = $arStore['ID'];
+
+            $rsStoreProduct = StoreProductTable::getList([
+                'filter' => ['=PRODUCT_ID' => $productId, 'STORE.ACTIVE' => 'Y'],
+            ]);
+
+            if ($arStoreProduct = $rsStoreProduct->fetch()) {
+
+                /**
+                 * TODO this delete
+                 */
+                echo '<pre>' . print_r($arStoreProduct['ID'], 1) . '</pre>' . PHP_EOL;
+
+                $updateStore = StoreProductTable::update($arStoreProduct['ID'], [
+                    'PRODUCT_ID' => intval($productId),
+                    'STORE_ID'   => $storeId,
+                    'AMOUNT'     => is_null($product->total_stock) ? 0 : $product->total_stock,
+                ]);
+            } else {
+                $addStore = StoreProductTable::add([
+                    'PRODUCT_ID' => intval($productId),
+                    'STORE_ID'   => $storeId,
+                    'AMOUNT'     => is_null($product->total_stock) ? 0 : $product->total_stock,
+                ]);
+            }
+
+            PriceTable::add([
+                'CATALOG_GROUP_ID' => $cCatalogGroupId,
+                'PRODUCT_ID'       => $productId,
+                'PRICE'            => $product->price,
+                'PRICE_SCALE'      => $product->price,
+                'CURRENCY'         => 'RUB',
+            ]);
+        } catch (\Exception $e) {
+        }
+
+        return $productId;
+    }
+
+    /**
      * Checking properties product and create if absent
      */
     public static function checkProperties()
