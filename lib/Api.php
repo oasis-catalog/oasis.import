@@ -6,6 +6,14 @@ use Bitrix\Main\Config\Option;
 
 class Api
 {
+    /**
+     * Get oasis products by module settings
+     *
+     * @param array $args
+     * @return array
+     * @throws \Bitrix\Main\ArgumentNullException
+     * @throws \Bitrix\Main\ArgumentOutOfRangeException
+     */
     public static function getProductsOasis(array $args = []): array
     {
         $module_id = pathinfo(dirname(__DIR__))['basename'];

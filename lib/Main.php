@@ -3,24 +3,40 @@
 namespace Oasis\Import;
 
 use Bitrix\Catalog\GroupTable;
+use Bitrix\Catalog\MeasureRatioTable;
 use Bitrix\Catalog\PriceTable;
 use Bitrix\Catalog\ProductTable;
 use Bitrix\Catalog\StoreProductTable;
 use Bitrix\Catalog\StoreTable;
 use Bitrix\Iblock\ElementTable;
 use Bitrix\Iblock\IblockTable;
+use Bitrix\Iblock\Model\PropertyFeature;
 use Bitrix\Iblock\Model\Section;
+use Bitrix\Iblock\PropertyEnumerationTable;
 use Bitrix\Iblock\PropertyTable;
+use Bitrix\Main\ArgumentException;
 use Bitrix\Main\Diag\Debug;
-use Bitrix\Main\FileTable;
 use Bitrix\Main\Loader;
+use Bitrix\Main\LoaderException;
+use Bitrix\Main\ObjectPropertyException;
+use Bitrix\Main\SystemException;
 use Bitrix\Main\Type\DateTime;
 use Bitrix\Main\UserFieldTable;
 
 class Main
 {
 
-    public static function upProduct($dbProduct, $oasisProduct, $oasisCategories, $simple)
+    /**
+     * Update simple product
+     *
+     * @param $dbProduct
+     * @param $oasisProduct
+     * @param $oasisCategories
+     * @param $variable
+     * @throws LoaderException
+     * @throws \Exception
+     */
+    public static function upProduct($dbProduct, $oasisProduct, $oasisCategories)
     {
         try {
             Loader::includeModule('iblock');
@@ -41,17 +57,18 @@ class Main
             self::executeStoreProduct($dbProduct['ID'], $oasisProduct);
             self::executePriceProduct($dbProduct['ID'], $oasisProduct);
 
-        } catch (\Exception $e) {
+        } catch (SystemException $e) {
+            echo $e->getMessage() . PHP_EOL;
         }
     }
 
     /**
      * @param $product
      * @return array|false
-     * @throws \Bitrix\Main\ArgumentException
-     * @throws \Bitrix\Main\LoaderException
-     * @throws \Bitrix\Main\ObjectPropertyException
-     * @throws \Bitrix\Main\SystemException
+     * @throws ArgumentException
+     * @throws LoaderException
+     * @throws ObjectPropertyException
+     * @throws SystemException
      */
     public static function checkProduct($product)
     {
@@ -67,51 +84,73 @@ class Main
      *
      * @param $product
      * @param $oasisCategories
-     * @param $simple
+     * @param $variable
      * @return false|mixed
+     * @throws LoaderException
+     * @throws \Exception
      */
-    public static function addProduct($product, $oasisCategories, $simple)
+    public static function addProduct($product, $oasisCategories, $variable)
     {
+        $productId = null;
+
         try {
             Loader::includeModule('iblock');
             Loader::includeModule('catalog');
 
             $properties = self::getPropertiesArray($product);
+            $properties += self::getProductImages($product);
+            $productId = self::addIblockElementProduct($product, $oasisCategories, $properties, 'clothes');
 
-            $i = 0;
-            foreach ($product->images as $image) {
-                $existImg = FileTable::getList([
-                    'filter' => [
-                        'ORIGINAL_NAME' => pathinfo($image->superbig)['basename'],
-                    ],
-                ])->fetch();
+            self::executeProduct($productId, $product, $variable);
+            self::executeStoreProduct($productId, $product);
+            self::executePriceProduct($productId, $product);
+        } catch (SystemException $e) {
+            echo $e->getMessage() . PHP_EOL;
+        }
 
-                if (!$existImg) {
-                    $properties['MORE_PHOTO']['n' . $i++] = [
-                        'VALUE' => \CFile::MakeFileArray($image->superbig),
-                    ];
-                }
-            }
+        return $productId;
+    }
 
+    /**
+     * Add Iblock Element Product
+     *
+     * @param $product
+     * @param $oasisCategories
+     * @param $properties
+     * @param $iblockCode
+     * @param bool $offer
+     * @return false|mixed|void
+     * @throws LoaderException
+     */
+    public static function addIblockElementProduct($product, $oasisCategories, $properties, $iblockCode, $offer = false)
+    {
+        $productId = null;
+
+        try {
             $data = [
                 'NAME'             => $product->name,
-                'CODE'             => self::getUniqueCode($product->name),
-                'IBLOCK_ID'        => self::getIblockId(),
+                'CODE'             => self::getUniqueCodeElement($product->name),
+                'IBLOCK_ID'        => self::getIblockId($iblockCode),
                 'DETAIL_TEXT'      => '<p>' . $product->description . '</p>' . self::getProductDetailText($product),
                 'DETAIL_TEXT_TYPE' => 'html',
                 'PROPERTY_VALUES'  => $properties,
                 'ACTIVE'           => self::getStatusProduct($product),
             ];
 
-            $data += self::getIblockSectionProduct($product, $oasisCategories);
+            if ($offer === false) {
+                $data += self::getIblockSectionProduct($product, $oasisCategories);
+            }
 
             $el = new \CIBlockElement;
             $productId = $el->Add($data);
 
-            self::executeProduct($productId, $product);
-            self::executeStoreProduct($productId, $product);
-            self::executePriceProduct($productId, $product);
-        } catch (\Exception $e) {
+            if (!empty($el->LAST_ERROR)) {
+                $str = $offer === false ? 'Ошибка добавления товара: ' : 'Ошибка добавления торгового предложения: ';
+                echo $str . $el->LAST_ERROR . PHP_EOL;
+                die();
+            }
+        } catch (SystemException $e) {
+            echo $e->getMessage() . PHP_EOL;
         }
 
         return $productId;
@@ -122,8 +161,11 @@ class Main
      *
      * @param $productId
      * @param $product
+     * @param bool $offer
+     * @param bool $parent
+     * @throws \Exception
      */
-    public static function executeProduct($productId, $product)
+    public static function executeProduct($productId, $product, $offer = false, $parent = false)
     {
         try {
             $dbProduct = ProductTable::getList([
@@ -135,7 +177,7 @@ class Main
                     'QUANTITY' => is_null($product->total_stock) ? 0 : $product->total_stock,
                 ]);
             } else {
-                ProductTable::add([
+                $arFields = [
                     'ID'                  => $productId,
                     'QUANTITY'            => is_null($product->total_stock) ? 0 : $product->total_stock,
                     'RECUR_SCHEME_LENGTH' => null,
@@ -148,9 +190,21 @@ class Main
                     'AVAILABLE'           => 'Y',
                     'BUNDLE'              => 'N',
                     'UF_OASIS_ID_PRODUCT' => $product->id,
-                ]);
+                    'TYPE'                => $offer ? ProductTable::TYPE_OFFER : ProductTable::TYPE_PRODUCT,
+                ];
+
+                if ($parent) {
+                    $arFields['QUANTITY'] = 0;
+                    $arFields['QUANTITY_TRACE'] = 'N';
+                    $arFields['CAN_BUY_ZERO'] = 'Y';
+                    $arFields['NEGATIVE_AMOUNT_TRACE'] = 'Y';
+                    $arFields['TYPE'] = ProductTable::TYPE_SKU;
+                }
+
+                ProductTable::add($arFields);
             }
-        } catch (\Exception $e) {
+        } catch (SystemException $e) {
+            echo $e->getMessage() . PHP_EOL;
         }
     }
 
@@ -159,6 +213,7 @@ class Main
      *
      * @param $productId
      * @param $product
+     * @throws \Exception
      */
     public static function executeStoreProduct($productId, $product)
     {
@@ -182,7 +237,8 @@ class Main
             } else {
                 StoreProductTable::add($arField);
             }
-        } catch (\Exception $e) {
+        } catch (SystemException $e) {
+            echo $e->getMessage() . PHP_EOL;
         }
     }
 
@@ -191,6 +247,7 @@ class Main
      *
      * @param $productId
      * @param $product
+     * @throws \Exception
      */
     public static function executePriceProduct($productId, $product)
     {
@@ -212,7 +269,31 @@ class Main
             } else {
                 PriceTable::add($arField);
             }
-        } catch (\Exception $e) {
+        } catch (SystemException $e) {
+            echo $e->getMessage() . PHP_EOL;
+        }
+    }
+
+    /**
+     * Execute MeasureRatio
+     *
+     * @param $productId
+     * @throws \Exception
+     */
+    public static function executeMeasureRatioTable($productId)
+    {
+        try {
+            $result = MeasureRatioTable::add([
+                'PRODUCT_ID' => $productId,
+                'IS_DEFAULT' => 'Y',
+                'RATIO'      => 1,
+            ]);
+
+            if (!$result->isSuccess()) {
+                throw new SystemException(sprintf('ErrorMessages: ' . print_r($result->getErrorMessages(), true) . 'Error add MeasureRatio PRODUCT_ID="%s".', $productId));
+            }
+        } catch (SystemException $e) {
+            echo $e->getMessage() . PHP_EOL;
         }
     }
 
@@ -220,9 +301,9 @@ class Main
      * Get base catalog group id
      *
      * @return int
-     * @throws \Bitrix\Main\ArgumentException
-     * @throws \Bitrix\Main\ObjectPropertyException
-     * @throws \Bitrix\Main\SystemException
+     * @throws ArgumentException
+     * @throws ObjectPropertyException
+     * @throws SystemException
      */
     public static function getBaseCatalogGroupId(): int
     {
@@ -234,6 +315,33 @@ class Main
             $result = (int)$arGroup['ID'];
         } else {
             $result = 1;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Get images product
+     *
+     * @param $product
+     * @return array
+     * @throws ArgumentException
+     * @throws ObjectPropertyException
+     * @throws SystemException
+     */
+    public static function getProductImages($product): array
+    {
+        $result = [];
+        $i = 0;
+
+        foreach ($product->images as $image) {
+            $value = \CFile::MakeFileArray($image->superbig);
+
+            if ($value['type'] !== 'text/html') {
+                $result['MORE_PHOTO']['n' . $i++] = [
+                    'VALUE' => $value,
+                ];
+            }
         }
 
         return $result;
@@ -262,6 +370,7 @@ class Main
      * @param $product
      * @param $oasisCategories
      * @return array
+     * @throws LoaderException
      */
     public static function getIblockSectionProduct($product, $oasisCategories): array
     {
@@ -282,21 +391,35 @@ class Main
     public static function checkProperties()
     {
         $properties = [
-            'ARTNUMBER'    => [
-                'name' => 'Артикул',
-                'type' => 'S',
+            'ARTNUMBER'     => [
+                'name'       => 'Артикул',
+                'type'       => 'S',
+                'iblockCode' => 'clothes',
             ],
-            'MANUFACTURER' => [
-                'name' => 'Производитель',
-                'type' => 'S',
+            'MANUFACTURER'  => [
+                'name'       => 'Производитель',
+                'type'       => 'S',
+                'iblockCode' => 'clothes',
             ],
-            'MATERIAL'     => [
-                'name' => 'Материал',
-                'type' => 'S',
+            'MATERIAL'      => [
+                'name'       => 'Материал',
+                'type'       => 'S',
+                'iblockCode' => 'clothes',
             ],
-            'COLOR'        => [
-                'name' => 'Цвет',
-                'type' => 'S',
+            'COLOR'         => [
+                'name'       => 'Цвет',
+                'type'       => 'S',
+                'iblockCode' => 'clothes',
+            ],
+            'SIZES_CLOTHES' => [
+                'name'       => 'Размеры одежды',
+                'type'       => 'L',
+                'iblockCode' => 'clothes_offers',
+            ],
+            'COLOR_CLOTHES' => [
+                'name'       => 'Цвет',
+                'type'       => 'L',
+                'iblockCode' => 'clothes_offers',
             ],
         ];
 
@@ -309,11 +432,39 @@ class Main
                 ])->fetch();
 
                 if (!$dbProperty) {
-                    self::addProperty($key, $value);
+                    $propertyId = self::addProperty($key, $value);
+
+                    if ($key === 'COLOR_CLOTHES' || $key === 'SIZES_CLOTHES') {
+                        PropertyFeature::setFeatures($propertyId,
+                            [
+                                [
+                                    'MODULE_ID'  => 'catalog',
+                                    'IS_ENABLED' => 'Y',
+                                    'FEATURE_ID' => 'IN_BASKET'
+                                ],
+                                [
+                                    'MODULE_ID'  => 'catalog',
+                                    'IS_ENABLED' => 'Y',
+                                    'FEATURE_ID' => 'OFFER_TREE'
+                                ],
+                                [
+                                    'MODULE_ID'  => 'iblock',
+                                    'IS_ENABLED' => 'N',
+                                    'FEATURE_ID' => 'LIST_PAGE_SHOW'
+                                ],
+                                [
+                                    'MODULE_ID'  => 'iblock',
+                                    'IS_ENABLED' => 'N',
+                                    'FEATURE_ID' => 'DETAIL_PAGE_SHOW'
+                                ],
+                            ],
+                        );
+                    }
                 }
             }
 
-        } catch (\Exception $e) {
+        } catch (SystemException $e) {
+            echo $e->getMessage() . PHP_EOL;
         }
     }
 
@@ -322,39 +473,114 @@ class Main
      *
      * @param $code
      * @param $data
+     * @return array|int|void
+     * @throws \Exception
      */
     private static function addProperty($code, $data)
     {
         try {
-            PropertyTable::add([
-                'IBLOCK_ID'        => self::getIblockId(),
+            return PropertyTable::add([
+                'IBLOCK_ID'        => self::getIblockId($data['iblockCode']),
                 'NAME'             => $data['name'],
                 'CODE'             => $code,
+                'SORT'             => 1000,
                 'PROPERTY_TYPE'    => $data['type'],
                 'XML_ID'           => $code,
                 'WITH_DESCRIPTION' => 'N',
                 'IS_REQUIRED'      => 'N',
-            ]);
-        } catch (\Exception $e) {
+            ])->getId();
+        } catch (SystemException $e) {
+            echo $e->getMessage() . PHP_EOL;
         }
+    }
+
+    /**
+     * Check property product
+     *
+     * @param $propertyCode
+     * @param $value
+     * @return array|int|void
+     * @throws LoaderException
+     * @throws \Exception
+     */
+    public static function checkPropertyEnum($propertyCode, $value)
+    {
+        try {
+            Loader::includeModule('iblock');
+
+            $dbProperty = PropertyTable::getList([
+                'filter' => ['CODE' => $propertyCode],
+            ])->fetch();
+
+            $dbPropertyEnum = PropertyEnumerationTable::getList([
+                'filter' => [
+                    'PROPERTY_ID' => $dbProperty['ID'],
+                    'VALUE'       => $value,
+                ],
+            ])->fetch();
+
+            if (!$dbPropertyEnum) {
+                return self::addPropertyEnum($dbProperty['ID'], $value);
+            } else {
+                return (int)$dbPropertyEnum['ID'];
+            }
+
+        } catch (SystemException $e) {
+            echo $e->getMessage() . PHP_EOL;
+        }
+    }
+
+    /**
+     * Add property product
+     *
+     * @param $propertyId
+     * @param $value
+     * @return array|int
+     * @throws \Exception
+     */
+    public static function addPropertyEnum($propertyId, $value)
+    {
+        $propertyEnumId = null;
+
+        try {
+            $res = PropertyEnumerationTable::add([
+                'PROPERTY_ID' => $propertyId,
+                'VALUE'       => $value,
+                'XML_ID'      => md5($propertyId . $value),
+                'SORT'        => 1000,
+            ]);
+
+            if (!$res->isSuccess()) {
+                throw new SystemException(sprintf('Error add property enumeration value "%s" not list type.', $value));
+            } else {
+                $propertyEnumId = $res->getId();
+            }
+
+        } catch (SystemException $e) {
+            echo $e->getMessage();
+        }
+
+        return $propertyEnumId;
     }
 
     /**
      * Get array properties products
      *
      * @param $product
+     * @param bool $parentOffer
      * @return array
      */
-    public static function getPropertiesArray($product): array
+    public static function getPropertiesArray($product, $parentOffer = false): array
     {
         $result = [
             'ARTNUMBER' => $product->article
         ];
 
         foreach ($product->attributes as $attribute) {
-            if (isset($attribute->id) && $attribute->id === 1000000001) {
+            if (isset($attribute->id) && $attribute->id === 1000000001 && $parentOffer === false) {
                 $result['COLOR'] = $attribute->value;
-            } elseif (isset($attribute->id) && $attribute->id === 1000000002) {
+            }
+            if (isset($attribute->id) && $attribute->id === 1000000002) {
                 $result['MATERIAL'] = $attribute->value;
             }
         }
@@ -363,6 +589,37 @@ class Main
         if (!is_null($product->brand)) {
             $result['MANUFACTURER'] = $product->brand;
         }
+
+        return $result;
+    }
+
+    /**
+     * Get array properties product offer
+     *
+     * @throws LoaderException
+     * @throws ArgumentException
+     * @throws ObjectPropertyException
+     * @throws SystemException
+     */
+    public static function getPropertiesArrayOffer($productId, $product): array
+    {
+        $result = [
+            'CML2_LINK'     => $productId,
+            'ARTNUMBER'     => $product->article,
+        ];
+
+        if (!is_null($product->size)) {
+            $result['SIZES_CLOTHES'] = self::checkPropertyEnum('SIZES_CLOTHES', $product->size);
+        }
+
+        foreach ($product->attributes as $attribute) {
+            if (isset($attribute->id) && $attribute->id === 1000000001) {
+                $result['COLOR_CLOTHES'] = self::checkPropertyEnum('COLOR_CLOTHES', $attribute->value);
+            }
+        }
+        unset($attribute);
+
+        $result += self::getProductImages($product);
 
         return $result;
     }
@@ -418,38 +675,12 @@ class Main
     }
 
     /**
-     * Get unique (not DB) code (alias)
-     *
-     * @param $name
-     * @param int $i
-     * @return string
-     * @throws \Bitrix\Main\ArgumentException
-     * @throws \Bitrix\Main\ObjectPropertyException
-     * @throws \Bitrix\Main\SystemException
-     */
-    public static function getUniqueCode($name, int $i = 0): string
-    {
-        $code = \Cutil::translit($name, 'ru', ['replace_space' => '-', 'replace_other' => '-']);
-        $code = $i === 0 ? $code : $code . '-' . $i;
-
-        $dbCode = ElementTable::getList([
-            'filter' => ['CODE' => $code],
-        ])->fetch();
-
-        if ($dbCode) {
-            $code = self::getUniqueCode($name, ++$i);
-        }
-
-        return $code;
-    }
-
-
-    /**
      * Get array categories | add categories
      *
      * @param $oasisCategories
      * @param $productCategories
      * @return array
+     * @throws LoaderException
      */
     public static function getCategories($oasisCategories, $productCategories): array
     {
@@ -458,12 +689,13 @@ class Main
         try {
             Loader::includeModule('iblock');
 
-            $iblockId = self::getIblockId();
+            $iblockId = self::getIblockId('clothes');
 
             foreach ($productCategories as $productCategory) {
                 $result[] = self::getCategoryId($oasisCategories, $productCategory, $iblockId);
             }
-        } catch (\Exception $e) {
+        } catch (SystemException $e) {
+            echo $e->getMessage() . PHP_EOL;
         }
 
         return $result;
@@ -479,7 +711,7 @@ class Main
      */
     public static function getCategoryId($oasisCategories, $categoryId, $iblockId): int
     {
-        $sectionCategory = self::getSectionCategoryId($iblockId, $categoryId);
+        $sectionCategory = self::getSectionByOasisCategoryId($iblockId, $categoryId);
 
         if ($sectionCategory) {
             $result = $sectionCategory['ID'];
@@ -488,7 +720,7 @@ class Main
             $oasisCategory = self::searchObject($oasisCategories, $categoryId);
 
             if (!is_null($oasisCategory->parent_id)) {
-                $parentSectionCategory = self::getSectionCategoryId($iblockId, $oasisCategory->parent_id);
+                $parentSectionCategory = self::getSectionByOasisCategoryId($iblockId, $oasisCategory->parent_id);
 
                 if ($parentSectionCategory) {
                     $iblockSectionId = $parentSectionCategory['ID'];
@@ -510,7 +742,7 @@ class Main
      * @param $categoryId
      * @return mixed
      */
-    public static function getSectionCategoryId($iblockId, $categoryId)
+    public static function getSectionByOasisCategoryId($iblockId, $categoryId)
     {
         $entity = Section::compileEntityByIblock($iblockId);
 
@@ -530,31 +762,91 @@ class Main
      */
     public static function addCategory($category, $iblockSectionId, $iblockId)
     {
-        $objDateTime = new DateTime();
-        $iblockSection = new \CIBlockSection;
+        try {
+            $objDateTime = new DateTime();
+            $iblockSection = new \CIBlockSection;
 
-        $arFields = [
-            'DATE_CREATE'          => $objDateTime->format('Y-m-d H:i:s'),
-            'IBLOCK_ID'            => $iblockId,
-            'IBLOCK_SECTION_ID'    => $iblockSectionId,
-            'ACTIVE'               => 'Y',
-            'NAME'                 => $category->name,
-            'DEPTH_LEVEL'          => $category->level,
-            'DESCRIPTION_TYPE'     => 'text',
-            'CODE'                 => $category->slug,
-            'UF_OASIS_ID_CATEGORY' => $category->id,
-        ];
+            $arFields = [
+                'DATE_CREATE'          => $objDateTime->format('Y-m-d H:i:s'),
+                'IBLOCK_ID'            => $iblockId,
+                'IBLOCK_SECTION_ID'    => $iblockSectionId,
+                'ACTIVE'               => 'Y',
+                'NAME'                 => $category->name,
+                'DEPTH_LEVEL'          => $category->level,
+                'DESCRIPTION_TYPE'     => 'text',
+                'CODE'                 => self::getUniqueCodeSection($category->slug),
+                'UF_OASIS_ID_CATEGORY' => $category->id,
+            ];
 
-        return $iblockSection->Add($arFields);
+            $result = $iblockSection->Add($arFields);
+
+            if (!empty($iblockSection->LAST_ERROR)) {
+                throw new SystemException('ErrorMessages: ' . $iblockSection->LAST_ERROR . print_r($arFields, true));
+            }
+        } catch (SystemException $e) {
+            echo $e->getMessage() . PHP_EOL;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Get unique (not DB) section code (alias)
+     *
+     * @param $slug
+     * @param int $i
+     * @return string
+     * @throws ArgumentException
+     * @throws ObjectPropertyException
+     * @throws SystemException
+     */
+    public static function getUniqueCodeSection($slug, int $i = 0): string
+    {
+        $code = \Cutil::translit($slug, 'ru', ['replace_space' => '-', 'replace_other' => '-']);
+        $code = $i === 0 ? $code : $code . '-' . $i;
+
+        $dbCode = \CIBlockSection::GetList([], ['CODE' => $code], false, ['ID'])->Fetch();
+
+        if ($dbCode) {
+            $code = self::getUniqueCodeSection($slug, ++$i);
+        }
+
+        return $code;
+    }
+
+    /**
+     * Get unique (not DB) element code (alias)
+     *
+     * @param $name
+     * @param int $i
+     * @return string
+     * @throws ArgumentException
+     * @throws ObjectPropertyException
+     * @throws SystemException
+     */
+    public static function getUniqueCodeElement($name, int $i = 0): string
+    {
+        $code = \Cutil::translit($name, 'ru', ['replace_space' => '-', 'replace_other' => '-']);
+        $code = $i === 0 ? $code : $code . '-' . $i;
+
+        $dbCode = ElementTable::getList([
+            'filter' => ['CODE' => $code],
+        ])->fetch();
+
+        if ($dbCode) {
+            $code = self::getUniqueCodeElement($name, ++$i);
+        }
+
+        return $code;
     }
 
     /**
      * Check user fields UF_OASIS_ID_CATEGORY and UF_OASIS_ID_PRODUCT
      *
-     * @throws \Bitrix\Main\ArgumentException
-     * @throws \Bitrix\Main\LoaderException
-     * @throws \Bitrix\Main\ObjectPropertyException
-     * @throws \Bitrix\Main\SystemException
+     * @throws ArgumentException
+     * @throws LoaderException
+     * @throws ObjectPropertyException
+     * @throws SystemException
      */
     public static function checkUserFields()
     {
@@ -572,7 +864,7 @@ class Main
         unset($dataField);
 
         $dataField = [
-            'ENTITY_ID'  => 'IBLOCK_' . self::getIblockId() . '_SECTION',
+            'ENTITY_ID'  => 'IBLOCK_' . self::getIblockId('clothes') . '_SECTION',
             'FIELD_NAME' => 'UF_OASIS_ID_CATEGORY',
             'LABEL'      => [
                 'ru' => 'Oasis ID категории',
@@ -587,9 +879,9 @@ class Main
      *
      * @param $data
      * @return int
-     * @throws \Bitrix\Main\ArgumentException
-     * @throws \Bitrix\Main\ObjectPropertyException
-     * @throws \Bitrix\Main\SystemException
+     * @throws ArgumentException
+     * @throws ObjectPropertyException
+     * @throws SystemException
      */
     private static function addUserField($data): int
     {
@@ -640,15 +932,17 @@ class Main
     /**
      * Get Iblock Id
      *
-     * @throws \Bitrix\Main\ArgumentException
-     * @throws \Bitrix\Main\ObjectPropertyException
-     * @throws \Bitrix\Main\SystemException
+     * @param string $code
+     * @return array|mixed|void
+     * @throws ArgumentException
+     * @throws ObjectPropertyException
+     * @throws SystemException
      */
-    public static function getIblockId()
+    public static function getIblockId(string $code)
     {
         $arIblock = IblockTable::getList([
             'select' => ['ID'],
-            'filter' => ['CODE' => 'clothes'],
+            'filter' => ['CODE' => $code],
         ])->fetch();
 
         if (!$arIblock) {
