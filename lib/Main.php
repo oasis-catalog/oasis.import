@@ -200,9 +200,12 @@ class Main
                 if ($parent) {
                     $arFields['QUANTITY'] = 0;
                     $arFields['QUANTITY_TRACE'] = 'N';
+                    $arFields['TYPE'] = ProductTable::TYPE_SKU;
+                }
+
+                if ($parent || $product->rating === 5) {
                     $arFields['CAN_BUY_ZERO'] = 'Y';
                     $arFields['NEGATIVE_AMOUNT_TRACE'] = 'Y';
-                    $arFields['TYPE'] = ProductTable::TYPE_SKU;
                 }
 
                 ProductTable::add($arFields);
