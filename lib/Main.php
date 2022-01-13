@@ -137,6 +137,10 @@ class Main
                 'ACTIVE'           => self::getStatusProduct($product),
             ];
 
+            if (isset($product->images[0]->superbig)) {
+                $data['DETAIL_PICTURE'] = \CFile::MakeFileArray($product->images[0]->superbig);
+            }
+
             if ($offer === false) {
                 $data += self::getIblockSectionProduct($product, $oasisCategories);
             }
