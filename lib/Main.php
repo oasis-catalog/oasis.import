@@ -611,8 +611,8 @@ class Main
     public static function getPropertiesArrayOffer($productId, $product): array
     {
         $result = [
-            'CML2_LINK'     => $productId,
-            'ARTNUMBER'     => $product->article,
+            'CML2_LINK' => $productId,
+            'ARTNUMBER' => $product->article,
         ];
 
         if (!is_null($product->size)) {
