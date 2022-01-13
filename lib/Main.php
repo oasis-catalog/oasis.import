@@ -642,7 +642,7 @@ class Main
         $properties = [];
 
         foreach ($product->attributes as $attribute) {
-            if ($attribute->name !== 'Размер') {
+            if ($attribute->name !== 'Размер' && $attribute->name !== 'Объем памяти') {
                 if (!(isset($attribute->id) && $attribute->id === 1000000001 || $attribute->id === 1000000002)) {
                     $dim = isset($attribute->dim) ? ' ' . $attribute->dim : '';
                     $needed = array_search($attribute->name, array_column($properties, 'name'));
