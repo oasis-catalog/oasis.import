@@ -14,6 +14,7 @@ use Bitrix\Iblock\Model\PropertyFeature;
 use Bitrix\Iblock\Model\Section;
 use Bitrix\Iblock\PropertyEnumerationTable;
 use Bitrix\Iblock\PropertyTable;
+use Bitrix\Iblock\SectionPropertyTable;
 use Bitrix\Main\ArgumentException;
 use Bitrix\Main\Diag\Debug;
 use Bitrix\Main\Loader;
@@ -423,6 +424,11 @@ class Main
                 'type'       => 'L',
                 'iblockCode' => 'clothes_offers',
             ],
+            'SIZES_FLASH'   => [
+                'name'       => 'Объем памяти',
+                'type'       => 'L',
+                'iblockCode' => 'clothes_offers',
+            ],
             'COLOR_CLOTHES' => [
                 'name'       => 'Цвет',
                 'type'       => 'L',
@@ -441,7 +447,7 @@ class Main
                 if (!$dbProperty) {
                     $propertyId = self::addProperty($key, $value);
 
-                    if ($key === 'COLOR_CLOTHES' || $key === 'SIZES_CLOTHES') {
+                    if ($key === 'COLOR_CLOTHES' || $key === 'SIZES_CLOTHES' || $key === 'SIZES_FLASH') {
                         PropertyFeature::setFeatures($propertyId,
                             [
                                 [
@@ -466,6 +472,18 @@ class Main
                                 ],
                             ],
                         );
+                    }
+
+                    if ($key === 'SIZES_FLASH') {
+                        SectionPropertyTable::add([
+                            'IBLOCK_ID'        => self::getIblockId($value['iblockCode']),
+                            'SECTION_ID'       => 0,
+                            'PROPERTY_ID'      => $propertyId,
+                            'SMART_FILTER'     => 'Y',
+                            'DISPLAY_TYPE'     => 'F',
+                            'DISPLAY_EXPANDED' => 'Y',
+                            'FILTER_HINT'      => '',
+                        ]);
                     }
                 }
             }
@@ -615,8 +633,14 @@ class Main
             'ARTNUMBER' => $product->article,
         ];
 
-        if (!is_null($product->size)) {
+        if (!is_null($product->size) && in_array(3070, $product->full_categories)) {
             $result['SIZES_CLOTHES'] = self::checkPropertyEnum('SIZES_CLOTHES', $product->size);
+        }
+
+        $sizeFlash = self::searchObject($product->attributes, 219);
+
+        if ($sizeFlash) {
+            $result['SIZES_FLASH'] = self::checkPropertyEnum('SIZES_FLASH', $product->size);
         }
 
         foreach ($product->attributes as $attribute) {
