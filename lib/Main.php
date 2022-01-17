@@ -382,7 +382,7 @@ class Main
      */
     public static function getIblockSectionProduct($product, $oasisCategories): array
     {
-        $categories = self::getCategories($oasisCategories, $product->full_categories);
+        $categories = self::getCategories($oasisCategories, $product->categories);
 
         if (count($categories) > 1) {
             $result['IBLOCK_SECTION'] = $categories;
