@@ -16,6 +16,8 @@ use Bitrix\Iblock\PropertyEnumerationTable;
 use Bitrix\Iblock\PropertyTable;
 use Bitrix\Iblock\SectionPropertyTable;
 use Bitrix\Main\ArgumentException;
+use Bitrix\Main\ArgumentNullException;
+use Bitrix\Main\ArgumentOutOfRangeException;
 use Bitrix\Main\Diag\Debug;
 use Bitrix\Main\Loader;
 use Bitrix\Main\LoaderException;
@@ -23,6 +25,12 @@ use Bitrix\Main\ObjectPropertyException;
 use Bitrix\Main\SystemException;
 use Bitrix\Main\Type\DateTime;
 use Bitrix\Main\UserFieldTable;
+use CFile;
+use CIBlockElement;
+use CIBlockSection;
+use CUserTypeEntity;
+use Cutil;
+use Exception;
 
 class Main
 {
@@ -35,7 +43,7 @@ class Main
      * @param $oasisCategories
      * @param $variable
      * @throws LoaderException
-     * @throws \Exception
+     * @throws Exception
      */
     public static function upProduct($dbProduct, $oasisProduct, $oasisCategories)
     {
@@ -51,7 +59,7 @@ class Main
             ];
             $data += self::getIblockSectionProduct($oasisProduct, $oasisCategories);
 
-            $el = new \CIBlockElement;
+            $el = new CIBlockElement;
             $el->Update($dbProduct['ID'], $data);
 
             self::executeProduct($dbProduct['ID'], $oasisProduct);
@@ -88,7 +96,7 @@ class Main
      * @param $variable
      * @return false|mixed
      * @throws LoaderException
-     * @throws \Exception
+     * @throws Exception
      */
     public static function addProduct($product, $oasisCategories, $variable)
     {
@@ -139,14 +147,14 @@ class Main
             ];
 
             if (isset($product->images[0]->superbig)) {
-                $data['DETAIL_PICTURE'] = \CFile::MakeFileArray($product->images[0]->superbig);
+                $data['DETAIL_PICTURE'] = CFile::MakeFileArray($product->images[0]->superbig);
             }
 
             if ($offer === false) {
                 $data += self::getIblockSectionProduct($product, $oasisCategories);
             }
 
-            $el = new \CIBlockElement;
+            $el = new CIBlockElement;
             $productId = $el->Add($data);
 
             if (!empty($el->LAST_ERROR)) {
@@ -168,7 +176,7 @@ class Main
      * @param $product
      * @param bool $offer
      * @param bool $parent
-     * @throws \Exception
+     * @throws Exception
      */
     public static function executeProduct($productId, $product, $offer = false, $parent = false)
     {
@@ -221,7 +229,7 @@ class Main
      *
      * @param $productId
      * @param $product
-     * @throws \Exception
+     * @throws Exception
      */
     public static function executeStoreProduct($productId, $product)
     {
@@ -255,7 +263,7 @@ class Main
      *
      * @param $productId
      * @param $product
-     * @throws \Exception
+     * @throws Exception
      */
     public static function executePriceProduct($productId, $product)
     {
@@ -286,7 +294,7 @@ class Main
      * Execute MeasureRatio
      *
      * @param $productId
-     * @throws \Exception
+     * @throws Exception
      */
     public static function executeMeasureRatioTable($productId)
     {
@@ -333,9 +341,6 @@ class Main
      *
      * @param $product
      * @return array
-     * @throws ArgumentException
-     * @throws ObjectPropertyException
-     * @throws SystemException
      */
     public static function getProductImages($product): array
     {
@@ -343,7 +348,7 @@ class Main
         $i = 0;
 
         foreach ($product->images as $image) {
-            $value = \CFile::MakeFileArray($image->superbig);
+            $value = CFile::MakeFileArray($image->superbig);
 
             if ($value['type'] !== 'text/html') {
                 $result['MORE_PHOTO']['n' . $i++] = [
@@ -395,6 +400,8 @@ class Main
 
     /**
      * Checking properties product and create if absent
+     * @throws LoaderException
+     * @throws Exception
      */
     public static function checkProperties()
     {
@@ -499,7 +506,7 @@ class Main
      * @param $code
      * @param $data
      * @return array|int|void
-     * @throws \Exception
+     * @throws Exception
      */
     private static function addProperty($code, $data)
     {
@@ -526,7 +533,7 @@ class Main
      * @param $value
      * @return array|int|void
      * @throws LoaderException
-     * @throws \Exception
+     * @throws Exception
      */
     public static function checkPropertyEnum($propertyCode, $value)
     {
@@ -561,7 +568,7 @@ class Main
      * @param $propertyId
      * @param $value
      * @return array|int
-     * @throws \Exception
+     * @throws Exception
      */
     public static function addPropertyEnum($propertyId, $value)
     {
@@ -621,10 +628,10 @@ class Main
     /**
      * Get array properties product offer
      *
+     * @param $productId
+     * @param $product
+     * @return array
      * @throws LoaderException
-     * @throws ArgumentException
-     * @throws ObjectPropertyException
-     * @throws SystemException
      */
     public static function getPropertiesArrayOffer($productId, $product): array
     {
@@ -793,9 +800,11 @@ class Main
      */
     public static function addCategory($category, $iblockSectionId, $iblockId)
     {
+        $result = false;
+
         try {
             $objDateTime = new DateTime();
-            $iblockSection = new \CIBlockSection;
+            $iblockSection = new CIBlockSection;
 
             $arFields = [
                 'DATE_CREATE'          => $objDateTime->format('Y-m-d H:i:s'),
@@ -833,10 +842,10 @@ class Main
      */
     public static function getUniqueCodeSection($slug, int $i = 0): string
     {
-        $code = \Cutil::translit($slug, 'ru', ['replace_space' => '-', 'replace_other' => '-']);
+        $code = Cutil::translit($slug, 'ru', ['replace_space' => '-', 'replace_other' => '-']);
         $code = $i === 0 ? $code : $code . '-' . $i;
 
-        $dbCode = \CIBlockSection::GetList([], ['CODE' => $code], false, ['ID'])->Fetch();
+        $dbCode = CIBlockSection::GetList([], ['CODE' => $code], false, ['ID'])->Fetch();
 
         if ($dbCode) {
             $code = self::getUniqueCodeSection($slug, ++$i);
@@ -857,7 +866,7 @@ class Main
      */
     public static function getUniqueCodeElement($name, int $i = 0): string
     {
-        $code = \Cutil::translit($name, 'ru', ['replace_space' => '-', 'replace_other' => '-']);
+        $code = Cutil::translit($name, 'ru', ['replace_space' => '-', 'replace_other' => '-']);
         $code = $i === 0 ? $code : $code . '-' . $i;
 
         $dbCode = ElementTable::getList([
@@ -909,12 +918,12 @@ class Main
      * Check user field or add user field
      *
      * @param $data
-     * @return int
+     * @return false|int
      * @throws ArgumentException
      * @throws ObjectPropertyException
      * @throws SystemException
      */
-    private static function addUserField($data): int
+    private static function addUserField($data)
     {
         $dbUserFields = UserFieldTable::getList([
             'select' => ['ID'],
@@ -922,7 +931,7 @@ class Main
         ])->fetch();
 
         if (!$dbUserFields) {
-            $oUserTypeEntity = new \CUserTypeEntity();
+            $oUserTypeEntity = new CUserTypeEntity();
 
             $aUserFields = [
                 'ENTITY_ID'         => $data['ENTITY_ID'],
@@ -954,10 +963,10 @@ class Main
 
             $userFieldId = $oUserTypeEntity->Add($aUserFields);
         } else {
-            $userFieldId = $dbUserFields['ID'];
+            $userFieldId = (int)$dbUserFields['ID'];
         }
 
-        return (int)$userFieldId;
+        return $userFieldId;
     }
 
     /**
@@ -997,8 +1006,8 @@ class Main
      * Get categories level 1
      *
      * @return array
-     * @throws \Bitrix\Main\ArgumentNullException
-     * @throws \Bitrix\Main\ArgumentOutOfRangeException
+     * @throws ArgumentNullException
+     * @throws ArgumentOutOfRangeException
      */
     public static function getOasisMainCategories(): array
     {
@@ -1018,8 +1027,8 @@ class Main
      * Get currencies array
      *
      * @return array
-     * @throws \Bitrix\Main\ArgumentNullException
-     * @throws \Bitrix\Main\ArgumentOutOfRangeException
+     * @throws ArgumentNullException
+     * @throws ArgumentOutOfRangeException
      */
     public static function getCurrenciesOasisArray(): array
     {
