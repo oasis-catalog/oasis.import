@@ -73,19 +73,28 @@ class Main
 
     /**
      * @param $product
+     * @param int $type
      * @return array|false
      * @throws ArgumentException
      * @throws LoaderException
      * @throws ObjectPropertyException
      * @throws SystemException
      */
-    public static function checkProduct($product)
+    public static function checkProduct($product, int $type = 0)
     {
         Loader::includeModule('catalog');
 
-        return ProductTable::getList([
-            'filter' => ['UF_OASIS_ID_PRODUCT' => $product->id]
-        ])->fetch();
+        $arFields = [
+            'filter' => [
+                'UF_OASIS_ID_PRODUCT' => $product->id,
+            ],
+        ];
+
+        if ($type) {
+            $arFields['filter']['TYPE'] = $type;
+        }
+
+        return ProductTable::getList($arFields)->fetch();
     }
 
     /**
