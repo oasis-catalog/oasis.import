@@ -187,6 +187,30 @@ class Main
     }
 
     /**
+     * Update status first product
+     *
+     * @param $productId
+     */
+    public static function upStatusFirstProduct($productId)
+    {
+        try {
+            $arSKU = \CCatalogSKU::getOffersList($productId, self::getIblockId('clothes'), ['ACTIVE' => 'Y'], [], []);
+
+            if ($arSKU) {
+                $el = new CIBlockElement;
+                $el->Update($productId, ['ACTIVE' => 'Y']);
+
+                if (!empty($el->LAST_ERROR)) {
+                    echo $el->LAST_ERROR . PHP_EOL;
+                    die();
+                }
+            }
+        } catch (SystemException $e) {
+            echo $e->getMessage() . PHP_EOL;
+        }
+    }
+
+    /**
      * Execute ProductTable
      *
      * @param $productId
@@ -401,7 +425,7 @@ class Main
      */
     public static function getStatusProduct($product): string
     {
-        if (!is_null($product->total_stock) || $product->rating === 5) {
+        if ($product->total_stock > 0 || $product->rating === 5) {
             $status = 'Y';
         } else {
             $status = 'N';
