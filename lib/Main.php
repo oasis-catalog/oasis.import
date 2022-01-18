@@ -34,43 +34,6 @@ use Exception;
 
 class Main
 {
-
-    /**
-     * Update simple product
-     *
-     * @param $dbProduct
-     * @param $oasisProduct
-     * @param $oasisCategories
-     * @param $variable
-     * @throws LoaderException
-     * @throws Exception
-     */
-    public static function upProduct($dbProduct, $oasisProduct, $oasisCategories)
-    {
-        try {
-            Loader::includeModule('iblock');
-            Loader::includeModule('catalog');
-
-            $data = [
-                'NAME'            => $oasisProduct->name,
-                'DETAIL_TEXT'     => '<p>' . $oasisProduct->description . '</p>' . self::getProductDetailText($oasisProduct),
-                'PROPERTY_VALUES' => self::getPropertiesArray($oasisProduct),
-                'ACTIVE'          => self::getStatusProduct($oasisProduct),
-            ];
-            $data += self::getIblockSectionProduct($oasisProduct, $oasisCategories);
-
-            $el = new CIBlockElement;
-            $el->Update($dbProduct['ID'], $data);
-
-            self::executeProduct($dbProduct['ID'], $oasisProduct);
-            self::executeStoreProduct($dbProduct['ID'], $oasisProduct);
-            self::executePriceProduct($dbProduct['ID'], $oasisProduct);
-
-        } catch (SystemException $e) {
-            echo $e->getMessage() . PHP_EOL;
-        }
-    }
-
     /**
      * @param $product
      * @param int $type

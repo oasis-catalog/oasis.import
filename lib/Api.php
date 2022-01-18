@@ -2,6 +2,8 @@
 
 namespace Oasis\Import;
 
+use Bitrix\Main\ArgumentNullException;
+use Bitrix\Main\ArgumentOutOfRangeException;
 use Bitrix\Main\Config\Option;
 
 class Api
@@ -11,8 +13,8 @@ class Api
      *
      * @param array $args
      * @return array
-     * @throws \Bitrix\Main\ArgumentNullException
-     * @throws \Bitrix\Main\ArgumentOutOfRangeException
+     * @throws ArgumentNullException
+     * @throws ArgumentOutOfRangeException
      */
     public static function getProductsOasis(array $args = []): array
     {
@@ -59,8 +61,8 @@ class Api
      * Get categories oasis
      *
      * @return array
-     * @throws \Bitrix\Main\ArgumentNullException
-     * @throws \Bitrix\Main\ArgumentOutOfRangeException
+     * @throws ArgumentNullException
+     * @throws ArgumentOutOfRangeException
      */
     public static function getCategoriesOasis(): array
     {
@@ -71,8 +73,8 @@ class Api
      * Get currencies oasis
      *
      * @return array
-     * @throws \Bitrix\Main\ArgumentNullException
-     * @throws \Bitrix\Main\ArgumentOutOfRangeException
+     * @throws ArgumentNullException
+     * @throws ArgumentOutOfRangeException
      */
     public static function getCurrenciesOasis(): array
     {
@@ -86,8 +88,8 @@ class Api
      * @param array $args
      *
      * @return array
-     * @throws \Bitrix\Main\ArgumentNullException
-     * @throws \Bitrix\Main\ArgumentOutOfRangeException
+     * @throws ArgumentNullException
+     * @throws ArgumentOutOfRangeException
      */
     public static function curlQuery($type, array $args = []): array
     {
