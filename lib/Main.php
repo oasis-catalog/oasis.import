@@ -151,13 +151,11 @@ class Main
      *
      * @param $iblockElementId
      * @param $product
-     * @param $oasisCategories
-     * @param $iblockCode
-     * @param bool $offer
+     * @param array $oasisCategories
      * @return false|mixed|void
      * @throws LoaderException
      */
-    public static function upIblockElementProduct($iblockElementId, $product, $oasisCategories, $offer = false)
+    public static function upIblockElementProduct($iblockElementId, $product, array $oasisCategories = [])
     {
         $result = false;
 
@@ -169,7 +167,7 @@ class Main
                 'ACTIVE'           => self::getStatusProduct($product),
             ];
 
-            if ($offer === false) {
+            if ($oasisCategories) {
                 $data += self::getIblockSectionProduct($product, $oasisCategories);
             }
 
@@ -177,7 +175,7 @@ class Main
             $result = $el->Update($iblockElementId, $data);
 
             if (!empty($el->LAST_ERROR)) {
-                $str = $offer === false ? 'Ошибка обновления товара: ' : 'Ошибка обновления торгового предложения: ';
+                $str = $oasisCategories ? 'Ошибка обновления товара: ' : 'Ошибка обновления торгового предложения: ';
                 echo $str . $el->LAST_ERROR . PHP_EOL;
                 die();
             }
