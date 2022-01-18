@@ -98,38 +98,6 @@ class Main
     }
 
     /**
-     * Add simple product
-     *
-     * @param $product
-     * @param $oasisCategories
-     * @param $variable
-     * @return false|mixed
-     * @throws LoaderException
-     * @throws Exception
-     */
-    public static function addProduct($product, $oasisCategories, $variable)
-    {
-        $productId = null;
-
-        try {
-            Loader::includeModule('iblock');
-            Loader::includeModule('catalog');
-
-            $properties = self::getPropertiesArray($product);
-            $properties += self::getProductImages($product);
-            $productId = self::addIblockElementProduct($product, $oasisCategories, $properties, 'clothes');
-
-            self::executeProduct($productId, $product, $variable);
-            self::executeStoreProduct($productId, $product);
-            self::executePriceProduct($productId, $product);
-        } catch (SystemException $e) {
-            echo $e->getMessage() . PHP_EOL;
-        }
-
-        return $productId;
-    }
-
-    /**
      * Add Iblock Element Product
      *
      * @param $product
@@ -176,6 +144,48 @@ class Main
         }
 
         return $productId;
+    }
+
+    /**
+     * Update Iblock Element Product
+     *
+     * @param $iblockElementId
+     * @param $product
+     * @param $oasisCategories
+     * @param $iblockCode
+     * @param bool $offer
+     * @return false|mixed|void
+     * @throws LoaderException
+     */
+    public static function upIblockElementProduct($iblockElementId, $product, $oasisCategories, $offer = false)
+    {
+        $result = false;
+
+        try {
+            $data = [
+                'NAME'             => $product->name,
+                'DETAIL_TEXT'      => '<p>' . $product->description . '</p>' . self::getProductDetailText($product),
+                'DETAIL_TEXT_TYPE' => 'html',
+                'ACTIVE'           => self::getStatusProduct($product),
+            ];
+
+            if ($offer === false) {
+                $data += self::getIblockSectionProduct($product, $oasisCategories);
+            }
+
+            $el = new CIBlockElement;
+            $result = $el->Update($iblockElementId, $data);
+
+            if (!empty($el->LAST_ERROR)) {
+                $str = $offer === false ? 'Ошибка обновления товара: ' : 'Ошибка обновления торгового предложения: ';
+                echo $str . $el->LAST_ERROR . PHP_EOL;
+                die();
+            }
+        } catch (SystemException $e) {
+            echo $e->getMessage() . PHP_EOL;
+        }
+
+        return $result;
     }
 
     /**
