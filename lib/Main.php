@@ -203,9 +203,9 @@ class Main
             ])->fetch();
 
             if ($dbProduct) {
-                ProductTable::update($dbProduct['ID'], [
-                    'QUANTITY' => is_null($product->total_stock) ? 0 : $product->total_stock,
-                ]);
+                $arFields['QUANTITY'] = is_null($product->total_stock) ? 0 : $product->total_stock;
+                $arFields = array_merge($arFields, self::getAdditionalFields($parent, $product->rating));
+                ProductTable::update($dbProduct['ID'], $arFields);
             } else {
                 $arFields = [
                     'ID'                  => $productId,
@@ -223,22 +223,38 @@ class Main
                     'TYPE'                => $offer ? ProductTable::TYPE_OFFER : ProductTable::TYPE_PRODUCT,
                 ];
 
-                if ($parent) {
-                    $arFields['QUANTITY'] = 0;
-                    $arFields['QUANTITY_TRACE'] = 'N';
-                    $arFields['TYPE'] = ProductTable::TYPE_SKU;
-                }
-
-                if ($parent || $product->rating === 5) {
-                    $arFields['CAN_BUY_ZERO'] = 'Y';
-                    $arFields['NEGATIVE_AMOUNT_TRACE'] = 'Y';
-                }
+                $arFields = array_merge($arFields, self::getAdditionalFields($parent, $product->rating));
 
                 ProductTable::add($arFields);
             }
         } catch (SystemException $e) {
             echo $e->getMessage() . PHP_EOL;
         }
+    }
+
+    /**
+     * Get Additional Fields
+     *
+     * @param $parent
+     * @param $rating
+     * @return array
+     */
+    public static function getAdditionalFields($parent, $rating): array
+    {
+        $result = [];
+
+        if ($parent) {
+            $result['QUANTITY'] = 0;
+            $result['QUANTITY_TRACE'] = 'N';
+            $result['TYPE'] = ProductTable::TYPE_SKU;
+        }
+
+        if ($parent || $rating === 5) {
+            $result['CAN_BUY_ZERO'] = 'Y';
+            $result['NEGATIVE_AMOUNT_TRACE'] = 'Y';
+        }
+
+        return $result;
     }
 
     /**
