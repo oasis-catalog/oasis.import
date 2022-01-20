@@ -163,8 +163,8 @@ class Main
                 'ACTIVE'           => self::getStatusProduct($product),
             ];
 
-            if (isset($product->images[0]->superbig)) {
-                $data['DETAIL_PICTURE'] = CFile::MakeFileArray($product->images[0]->superbig);
+            if (array_key_exists('MORE_PHOTO', $properties) && $properties['MORE_PHOTO']) {
+                $data['DETAIL_PICTURE'] = reset($properties['MORE_PHOTO'])['VALUE'];
             }
 
             if ($offer === false) {
