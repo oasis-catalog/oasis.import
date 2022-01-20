@@ -8,6 +8,18 @@ use Bitrix\Main\Config\Option;
 
 class Api
 {
+
+    /**
+     * Get stock oasis products
+     *
+     * @return array
+     * @throws ArgumentNullException
+     * @throws ArgumentOutOfRangeException
+     */
+    public static function getOasisStock(): array {
+        return self::curlQuery('stock', ['fields' => 'id,stock']);
+    }
+
     /**
      * Get oasis products by module settings
      *

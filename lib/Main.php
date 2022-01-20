@@ -15,6 +15,7 @@ use Bitrix\Iblock\Model\Section;
 use Bitrix\Iblock\PropertyEnumerationTable;
 use Bitrix\Iblock\PropertyTable;
 use Bitrix\Iblock\SectionPropertyTable;
+use Bitrix\Main\Application;
 use Bitrix\Main\ArgumentException;
 use Bitrix\Main\ArgumentNullException;
 use Bitrix\Main\ArgumentOutOfRangeException;
@@ -35,21 +36,91 @@ use Exception;
 class Main
 {
     /**
-     * @param $product
+     * Up quantity products
+     *
+     * @param $stock
+     * @throws Exception
+     */
+    public static function upQuantity($stock)
+    {
+        try {
+            $queryRows = Application::getConnection()->query("
+        SELECT
+            P.ID, P.TYPE, U.UF_OASIS_ID_PRODUCT
+        FROM
+             b_uts_product U
+                 JOIN b_catalog_product P ON U.VALUE_ID=P.ID
+        ")->fetchAll();
+
+            if ($queryRows) {
+                $products = [];
+                foreach ($queryRows as $row) {
+                    if (!array_key_exists($row['UF_OASIS_ID_PRODUCT'], $products)) {
+                        $products[$row['UF_OASIS_ID_PRODUCT']] = $row['ID'];
+                    } elseif ($row['TYPE'] == 4) {
+                        $products[$row['UF_OASIS_ID_PRODUCT']] = $row['ID'];
+                    }
+                }
+                unset($row);
+
+                foreach ($stock as $item) {
+                    if (array_key_exists($item->id, $products)) {
+                        ProductTable::update($products[$item->id], ['QUANTITY' => $item->stock]);
+                        self::executeStoreProduct($products[$item->id], $item->stock, true);
+                    }
+                }
+                unset($item);
+            }
+        } catch (SystemException $e) {
+            echo $e->getMessage() . PHP_EOL;
+        }
+    }
+
+    public static function upQuantity2($oasisId, $quantity)
+    {
+        try {
+            $product = null;
+            $dbProduct = self::checkProduct($oasisId, 0, true);
+
+            if ($dbProduct) {
+                if (count($dbProduct) > 1) {
+                    foreach ($dbProduct as $item) {
+                        if ((int)$item['TYPE'] === 4) {
+                            $product = $item;
+                        }
+                    }
+                    unset($item);
+                } else {
+                    $product = reset($dbProduct);
+                }
+
+                if ($product) {
+                    ProductTable::update($product['ID'], ['QUANTITY' => $quantity]);
+                    self::executeStoreProduct($product['ID'], $quantity, true);
+                }
+            }
+        } catch (SystemException $e) {
+            echo $e->getMessage() . PHP_EOL;
+        }
+    }
+
+    /**
+     * @param $productId
      * @param int $type
+     * @param bool $fetchAll
      * @return array|false
      * @throws ArgumentException
      * @throws LoaderException
      * @throws ObjectPropertyException
      * @throws SystemException
      */
-    public static function checkProduct($product, int $type = 0)
+    public static function checkProduct($productId, int $type = 0, $fetchAll = false)
     {
         Loader::includeModule('catalog');
 
         $arFields = [
             'filter' => [
-                'UF_OASIS_ID_PRODUCT' => $product->id,
+                'UF_OASIS_ID_PRODUCT' => $productId,
             ],
         ];
 
@@ -57,7 +128,13 @@ class Main
             $arFields['filter']['TYPE'] = $type;
         }
 
-        return ProductTable::getList($arFields)->fetch();
+        $result = ProductTable::getList($arFields);
+
+        if ($fetchAll) {
+            return $result->fetchAll();
+        } else {
+            return $result->fetch();
+        }
     }
 
     /**
@@ -115,13 +192,10 @@ class Main
      * @param $iblockElementId
      * @param $product
      * @param array $oasisCategories
-     * @return false|mixed|void
      * @throws LoaderException
      */
     public static function upIblockElementProduct($iblockElementId, $product, array $oasisCategories = [])
     {
-        $result = false;
-
         try {
             $data = [
                 'NAME'             => $product->name,
@@ -135,7 +209,7 @@ class Main
             }
 
             $el = new CIBlockElement;
-            $result = $el->Update($iblockElementId, $data);
+            $el->Update($iblockElementId, $data);
 
             if (!empty($el->LAST_ERROR)) {
                 $str = $oasisCategories ? 'Ошибка обновления товара: ' : 'Ошибка обновления торгового предложения: ';
@@ -145,8 +219,6 @@ class Main
         } catch (SystemException $e) {
             echo $e->getMessage() . PHP_EOL;
         }
-
-        return $result;
     }
 
     /**
@@ -248,10 +320,11 @@ class Main
      * Execute StoreProductTable
      *
      * @param $productId
-     * @param $product
+     * @param $quantity
+     * @param bool $upStock
      * @throws Exception
      */
-    public static function executeStoreProduct($productId, $product)
+    public static function executeStoreProduct($productId, $quantity, bool $upStock = false)
     {
         try {
             $arStore = StoreTable::getList([
@@ -263,10 +336,15 @@ class Main
             ]);
 
             $arField = [
-                'PRODUCT_ID' => intval($productId),
+                'PRODUCT_ID' => (int)$productId,
                 'STORE_ID'   => $arStore['ID'],
-                'AMOUNT'     => is_null($product->total_stock) ? 0 : $product->total_stock,
             ];
+
+            if ($upStock) {
+                $arField['AMOUNT'] = $quantity;
+            } else {
+                $arField['AMOUNT'] = is_null($quantity) ? 0 : $quantity;
+            }
 
             if ($arStoreProduct = $rsStoreProduct->fetch()) {
                 StoreProductTable::update($arStoreProduct['ID'], $arField);
