@@ -7,6 +7,7 @@ use Bitrix\Main\Loader;
 use Bitrix\Main\Config\Option;
 use Oasis\Import\Main;
 use Oasis\Import\CustomFields;
+use Oasis\Import\Oorder;
 
 Loc::loadMessages(__FILE__);
 
@@ -119,6 +120,12 @@ try {
                 ['checkbox']
             ],
         ]);
+
+        $aTabs[] = [
+            'DIV'     => 'orders',
+            'TAB'     => Loc::getMessage('OASIS_IMPORT_ORDERS_TAB_NAME'),
+            'TITLE'   => Loc::getMessage('OASIS_IMPORT_ORDERS_TAB_AUTH'),
+        ];
     } else {
         $aTabs[0]['OPTIONS'] = array_merge($aTabs[0]['OPTIONS'], [
             [
@@ -169,15 +176,20 @@ $tabControl->Begin();
 
         <?php
         foreach ($aTabs as $aTab) {
-            if ($aTab['OPTIONS']) {
-                $tabControl->BeginNextTab();
-                foreach ($aTab['OPTIONS'] as $option) {
-                    if (!empty($option[3][0]) && $option[3][0] === 'checkboxes') {
-                        CustomFields::checkboxes($module_id, $option);
-                    } else {
-                        __AdmSettingsDrawRow($module_id, $option);
+            if ($aTab['DIV'] !== 'orders') {
+                if ($aTab['OPTIONS']) {
+                    $tabControl->BeginNextTab();
+                    foreach ($aTab['OPTIONS'] as $option) {
+                            if (!empty($option[3][0]) && $option[3][0] === 'checkboxes') {
+                                CustomFields::checkboxes($module_id, $option);
+                            } else {
+                                __AdmSettingsDrawRow($module_id, $option);
+                            }
                     }
                 }
+            } else {
+                $tabControl->BeginNextTab();
+                echo Oorder::getOrdersHtml();
             }
         }
 
