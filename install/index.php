@@ -14,19 +14,19 @@ class oasis_import extends CModule
 {
     public function __construct()
     {
-        if (file_exists(__DIR__ . "/version.php")) {
+        if (file_exists(__DIR__ . '/version.php')) {
 
             $arModuleVersion = [];
-            include_once(__DIR__ . "/version.php");
+            include_once(__DIR__ . '/version.php');
 
-            $this->MODULE_ID = str_replace("_", ".", get_class($this));
-            $this->MODULE_VERSION = $arModuleVersion["VERSION"];
-            $this->MODULE_VERSION_DATE = $arModuleVersion["VERSION_DATE"];
-            $this->MODULE_NAME = Loc::getMessage("OASIS_IMPORT_NAME");
-            $this->MODULE_DESCRIPTION = Loc::getMessage("OASIS_IMPORT_DESCRIPTION");
-            $this->PARTNER_NAME = Loc::getMessage("OASIS_IMPORT_PARTNER_NAME");
-            $this->PARTNER_URI = Loc::getMessage("OASIS_IMPORT_PARTNER_URI");
-            $this->MODULE_GROUP_RIGHTS = "Y";
+            $this->MODULE_ID = str_replace('_', '.', get_class($this));
+            $this->MODULE_VERSION = $arModuleVersion['VERSION'];
+            $this->MODULE_VERSION_DATE = $arModuleVersion['VERSION_DATE'];
+            $this->MODULE_NAME = Loc::getMessage('OASIS_IMPORT_NAME');
+            $this->MODULE_DESCRIPTION = Loc::getMessage('OASIS_IMPORT_DESCRIPTION');
+            $this->PARTNER_NAME = Loc::getMessage('OASIS_IMPORT_PARTNER_NAME');
+            $this->PARTNER_URI = Loc::getMessage('OASIS_IMPORT_PARTNER_URI');
+            $this->MODULE_GROUP_RIGHTS = 'Y';
         }
 
         return false;
@@ -36,7 +36,7 @@ class oasis_import extends CModule
     {
         global $APPLICATION;
 
-        if (CheckVersion(ModuleManager::getVersion("main"), "14.00.00")) {
+        if (CheckVersion(ModuleManager::getVersion('main'), '14.00.00')) {
             $this->InstallFiles();
             $this->InstallDB();
 
@@ -45,21 +45,21 @@ class oasis_import extends CModule
             $this->InstallEvents();
 
             $objDateTime = new DateTime();
-            $dateImport = new DateTime($objDateTime, "d.m.Y");
+            $dateImport = new DateTime($objDateTime, 'd.m.Y');
 
-            Option::set("main", "agents_use_crontab", "N");
-            Option::set("main", "check_agents", "N");
-            \CAgent::AddAgent( "\\Oasis\\Import\\Cli::import();", "oasis.import", "N", 24*60*60, "", "Y", $dateImport->add("1 days 1 hours 30 min")->toString());
-            \CAgent::AddAgent( "\\Oasis\\Import\\Cli::upStock();", "oasis.import", "N", 30*60, "", "Y", $objDateTime->add("30 min")->format("d.m.Y H:i:s"));
+            Option::set('main', 'agents_use_crontab', 'N');
+            Option::set('main', 'check_agents', 'N');
+            \CAgent::AddAgent('\\Oasis\\Import\\Cli::import();', 'oasis.import', 'N', 24 * 60 * 60, '', 'Y', $dateImport->add('1 days 1 hours 30 min')->toString());
+            \CAgent::AddAgent('\\Oasis\\Import\\Cli::upStock();', 'oasis.import', 'N', 30 * 60, '', 'Y', $objDateTime->add('30 min')->format('d.m.Y H:i:s'));
         } else {
             $APPLICATION->ThrowException(
-                Loc::getMessage("OASIS_IMPORT_INSTALL_ERROR_VERSION")
+                Loc::getMessage('OASIS_IMPORT_INSTALL_ERROR_VERSION')
             );
         }
 
         $APPLICATION->IncludeAdminFile(
-            Loc::getMessage("OASIS_IMPORT_INSTALL_TITLE") . " \"" . Loc::getMessage("OASIS_IMPORT_NAME") . "\"",
-            __DIR__ . "/step.php"
+            Loc::getMessage('OASIS_IMPORT_INSTALL_TITLE') . ' "' . Loc::getMessage("OASIS_IMPORT_NAME") . '"',
+            __DIR__ . '/step.php'
         );
 
         return false;
@@ -68,8 +68,8 @@ class oasis_import extends CModule
     public function InstallFiles()
     {
         CopyDirFiles(
-            __DIR__."/assets/php",
-            Application::getDocumentRoot()."/bitrix/php_interface/",
+            __DIR__ . '/assets/php',
+            Application::getDocumentRoot() . '/bitrix/php_interface/',
             false,
             true
         );
@@ -79,23 +79,37 @@ class oasis_import extends CModule
 
     public function InstallDB()
     {
-        return false;
+        global $DB;
+        $this->errors = false;
+        $this->errors = $DB->RunSQLBatch(Application::getDocumentRoot() . '/local/modules/oasis.import/install/db/mysql/install.sql');
+        if (!$this->errors) {
+            return true;
+        } else {
+            return $this->errors;
+        }
     }
 
     public function InstallEvents()
     {
         EventManager::getInstance()->registerEventHandler(
-            "main",
-            "OnBeforeEndBufferContent",
+            'main',
+            'OnBeforeEndBufferContent',
             $this->MODULE_ID,
-            "Oasis\Import\Main",
+            'Oasis\Import\Main',
         );
 
         EventManager::getInstance()->registerEventHandler(
-            "api",
-            "OnBeforeEndBufferContent",
+            'api',
+            'OnBeforeEndBufferContent',
             $this->MODULE_ID,
-            "Oasis\Import\Api",
+            'Oasis\Import\Api',
+        );
+
+        EventManager::getInstance()->registerEventHandler(
+            'oorder',
+            'OnBeforeEndBufferContent',
+            $this->MODULE_ID,
+            'Oasis\Import\Oorder',
         );
 
         return false;
@@ -109,13 +123,13 @@ class oasis_import extends CModule
         $this->UnInstallDB();
         $this->UnInstallEvents();
 
-        \CAgent::RemoveModuleAgents("oasis.import");
+        \CAgent::RemoveModuleAgents('oasis.import');
 
         ModuleManager::unRegisterModule($this->MODULE_ID);
 
         $APPLICATION->IncludeAdminFile(
-            Loc::getMessage("OASIS_IMPORT_UNINSTALL_TITLE") . " \"" . Loc::getMessage("OASIS_IMPORT_NAME") . "\"",
-            __DIR__ . "/unstep.php"
+            Loc::getMessage('OASIS_IMPORT_UNINSTALL_TITLE') . ' "' . Loc::getMessage('OASIS_IMPORT_NAME') . '"',
+            __DIR__ . '/unstep.php'
         );
 
         return false;
@@ -128,25 +142,39 @@ class oasis_import extends CModule
 
     public function UnInstallDB()
     {
+        global $DB;
+        $this->errors = false;
+        $this->errors = $DB->RunSQLBatch(Application::getDocumentRoot() . '/local/modules/oasis.import/install/db/mysql/uninstall.sql');
         Option::delete($this->MODULE_ID);
 
-        return false;
+        if (!$this->errors) {
+            return true;
+        } else {
+            return $this->errors;
+        }
     }
 
     public function UnInstallEvents()
     {
         EventManager::getInstance()->unRegisterEventHandler(
-            "main",
-            "OnBeforeEndBufferContent",
+            'main',
+            'OnBeforeEndBufferContent',
             $this->MODULE_ID,
-            "Oasis\Import\Main",
+            'Oasis\Import\Main',
         );
 
         EventManager::getInstance()->unRegisterEventHandler(
-            "api",
-            "OnBeforeEndBufferContent",
+            'api',
+            'OnBeforeEndBufferContent',
             $this->MODULE_ID,
-            "Oasis\Import\Api",
+            'Oasis\Import\Api',
+        );
+
+        EventManager::getInstance()->unRegisterEventHandler(
+            'oorder',
+            'OnBeforeEndBufferContent',
+            $this->MODULE_ID,
+            'Oasis\Import\Oorder',
         );
 
         return false;

@@ -25,3 +25,5 @@ $MESS["OASIS_IMPORT_OPTIONS_TAB_REMOTE_WAREHOUSE"] = "На удаленном с
 $MESS["OASIS_IMPORT_OPTIONS_INPUT_APPLY"] = "Применить";
 $MESS["OASIS_IMPORT_OPTIONS_INPUT_DEFAULT"] = "По умолчанию";
 $MESS["OASIS_IMPORT_OPTIONS_ERROR_API_KEY"] = "<strong>Внимание!</strong> Ключ API отсутствует или не действительный.";
+$MESS["OASIS_IMPORT_ORDERS_TAB_NAME"] = "Заказы";
+$MESS["OASIS_IMPORT_ORDERS_TAB_AUTH"] = "Выгрузка заказов в Oasiscatalog";
