@@ -8,6 +8,55 @@ use Bitrix\Main\Config\Option;
 
 class Api
 {
+    /**
+     * Get order data Oasiscatalog
+     *
+     * @param $queueId
+     * @return array
+     * @throws \Bitrix\Main\ArgumentNullException
+     * @throws \Bitrix\Main\ArgumentOutOfRangeException
+     */
+    public static function getOrder($queueId)
+    {
+        return self::curlQuery('reserves/by-queue/' . $queueId);
+    }
+
+    /**
+     * Send order to Oasiscatalog
+     *
+     * @param $data
+     * @return array|mixed
+     * @throws \Bitrix\Main\ArgumentNullException
+     * @throws \Bitrix\Main\ArgumentOutOfRangeException
+     */
+    public static function sendOrder($data)
+    {
+        $apiKey = Option::get(pathinfo(dirname(__DIR__))['basename'], 'api_key');
+
+        if (empty($apiKey)) {
+            return [];
+        }
+
+        $result = [];
+
+        try {
+            $options = [
+                'http' => [
+                    'method' => 'POST',
+                    'header' => 'Content-Type: application/json' . PHP_EOL .
+                        'Accept: application/json' . PHP_EOL,
+
+                    'content' => json_encode($data),
+                ],
+            ];
+
+            $result = json_decode(file_get_contents('https://api.oasiscatalog.com/v4/reserves/?key=' . $apiKey, 0, stream_context_create($options)));
+
+        } catch (\Exception $exception) {
+        }
+
+        return $result;
+    }
 
     /**
      * Get stock oasis products
@@ -16,7 +65,8 @@ class Api
      * @throws ArgumentNullException
      * @throws ArgumentOutOfRangeException
      */
-    public static function getOasisStock(): array {
+    public static function getOasisStock(): array
+    {
         return self::curlQuery('stock', ['fields' => 'id,stock']);
     }
 
@@ -124,6 +174,6 @@ class Api
         $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
 
-        return $http_code === 200 ? $result : [];
+        return $http_code === 200 ? (array)$result : [];
     }
 }

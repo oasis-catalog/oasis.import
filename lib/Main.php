@@ -35,6 +35,39 @@ use Exception;
 
 class Main
 {
+
+    public static function getOasisOrder(int $orderId)
+    {
+        $result = false;
+
+        try {
+            $result = Application::getConnection()->query("SELECT * FROM b_oasis_import_orders  WHERE `ID_ORDER` = " . $orderId)->fetch();
+        } catch (SystemException $e) {
+            echo $e->getMessage() . PHP_EOL;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Insert order data in b_oasis_import_orders
+     *
+     * @param int $orderId
+     * @param int $queueId
+     */
+    protected function addOasisOrder(int $orderId, int $queueId)
+    {
+        try {
+            $queryRow = self::getOasisOrder($orderId);
+
+            if (!$queryRow) {
+                Application::getConnection()->queryExecute("INSERT INTO b_oasis_import_orders (ID_ORDER, ID_QUEUE) VALUES (" . $orderId . ", " . $queueId . ")");
+            }
+        } catch (SystemException $e) {
+            echo $e->getMessage() . PHP_EOL;
+        }
+    }
+
     /**
      * Up quantity products
      *

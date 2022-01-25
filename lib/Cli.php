@@ -10,7 +10,6 @@ use Exception;
 class Cli
 {
     /**
-     * @return string
      * @throws LoaderException
      * @throws Exception
      */
