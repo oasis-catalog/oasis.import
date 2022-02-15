@@ -27,3 +27,15 @@ $MESS["OASIS_IMPORT_OPTIONS_INPUT_DEFAULT"] = "Default";
 $MESS["OASIS_IMPORT_OPTIONS_ERROR_API_KEY"] = "<strong>Attention!</strong> API key is missing or not valid.";
 $MESS["OASIS_IMPORT_ORDERS_TAB_NAME"] = "Orders";
 $MESS["OASIS_IMPORT_ORDERS_TAB_AUTH"] = "Uploading orders to Oasiscatalog";
+
+$MESS["OASIS_IMPORT_ORDERS_ID"] = "ID";
+$MESS["OASIS_IMPORT_ORDERS_DATE_INSERT"] = "Date insert";
+$MESS["OASIS_IMPORT_ORDERS_PRICE"] = "Price";
+$MESS["OASIS_IMPORT_ORDERS_UPLOAD"] = "Upload";
+$MESS["OASIS_IMPORT_ORDERS_SEND"] = "Send";
+$MESS["OASIS_IMPORT_ORDERS_NOT_PRODUCT"] = "Invalid items in the order";
+$MESS["OASIS_IMPORT_ORDERS_SENT"] = "Status: ";
+$MESS["OASIS_IMPORT_ORDERS_ORDER_NUMBER"] = ", order №";
+$MESS["OASIS_IMPORT_ORDERS_ORDER_PENDING"] = "order is created";
+$MESS["OASIS_IMPORT_ORDERS_ORDER_ERROR"] = "order creation error";
+$MESS["OASIS_IMPORT_ORDERS_CONNECTION_ERROR"] = "Error getting data";

@@ -48,12 +48,12 @@ class Cli
                         $productId = Main::addIblockElementProduct($product, $oasisCategories, $properties, 'clothes');
                     }
 
-                    Main::executeProduct($productId, $product);
+                    Main::executeProduct($productId, $product, $product->group_id);
                     Main::executeStoreProduct($productId, $product->total_stock);
                     Main::executePriceProduct($productId, $product);
                 } else {
                     $firstProduct = reset($products);
-                    $dbProduct = Main::checkProduct($firstProduct->id);
+                    $dbProduct = Main::checkProduct($firstProduct->group_id);
 
                     if ($dbProduct) {
                         $productId = (int)$dbProduct['ID'];
@@ -63,7 +63,7 @@ class Cli
                         $productId = Main::addIblockElementProduct($firstProduct, $oasisCategories, $properties, 'clothes');
                     }
 
-                    Main::executeProduct($productId, $firstProduct, true, true);
+                    Main::executeProduct($productId, $firstProduct, $firstProduct->group_id, true, true);
                     Main::executePriceProduct($productId, $firstProduct);
 
                     foreach ($products as $product) {
@@ -78,7 +78,7 @@ class Cli
                             Main::executeMeasureRatioTable($productOfferId);
                         }
 
-                        Main::executeProduct($productOfferId, $product, true);
+                        Main::executeProduct($productOfferId, $product, $product->id, true);
                         Main::executeStoreProduct($productOfferId, $product->total_stock);
                         Main::executePriceProduct($productOfferId, $product);
                     }

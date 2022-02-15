@@ -2,7 +2,7 @@
 
 namespace Oasis\Import;
 
-use Bitrix\Catalog\ProductTable;
+use Bitrix\Main\Application;
 use Bitrix\Main\Config\Option;
 use Bitrix\Main\Loader;
 use Bitrix\Main\SystemException;
@@ -160,12 +160,23 @@ class Oorder extends Main
      * @param int $orderId
      * @return array|null
      * @throws \Bitrix\Main\ArgumentException
+     * @throws \Bitrix\Main\DB\SqlQueryException
      * @throws \Bitrix\Main\LoaderException
      */
     public static function getOasisProductIds(int $orderId): ?array
     {
         Loader::includeModule('catalog');
         Loader::includeModule('sale');
+
+        $table = Application::getConnection()->query("SHOW TABLES LIKE 'b_uts_product'")->fetch();
+
+        if (!$table) {
+            try {
+                Main::checkUserFields();
+            } catch (SystemException $e) {
+                echo $e->getMessage() . PHP_EOL;
+            }
+        }
 
         $result = null;
         $basket = Basket::getList([
@@ -177,12 +188,7 @@ class Oorder extends Main
         if ($basket) {
             foreach ($basket as $item) {
                 try {
-                    $product = ProductTable::getList([
-                        'select' => ['UF_OASIS_ID_PRODUCT'],
-                        'filter' => [
-                            'ID' => intval($item['PRODUCT_ID']),
-                        ],
-                    ])->fetch();
+                    $product = Main::checkProduct(intval($item['PRODUCT_ID']));
                 } catch (SystemException $e) {
                     echo $e->getMessage() . PHP_EOL;
                 }

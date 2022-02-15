@@ -10,7 +10,6 @@ use Bitrix\Catalog\StoreProductTable;
 use Bitrix\Catalog\StoreTable;
 use Bitrix\Iblock\ElementTable;
 use Bitrix\Iblock\IblockTable;
-use Bitrix\Iblock\Model\PropertyFeature;
 use Bitrix\Iblock\Model\Section;
 use Bitrix\Iblock\PropertyEnumerationTable;
 use Bitrix\Iblock\PropertyTable;
@@ -25,7 +24,6 @@ use Bitrix\Main\LoaderException;
 use Bitrix\Main\ObjectPropertyException;
 use Bitrix\Main\SystemException;
 use Bitrix\Main\Type\DateTime;
-use Bitrix\Main\UserFieldTable;
 use CFile;
 use CIBlockElement;
 use CIBlockSection;
@@ -115,34 +113,6 @@ class Main
         }
     }
 
-    public static function upQuantity2($oasisId, $quantity)
-    {
-        try {
-            $product = null;
-            $dbProduct = self::checkProduct($oasisId, 0, true);
-
-            if ($dbProduct) {
-                if (count($dbProduct) > 1) {
-                    foreach ($dbProduct as $item) {
-                        if ((int)$item['TYPE'] === 4) {
-                            $product = $item;
-                        }
-                    }
-                    unset($item);
-                } else {
-                    $product = reset($dbProduct);
-                }
-
-                if ($product) {
-                    ProductTable::update($product['ID'], ['QUANTITY' => $quantity]);
-                    self::executeStoreProduct($product['ID'], $quantity, true);
-                }
-            }
-        } catch (SystemException $e) {
-            echo $e->getMessage() . PHP_EOL;
-        }
-    }
-
     /**
      * @param $productId
      * @param int $type
@@ -157,17 +127,21 @@ class Main
     {
         Loader::includeModule('catalog');
 
-        $arFields = [
-            'filter' => [
-                'UF_OASIS_ID_PRODUCT' => $productId,
-            ],
-        ];
+        $query = "
+        SELECT
+            P.ID, U.UF_OASIS_ID_PRODUCT
+        FROM
+             b_uts_product U
+                 JOIN b_catalog_product P ON U.VALUE_ID=P.ID
+        WHERE
+            U.UF_OASIS_ID_PRODUCT = '" . $productId . "'
+       ";
 
         if ($type) {
-            $arFields['filter']['TYPE'] = $type;
+            $query .= " AND P.TYPE = '" . $type . "'";
         }
 
-        $result = ProductTable::getList($arFields);
+        $result = Application::getConnection()->query($query);
 
         if ($fetchAll) {
             return $result->fetchAll();
@@ -289,11 +263,12 @@ class Main
      *
      * @param $productId
      * @param $product
+     * @param $utsProductId
      * @param bool $offer
      * @param bool $parent
-     * @throws Exception
+     * @throws \Exception
      */
-    public static function executeProduct($productId, $product, $offer = false, $parent = false)
+    public static function executeProduct($productId, $product, $utsProductId, $offer = false, $parent = false)
     {
         try {
             $dbProduct = ProductTable::getList([
@@ -317,13 +292,13 @@ class Main
                     'MEASURE'             => 5,
                     'AVAILABLE'           => 'Y',
                     'BUNDLE'              => 'N',
-                    'UF_OASIS_ID_PRODUCT' => $product->id,
                     'TYPE'                => $offer ? ProductTable::TYPE_OFFER : ProductTable::TYPE_PRODUCT,
                 ];
 
                 $arFields = array_merge($arFields, self::getAdditionalFields($parent, $product->rating));
 
                 ProductTable::add($arFields);
+                Application::getConnection()->queryExecute("INSERT INTO b_uts_product (VALUE_ID, UF_OASIS_ID_PRODUCT) VALUES (" . $productId . ", '" . $utsProductId . "')");
             }
         } catch (SystemException $e) {
             echo $e->getMessage() . PHP_EOL;
@@ -592,33 +567,6 @@ class Main
                     $propertyId = self::addProperty($key, $value);
 
                     if ($key === 'COLOR_CLOTHES' || $key === 'SIZES_CLOTHES' || $key === 'SIZES_FLASH') {
-                        PropertyFeature::setFeatures($propertyId,
-                            [
-                                [
-                                    'MODULE_ID'  => 'catalog',
-                                    'IS_ENABLED' => 'Y',
-                                    'FEATURE_ID' => 'IN_BASKET'
-                                ],
-                                [
-                                    'MODULE_ID'  => 'catalog',
-                                    'IS_ENABLED' => 'Y',
-                                    'FEATURE_ID' => 'OFFER_TREE'
-                                ],
-                                [
-                                    'MODULE_ID'  => 'iblock',
-                                    'IS_ENABLED' => 'N',
-                                    'FEATURE_ID' => 'LIST_PAGE_SHOW'
-                                ],
-                                [
-                                    'MODULE_ID'  => 'iblock',
-                                    'IS_ENABLED' => 'N',
-                                    'FEATURE_ID' => 'DETAIL_PAGE_SHOW'
-                                ],
-                            ],
-                        );
-                    }
-
-                    if ($key === 'SIZES_FLASH') {
                         SectionPropertyTable::add([
                             'IBLOCK_ID'        => self::getIblockId($value['iblockCode']),
                             'SECTION_ID'       => 0,
@@ -1003,7 +951,7 @@ class Main
      */
     public static function getUniqueCodeElement($name, int $i = 0): string
     {
-        $code = Cutil::translit($name, 'ru', ['replace_space' => '-', 'replace_other' => '-']);
+        $code = self::transliteration($name);
         $code = $i === 0 ? $code : $code . '-' . $i;
 
         $dbCode = ElementTable::getList([
@@ -1056,16 +1004,10 @@ class Main
      *
      * @param $data
      * @return false|int
-     * @throws ArgumentException
-     * @throws ObjectPropertyException
-     * @throws SystemException
      */
     private static function addUserField($data)
     {
-        $dbUserFields = UserFieldTable::getList([
-            'select' => ['ID'],
-            'filter' => ['FIELD_NAME' => 'UF_' . $data['FIELD_NAME']],
-        ])->fetch();
+        $dbUserFields = CUserTypeEntity::GetList([], ['FIELD_NAME' => $data['FIELD_NAME']])->fetch();
 
         if (!$dbUserFields) {
             $oUserTypeEntity = new CUserTypeEntity();
@@ -1110,12 +1052,12 @@ class Main
      * Get Iblock Id
      *
      * @param string $code
-     * @return array|mixed|void
+     * @return int
      * @throws ArgumentException
      * @throws ObjectPropertyException
      * @throws SystemException
      */
-    public static function getIblockId(string $code)
+    public static function getIblockId(string $code): int
     {
         $arIblock = IblockTable::getList([
             'select' => ['ID'],
@@ -1136,7 +1078,7 @@ class Main
             }
         }
 
-        return $arIblock['ID'] ?? $arIblock;
+        return (int)$arIblock['ID'] ?? 0;
     }
 
     /**
@@ -1199,4 +1141,109 @@ class Main
 
         return array_shift($neededObject);
     }
+
+
+    /**
+     * String transliteration for url
+     *
+     * @param $string
+     *
+     * @return string
+     */
+    public static function transliteration( $string ): string {
+        $arr_trans = [
+            'А'  => 'A',
+            'Б'  => 'B',
+            'В'  => 'V',
+            'Г'  => 'G',
+            'Д'  => 'D',
+            'Е'  => 'E',
+            'Ё'  => 'E',
+            'Ж'  => 'J',
+            'З'  => 'Z',
+            'И'  => 'I',
+            'Й'  => 'Y',
+            'К'  => 'K',
+            'Л'  => 'L',
+            'М'  => 'M',
+            'Н'  => 'N',
+            'О'  => 'O',
+            'П'  => 'P',
+            'Р'  => 'R',
+            'С'  => 'S',
+            'Т'  => 'T',
+            'У'  => 'U',
+            'Ф'  => 'F',
+            'Х'  => 'H',
+            'Ц'  => 'TS',
+            'Ч'  => 'CH',
+            'Ш'  => 'SH',
+            'Щ'  => 'SCH',
+            'Ъ'  => '',
+            'Ы'  => 'YI',
+            'Ь'  => '',
+            'Э'  => 'E',
+            'Ю'  => 'YU',
+            'Я'  => 'YA',
+            'а'  => 'a',
+            'б'  => 'b',
+            'в'  => 'v',
+            'г'  => 'g',
+            'д'  => 'd',
+            'е'  => 'e',
+            'ё'  => 'e',
+            'ж'  => 'j',
+            'з'  => 'z',
+            'и'  => 'i',
+            'й'  => 'y',
+            'к'  => 'k',
+            'л'  => 'l',
+            'м'  => 'm',
+            'н'  => 'n',
+            'о'  => 'o',
+            'п'  => 'p',
+            'р'  => 'r',
+            'с'  => 's',
+            'т'  => 't',
+            'у'  => 'u',
+            'ф'  => 'f',
+            'х'  => 'h',
+            'ц'  => 'ts',
+            'ч'  => 'ch',
+            'ш'  => 'sh',
+            'щ'  => 'sch',
+            'ъ'  => 'y',
+            'ы'  => 'yi',
+            'ь'  => '',
+            'э'  => 'e',
+            'ю'  => 'yu',
+            'я'  => 'ya',
+            '.'  => '-',
+            ' '  => '-',
+            '?'  => '-',
+            '/'  => '-',
+            '\\' => '-',
+            '*'  => '-',
+            ':'  => '-',
+            '>'  => '-',
+            '|'  => '-',
+            '\'' => '',
+            '('  => '',
+            ')'  => '',
+            '!'  => '',
+            '@'  => '',
+            '%'  => '',
+            '`'  => '',
+        ];
+        $string    = str_replace( [ '-', '+', '.', '?', '/', '\\', '*', ':', '*', '|' ], ' ', $string );
+        $string    = htmlspecialchars_decode( $string );
+        $string    = strip_tags( $string );
+        $pattern   = '/[\w\s\d]+/u';
+        preg_match_all( $pattern, $string, $result );
+        $string = implode( '', $result[0] );
+        $string = preg_replace( '/[\s]+/us', ' ', $string );
+
+        return strtolower( strtr( $string, $arr_trans ) );
+    }
+
 }

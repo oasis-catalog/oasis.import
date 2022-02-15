@@ -3,9 +3,7 @@
 use Bitrix\Main\Localization\Loc;
 use Bitrix\Main\ModuleManager;
 use Bitrix\Main\Config\Option;
-use Bitrix\Main\EventManager;
 use Bitrix\Main\Application;
-use Bitrix\Main\IO\Directory;
 use Bitrix\Main\Type\DateTime;
 
 Loc::loadMessages(__FILE__);
@@ -91,26 +89,6 @@ class oasis_import extends CModule
 
     public function InstallEvents()
     {
-        EventManager::getInstance()->registerEventHandler(
-            'main',
-            'OnBeforeEndBufferContent',
-            $this->MODULE_ID,
-            'Oasis\Import\Main',
-        );
-
-        EventManager::getInstance()->registerEventHandler(
-            'api',
-            'OnBeforeEndBufferContent',
-            $this->MODULE_ID,
-            'Oasis\Import\Api',
-        );
-
-        EventManager::getInstance()->registerEventHandler(
-            'oorder',
-            'OnBeforeEndBufferContent',
-            $this->MODULE_ID,
-            'Oasis\Import\Oorder',
-        );
 
         return false;
     }
@@ -156,26 +134,6 @@ class oasis_import extends CModule
 
     public function UnInstallEvents()
     {
-        EventManager::getInstance()->unRegisterEventHandler(
-            'main',
-            'OnBeforeEndBufferContent',
-            $this->MODULE_ID,
-            'Oasis\Import\Main',
-        );
-
-        EventManager::getInstance()->unRegisterEventHandler(
-            'api',
-            'OnBeforeEndBufferContent',
-            $this->MODULE_ID,
-            'Oasis\Import\Api',
-        );
-
-        EventManager::getInstance()->unRegisterEventHandler(
-            'oorder',
-            'OnBeforeEndBufferContent',
-            $this->MODULE_ID,
-            'Oasis\Import\Oorder',
-        );
 
         return false;
     }
