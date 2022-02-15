@@ -36,6 +36,12 @@ use Exception;
 class Main
 {
 
+    /**
+     * Get order id oasis
+     *
+     * @param int $orderId
+     * @return array|false
+     */
     public static function getOasisOrder(int $orderId)
     {
         $result = false;
