@@ -3,6 +3,7 @@
 namespace Oasis\Import;
 
 use Bitrix\Catalog\ProductTable;
+use Bitrix\Main\Application;
 use Bitrix\Main\Config\Option;
 use Bitrix\Main\Loader;
 use Bitrix\Main\SystemException;
@@ -166,6 +167,22 @@ class Oorder extends Main
     {
         Loader::includeModule('catalog');
         Loader::includeModule('sale');
+
+        $table = Application::getConnection()->query("SHOW TABLES LIKE 'b_uts_product'")->fetch();
+
+        try {
+            if ($table) {
+                $column = Application::getConnection()->query("SHOW COLUMNS FROM `b_uts_product` LIKE 'b_uts_product'")->fetch();
+
+                if (!$column) {
+                    Main::checkUserFields();
+                }
+            } else {
+                Main::checkUserFields();
+            }
+        } catch (SystemException $e) {
+            echo $e->getMessage() . PHP_EOL;
+        }
 
         $result = null;
         $basket = Basket::getList([
