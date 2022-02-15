@@ -161,6 +161,7 @@ class Oorder extends Main
      * @param int $orderId
      * @return array|null
      * @throws \Bitrix\Main\ArgumentException
+     * @throws \Bitrix\Main\DB\SqlQueryException
      * @throws \Bitrix\Main\LoaderException
      */
     public static function getOasisProductIds(int $orderId): ?array

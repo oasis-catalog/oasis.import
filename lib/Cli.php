@@ -2,6 +2,7 @@
 
 namespace Oasis\Import;
 
+use Bitrix\Main\Config\Option;
 use Bitrix\Main\Loader;
 use Bitrix\Main\LoaderException;
 use Bitrix\Main\SystemException;
@@ -22,7 +23,17 @@ class Cli
         ini_set('memory_limit', '2G');
 
         try {
-            $oasisProducts = Api::getProductsOasis();
+            $args = [];
+            $module_id = pathinfo(dirname(__DIR__))['basename'];
+            $step = (int)Option::get($module_id, 'step');
+            $limit = (int)Option::get($module_id, 'limit');
+
+            if ($limit > 0) {
+                $args['limit'] = $limit;
+                $args['offset'] = $step * $limit;
+            }
+
+            $oasisProducts = Api::getProductsOasis($args);
             $oasisCategories = Api::getCategoriesOasis();
 
             $group_ids = [];
@@ -86,9 +97,12 @@ class Cli
                     Main::upStatusFirstProduct($productId);
                 }
             }
+
+            Option::set($module_id, 'step', ++$step);
         } catch (SystemException $e) {
             echo $e->getMessage() . PHP_EOL;
         }
+
         return "\\Oasis\\Import\\Cli::import();";
     }
 

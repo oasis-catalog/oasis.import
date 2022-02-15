@@ -119,6 +119,16 @@ try {
                 'N',
                 ['checkbox']
             ],
+            Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_LIMIT'),
+            [
+                'note' => Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_LIMIT_NOTE'),
+            ],
+            [
+                'limit',
+                Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_LIMIT_PRODUCT'),
+                '',
+                ['text', 10]
+            ],
         ]);
 
         $aTabs[] = [
@@ -152,6 +162,14 @@ if ($request->isPost() && check_bitrix_sessid()) {
 
                 if (!empty($arOption[3][0]) && $arOption[3][0] === 'checkboxes') {
                     $optionValue = array_keys($optionValue);
+                }
+
+                if (!empty($arOption[0]) && $arOption[0] === 'limit') {
+                    if ($optionValue && intval($optionValue) >= 0) {
+                        $optionValue = abs($optionValue);
+                    } else {
+                        $optionValue = '';
+                    }
                 }
 
                 Option::set($module_id, $arOption[0], is_array($optionValue) ? implode(',', $optionValue) : $optionValue);

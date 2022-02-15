@@ -27,3 +27,6 @@ $MESS["OASIS_IMPORT_OPTIONS_INPUT_DEFAULT"] = "Default";
 $MESS["OASIS_IMPORT_OPTIONS_ERROR_API_KEY"] = "<strong>Attention!</strong> API key is missing or not valid.";
 $MESS["OASIS_IMPORT_ORDERS_TAB_NAME"] = "Orders";
 $MESS["OASIS_IMPORT_ORDERS_TAB_AUTH"] = "Uploading orders to Oasiscatalog";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_LIMIT"] = "Limit";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_LIMIT_NOTE"] = "Setting for weak servers. Specify the limit of goods for one-time receipt and processing in CRON.<br/><strong>Attention!</strong> This option increases the time for adding products<br/>Values >1, 0 or empty - disables the limit";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_LIMIT_PRODUCT"] = "Products limit";
