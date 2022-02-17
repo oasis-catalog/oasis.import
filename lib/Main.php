@@ -30,7 +30,6 @@ use CFile;
 use CIBlockElement;
 use CIBlockSection;
 use CUserTypeEntity;
-use Cutil;
 use Exception;
 
 class Main
@@ -975,7 +974,7 @@ class Main
      */
     public static function getUniqueCodeElement($name, int $i = 0): string
     {
-        $code = Cutil::translit($name, 'ru', ['replace_space' => '-', 'replace_other' => '-']);
+        $code = self::transliteration($name);
         $code = $i === 0 ? $code : $code . '-' . $i;
 
         $dbCode = ElementTable::getList([
