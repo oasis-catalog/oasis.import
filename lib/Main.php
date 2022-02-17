@@ -115,34 +115,6 @@ class Main
         }
     }
 
-    public static function upQuantity2($oasisId, $quantity)
-    {
-        try {
-            $product = null;
-            $dbProduct = self::checkProduct($oasisId, 0, true);
-
-            if ($dbProduct) {
-                if (count($dbProduct) > 1) {
-                    foreach ($dbProduct as $item) {
-                        if ((int)$item['TYPE'] === 4) {
-                            $product = $item;
-                        }
-                    }
-                    unset($item);
-                } else {
-                    $product = reset($dbProduct);
-                }
-
-                if ($product) {
-                    ProductTable::update($product['ID'], ['QUANTITY' => $quantity]);
-                    self::executeStoreProduct($product['ID'], $quantity, true);
-                }
-            }
-        } catch (SystemException $e) {
-            echo $e->getMessage() . PHP_EOL;
-        }
-    }
-
     /**
      * @param $productId
      * @param int $type
@@ -196,7 +168,7 @@ class Main
                 'NAME'             => $product->name,
                 'CODE'             => self::getUniqueCodeElement($product->name),
                 'IBLOCK_ID'        => self::getIblockId($iblockCode),
-                'DETAIL_TEXT'      => '<p>' . $product->description . '</p>' . self::getProductDetailText($product),
+                'DETAIL_TEXT'      => '<p>' . htmlentities($product->description, ENT_QUOTES, 'UTF-8') . '</p>' . self::getProductDetailText($product),
                 'DETAIL_TEXT_TYPE' => 'html',
                 'PROPERTY_VALUES'  => $properties,
                 'ACTIVE'           => self::getStatusProduct($product),
@@ -238,7 +210,7 @@ class Main
         try {
             $data = [
                 'NAME'             => $product->name,
-                'DETAIL_TEXT'      => '<p>' . $product->description . '</p>' . self::getProductDetailText($product),
+                'DETAIL_TEXT'      => '<p>' . htmlentities($product->description, ENT_QUOTES, 'UTF-8') . '</p>' . self::getProductDetailText($product),
                 'DETAIL_TEXT_TYPE' => 'html',
                 'ACTIVE'           => self::getStatusProduct($product),
             ];
@@ -817,8 +789,8 @@ class Main
 
                     if ($needed === false) {
                         $properties[] = [
-                            'name'  => $attribute->name,
-                            'value' => $attribute->value . $dim,
+                            'name'  => htmlentities($attribute->name, ENT_QUOTES, 'UTF-8'),
+                            'value' => htmlentities($attribute->value . $dim, ENT_QUOTES, 'UTF-8'),
                         ];
                     } else {
                         $properties[$needed]['value'] .= ', ' . $attribute->value . $dim;
@@ -979,7 +951,7 @@ class Main
      */
     public static function getUniqueCodeSection($slug, int $i = 0): string
     {
-        $code = Cutil::translit($slug, 'ru', ['replace_space' => '-', 'replace_other' => '-']);
+        $code = self::transliteration($slug);
         $code = $i === 0 ? $code : $code . '-' . $i;
 
         $dbCode = CIBlockSection::GetList([], ['CODE' => $code], false, ['ID'])->Fetch();
@@ -1198,5 +1170,108 @@ class Main
         }
 
         return array_shift($neededObject);
+    }
+
+    /**
+     * String transliteration for url
+     *
+     * @param $string
+     * @return string
+     */
+    public static function transliteration($string): string
+    {
+        $arr_trans = [
+            'А'  => 'A',
+            'Б'  => 'B',
+            'В'  => 'V',
+            'Г'  => 'G',
+            'Д'  => 'D',
+            'Е'  => 'E',
+            'Ё'  => 'E',
+            'Ж'  => 'J',
+            'З'  => 'Z',
+            'И'  => 'I',
+            'Й'  => 'Y',
+            'К'  => 'K',
+            'Л'  => 'L',
+            'М'  => 'M',
+            'Н'  => 'N',
+            'О'  => 'O',
+            'П'  => 'P',
+            'Р'  => 'R',
+            'С'  => 'S',
+            'Т'  => 'T',
+            'У'  => 'U',
+            'Ф'  => 'F',
+            'Х'  => 'H',
+            'Ц'  => 'TS',
+            'Ч'  => 'CH',
+            'Ш'  => 'SH',
+            'Щ'  => 'SCH',
+            'Ъ'  => '',
+            'Ы'  => 'YI',
+            'Ь'  => '',
+            'Э'  => 'E',
+            'Ю'  => 'YU',
+            'Я'  => 'YA',
+            'а'  => 'a',
+            'б'  => 'b',
+            'в'  => 'v',
+            'г'  => 'g',
+            'д'  => 'd',
+            'е'  => 'e',
+            'ё'  => 'e',
+            'ж'  => 'j',
+            'з'  => 'z',
+            'и'  => 'i',
+            'й'  => 'y',
+            'к'  => 'k',
+            'л'  => 'l',
+            'м'  => 'm',
+            'н'  => 'n',
+            'о'  => 'o',
+            'п'  => 'p',
+            'р'  => 'r',
+            'с'  => 's',
+            'т'  => 't',
+            'у'  => 'u',
+            'ф'  => 'f',
+            'х'  => 'h',
+            'ц'  => 'ts',
+            'ч'  => 'ch',
+            'ш'  => 'sh',
+            'щ'  => 'sch',
+            'ъ'  => 'y',
+            'ы'  => 'yi',
+            'ь'  => '',
+            'э'  => 'e',
+            'ю'  => 'yu',
+            'я'  => 'ya',
+            '.'  => '-',
+            ' '  => '-',
+            '?'  => '-',
+            '/'  => '-',
+            '\\' => '-',
+            '*'  => '-',
+            ':'  => '-',
+            '>'  => '-',
+            '|'  => '-',
+            '\'' => '',
+            '('  => '',
+            ')'  => '',
+            '!'  => '',
+            '@'  => '',
+            '%'  => '',
+            '`'  => '',
+        ];
+        $string = str_replace(['-', '+', '.', '?', '/', '\\', '*', ':', '*', '|'], ' ', $string);
+        $string = htmlspecialchars_decode($string);
+        $string = strip_tags($string);
+        $pattern = '/[\w\s\d]+/u';
+        preg_match_all($pattern, $string, $result);
+        $string = implode('', $result[0]);
+        $string = preg_replace('/[\s]+/us', ' ', $string);
+
+        return strtolower(strtr($string, $arr_trans));
     }
 }
