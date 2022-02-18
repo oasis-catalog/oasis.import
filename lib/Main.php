@@ -260,11 +260,12 @@ class Main
      *
      * @param $productId
      * @param $product
+     * @param $utsProductId
      * @param bool $offer
      * @param bool $parent
-     * @throws Exception
+     * @throws \Exception
      */
-    public static function executeProduct($productId, $product, $offer = false, $parent = false)
+    public static function executeProduct($productId, $product, $utsProductId, $offer = false, $parent = false)
     {
         try {
             $dbProduct = ProductTable::getList([
@@ -288,7 +289,7 @@ class Main
                     'MEASURE'             => 5,
                     'AVAILABLE'           => 'Y',
                     'BUNDLE'              => 'N',
-                    'UF_OASIS_ID_PRODUCT' => $product->id,
+                    'UF_OASIS_ID_PRODUCT' => $utsProductId,
                     'TYPE'                => $offer ? ProductTable::TYPE_OFFER : ProductTable::TYPE_PRODUCT,
                 ];
 
