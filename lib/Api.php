@@ -71,6 +71,50 @@ class Api
     }
 
     /**
+     * Get stat products
+     *
+     * @return array
+     * @throws ArgumentNullException
+     * @throws ArgumentOutOfRangeException
+     */
+    public static function getStatProducts(): array
+    {
+        $module_id = pathinfo(dirname(__DIR__))['basename'];
+
+        try {
+            $data = [
+                'not_on_order' => (bool)Option::get($module_id, 'not_on_order'),
+                'price_from'   => (float)Option::get($module_id, 'price_from'),
+                'price_to'     => (float)Option::get($module_id, 'price_to'),
+                'rating'       => (bool)Option::get($module_id, 'rating'),
+                'moscow'       => (bool)Option::get($module_id, 'warehouse_moscow'),
+                'europe'       => (bool)Option::get($module_id, 'warehouse_europe'),
+                'remote'       => (bool)Option::get($module_id, 'remote_warehouse'),
+            ];
+
+            $categories = Option::get($module_id, 'categories');
+
+            if (!$categories) {
+                $categories = implode(',', array_keys(Main::getOasisMainCategories()));
+            }
+
+            $args = [
+                'category' => $categories,
+            ];
+
+            foreach ($data as $key => $value) {
+                if ($value) {
+                    $args[$key] = $value;
+                }
+            }
+            unset($category, $data, $key, $value);
+        } catch (\Exception $e) {
+        }
+
+        return self::curlQuery('stat', $args);
+    }
+
+    /**
      * Get oasis products by module settings
      *
      * @param array $args

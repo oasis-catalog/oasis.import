@@ -517,65 +517,178 @@ class Main
      */
     public static function checkProperties()
     {
-        $properties = [
-            'ARTNUMBER'     => [
-                'name'       => 'Артикул',
-                'type'       => 'S',
-                'iblockCode' => 'clothes',
+        $arProperties = [
+            'clothes'        => [
+                [
+                    'CODE'             => 'MORE_PHOTO',
+                    'NAME'             => 'Картинки',
+                    'PROPERTY_TYPE'    => 'F',
+                    'COL_COUNT'        => 30,
+                    'MULTIPLE'         => 'Y',
+                    'FILE_TYPE'        => 'jpg, gif, bmp, png, jpeg',
+                    'WITH_DESCRIPTION' => 'Y',
+                    'SORT'             => 500,
+                    'extend'           => [
+                        'section' => [
+                            'smartFilter'     => 'N',
+                            'displayType'     => '',
+                            'displayExpanded' => 'N',
+                        ],
+                    ],
+                ],
+                [
+                    'CODE'          => 'ARTNUMBER',
+                    'NAME'          => 'Артикул',
+                    'PROPERTY_TYPE' => 'S',
+                    'COL_COUNT'     => 30,
+                    'SEARCHABLE'    => 'N',
+                    'FILTRABLE'     => 'N',
+                    'SORT'          => 310,
+                    'extend'        => [
+                        'section' => [
+                            'smartFilter'     => 'N',
+                            'displayType'     => 'F',
+                            'displayExpanded' => 'N',
+                        ],
+                    ],
+                ],
+                [
+                    'CODE'          => 'MANUFACTURER',
+                    'NAME'          => 'Производитель',
+                    'PROPERTY_TYPE' => 'S',
+                    'SORT'          => 320,
+                    'extend'        => [
+                        'section' => [
+                            'smartFilter'     => 'Y',
+                            'displayType'     => 'F',
+                            'displayExpanded' => 'N',
+                        ],
+                    ],
+                ],
+                [
+                    'CODE'          => 'MATERIAL',
+                    'NAME'          => 'Материал',
+                    'PROPERTY_TYPE' => 'S',
+                    'MULTIPLE'      => 'Y',
+                    'MULTIPLE_CNT'  => 1,
+                    'SORT'          => 330,
+                    'extend'        => [
+                        'section' => [
+                            'smartFilter'     => 'Y',
+                            'displayType'     => 'F',
+                            'displayExpanded' => 'N',
+                        ],
+                    ],
+                ],
+                [
+                    'CODE'          => 'COLOR',
+                    'NAME'          => 'Цвет',
+                    'PROPERTY_TYPE' => 'S',
+                    'MULTIPLE_CNT'  => 3,
+                    'SORT'          => 340,
+                    'extend'        => [
+                        'section' => [
+                            'smartFilter'     => 'Y',
+                            'displayType'     => 'F',
+                            'displayExpanded' => 'N',
+                        ],
+                    ],
+                ],
             ],
-            'MANUFACTURER'  => [
-                'name'       => 'Производитель',
-                'type'       => 'S',
-                'iblockCode' => 'clothes',
-            ],
-            'MATERIAL'      => [
-                'name'       => 'Материал',
-                'type'       => 'S',
-                'iblockCode' => 'clothes',
-            ],
-            'COLOR'         => [
-                'name'       => 'Цвет',
-                'type'       => 'S',
-                'iblockCode' => 'clothes',
-            ],
-            'SIZES_CLOTHES' => [
-                'name'       => 'Размеры одежды',
-                'type'       => 'L',
-                'iblockCode' => 'clothes_offers',
-            ],
-            'SIZES_FLASH'   => [
-                'name'       => 'Объем памяти',
-                'type'       => 'L',
-                'iblockCode' => 'clothes_offers',
-            ],
-            'COLOR_CLOTHES' => [
-                'name'       => 'Цвет',
-                'type'       => 'L',
-                'iblockCode' => 'clothes_offers',
+            'clothes_offers' => [
+                [
+                    'CODE'             => 'MORE_PHOTO',
+                    'NAME'             => 'Картинки',
+                    'PROPERTY_TYPE'    => 'F',
+                    'COL_COUNT'        => 60,
+                    'MULTIPLE'         => 'Y',
+                    'FILE_TYPE'        => 'jpg, gif, bmp, png, jpeg',
+                    'WITH_DESCRIPTION' => 'N',
+                    'SORT'             => 500,
+                    'extend'           => [
+                        'section' => [
+                            'smartFilter'     => 'N',
+                            'displayType'     => '',
+                            'displayExpanded' => 'N',
+                        ],
+                    ],
+                ],
+                [
+                    'CODE'          => 'ARTNUMBER',
+                    'NAME'          => 'Артикул',
+                    'PROPERTY_TYPE' => 'S',
+                    'COL_COUNT'     => 60,
+                    'SEARCHABLE'    => 'Y',
+                    'FILTRABLE'     => 'Y',
+                    'SORT'          => 1010,
+                    'extend'        => [
+                        'section' => [
+                            'smartFilter'     => 'N',
+                            'displayType'     => 'P',
+                            'displayExpanded' => 'N',
+                        ],
+                    ],
+                ],
+                [
+                    'CODE'          => 'SIZES_CLOTHES',
+                    'NAME'          => 'Размеры одежды',
+                    'PROPERTY_TYPE' => 'L',
+                    'SORT'          => 1020,
+                ],
+                [
+                    'CODE'          => 'SIZES_FLASH',
+                    'NAME'          => 'Объем памяти',
+                    'PROPERTY_TYPE' => 'L',
+                    'SORT'          => 1030,
+                    'extend'        => [
+                        'section' => [
+                            'smartFilter'     => 'Y',
+                            'displayType'     => 'F',
+                            'displayExpanded' => 'Y',
+                        ],
+                    ],
+                ],
+                [
+                    'CODE'          => 'COLOR_CLOTHES',
+                    'NAME'          => 'Цвет',
+                    'PROPERTY_TYPE' => 'L',
+                    'SORT'          => 1040,
+                ],
             ],
         ];
 
         try {
             Loader::includeModule('iblock');
 
-            foreach ($properties as $key => $value) {
-                $dbProperty = PropertyTable::getList([
-                    'filter' => ['CODE' => $key],
-                ])->fetch();
+            foreach ($arProperties as $iblockCode => $properties) {
+                $iblockId = self::getIblockId($iblockCode);
 
-                if (!$dbProperty) {
-                    $propertyId = self::addProperty($key, $value);
+                foreach ($properties as $property) {
+                    $dbProperty = PropertyTable::getList([
+                        'filter' => [
+                            'IBLOCK_ID' => $iblockId,
+                            'CODE'      => $property['CODE']
+                        ],
+                    ])->fetch();
 
-                    if ($key === 'COLOR_CLOTHES' || $key === 'SIZES_CLOTHES' || $key === 'SIZES_FLASH') {
-                        SectionPropertyTable::add([
-                            'IBLOCK_ID'        => self::getIblockId($value['iblockCode']),
-                            'SECTION_ID'       => 0,
-                            'PROPERTY_ID'      => $propertyId,
-                            'SMART_FILTER'     => 'Y',
-                            'DISPLAY_TYPE'     => 'F',
-                            'DISPLAY_EXPANDED' => 'Y',
-                            'FILTER_HINT'      => '',
-                        ]);
+                    if (!$dbProperty) {
+                        if (!empty($property['extend'])) {
+                            $extend = $property['extend'];
+                            unset($property['extend']);
+                        }
+
+                        $arFields = array_merge([
+                            'IBLOCK_ID' => $iblockId,
+                            'XML_ID'    => $property['CODE'],
+                        ], $property);
+
+                        $propertyId = self::addProperty($arFields);
+
+                        if (!empty($extend)) {
+                            if (!empty($extend['section'])) {
+                                self::addSectionProperty($iblockId, $propertyId, $extend['section']);
+                            }
+                        }
                     }
                 }
             }
@@ -588,24 +701,49 @@ class Main
     /**
      * Add property product
      *
-     * @param $code
      * @param $data
-     * @return array|int|void
-     * @throws Exception
+     * @return array|int
+     * @throws \Exception
      */
-    private static function addProperty($code, $data)
+    private static function addProperty($data)
+    {
+        $result = [];
+
+        $arFields = array_merge([
+            'SORT'             => 1000,
+            'WITH_DESCRIPTION' => 'N',
+            'IS_REQUIRED'      => 'N',
+        ], $data);
+
+        try {
+            $result = PropertyTable::add($arFields)->getId();
+        } catch (SystemException $e) {
+            echo $e->getMessage() . PHP_EOL;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Add section property table
+     *
+     * @param int $iblockId
+     * @param int $propertyId
+     * @param array $data
+     * @throws \Exception
+     */
+    private static function addSectionProperty(int $iblockId, int $propertyId, array $data)
     {
         try {
-            return PropertyTable::add([
-                'IBLOCK_ID'        => self::getIblockId($data['iblockCode']),
-                'NAME'             => $data['name'],
-                'CODE'             => $code,
-                'SORT'             => 1000,
-                'PROPERTY_TYPE'    => $data['type'],
-                'XML_ID'           => $code,
-                'WITH_DESCRIPTION' => 'N',
-                'IS_REQUIRED'      => 'N',
-            ])->getId();
+            SectionPropertyTable::add([
+                'IBLOCK_ID'        => $iblockId,
+                'SECTION_ID'       => 0,
+                'PROPERTY_ID'      => $propertyId,
+                'SMART_FILTER'     => $data['smartFilter'],
+                'DISPLAY_TYPE'     => $data['displayType'],
+                'DISPLAY_EXPANDED' => $data['displayExpanded'],
+                'FILTER_HINT'      => $data['filterHint'] ?? '',
+            ]);
         } catch (SystemException $e) {
             echo $e->getMessage() . PHP_EOL;
         }

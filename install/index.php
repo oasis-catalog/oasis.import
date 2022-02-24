@@ -1,5 +1,6 @@
 <?php
 
+use Bitrix\Main\EventManager;
 use Bitrix\Main\Localization\Loc;
 use Bitrix\Main\ModuleManager;
 use Bitrix\Main\Config\Option;
@@ -47,6 +48,7 @@ class oasis_import extends CModule
 
             Option::set('main', 'agents_use_crontab', 'N');
             Option::set('main', 'check_agents', 'N');
+            Option::set($this->MODULE_ID, 'step', 0);
             \CAgent::AddAgent('\\Oasis\\Import\\Cli::import();', 'oasis.import', 'N', 24 * 60 * 60, '', 'Y', $dateImport->add('1 days 1 hours 30 min')->toString());
             \CAgent::AddAgent('\\Oasis\\Import\\Cli::upStock();', 'oasis.import', 'N', 30 * 60, '', 'Y', $objDateTime->add('30 min')->format('d.m.Y H:i:s'));
         } else {
@@ -89,6 +91,26 @@ class oasis_import extends CModule
 
     public function InstallEvents()
     {
+        EventManager::getInstance()->registerEventHandler(
+            'main',
+            'OnBeforeEndBufferContent',
+            $this->MODULE_ID,
+            'Oasis\Import\Main'
+        );
+
+        EventManager::getInstance()->registerEventHandler(
+            'api',
+            'OnBeforeEndBufferContent',
+            $this->MODULE_ID,
+            'Oasis\Import\Api'
+        );
+
+        EventManager::getInstance()->registerEventHandler(
+            'oorder',
+            'OnBeforeEndBufferContent',
+            $this->MODULE_ID,
+            'Oasis\Import\Oorder'
+        );
 
         return false;
     }
@@ -134,6 +156,26 @@ class oasis_import extends CModule
 
     public function UnInstallEvents()
     {
+        EventManager::getInstance()->unRegisterEventHandler(
+            'main',
+            'OnBeforeEndBufferContent',
+            $this->MODULE_ID,
+            'Oasis\Import\Main'
+        );
+
+        EventManager::getInstance()->unRegisterEventHandler(
+            'api',
+            'OnBeforeEndBufferContent',
+            $this->MODULE_ID,
+            'Oasis\Import\Api'
+        );
+
+        EventManager::getInstance()->unRegisterEventHandler(
+            'oorder',
+            'OnBeforeEndBufferContent',
+            $this->MODULE_ID,
+            'Oasis\Import\Oorder'
+        );
 
         return false;
     }

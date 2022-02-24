@@ -2,6 +2,7 @@
 
 namespace Oasis\Import;
 
+use Bitrix\Main\Config\Option;
 use Bitrix\Main\Loader;
 use Bitrix\Main\LoaderException;
 use Bitrix\Main\SystemException;
@@ -22,7 +23,24 @@ class Cli
         ini_set('memory_limit', '2G');
 
         try {
-            $oasisProducts = Api::getProductsOasis();
+            $args = [];
+            $module_id = pathinfo(dirname(__DIR__))['basename'];
+            $step = (int)Option::get($module_id, 'step');
+            $limit = (int)Option::get($module_id, 'limit');
+            $statProducts = Api::getStatProducts();
+
+            if ($limit > 0) {
+                $args['limit'] = $limit;
+                $args['offset'] = $step * $limit;
+            }
+
+            if ($args['offset'] > $statProducts) {
+                $nextStep = 0;
+            } else {
+                $nextStep = ++$step;
+            }
+
+            $oasisProducts = Api::getProductsOasis($args);
             $oasisCategories = Api::getCategoriesOasis();
 
             $group_ids = [];
@@ -34,57 +52,60 @@ class Cli
             Main::checkUserFields();
             Main::checkProperties();
 
-            foreach ($group_ids as $products) {
-                if (count($products) === 1) {
-                    $product = reset($products);
-                    $dbProduct = Main::checkProduct($product->id);
+            if ($group_ids) {
+                foreach ($group_ids as $products) {
+                    if (count($products) === 1) {
+                        $product = reset($products);
+                        $dbProduct = Main::checkProduct($product->id);
 
-                    if ($dbProduct) {
-                        $productId = (int)$dbProduct['ID'];
-                        Main::upIblockElementProduct($productId, $product, $oasisCategories);
-                    } else {
-                        $properties = Main::getPropertiesArray($product);
-                        $properties += Main::getProductImages($product);
-                        $productId = Main::addIblockElementProduct($product, $oasisCategories, $properties, 'clothes');
-                    }
-
-                    Main::executeProduct($productId, $product, $product->group_id);
-                    Main::executeStoreProduct($productId, $product->total_stock);
-                    Main::executePriceProduct($productId, $product);
-                } else {
-                    $firstProduct = reset($products);
-                    $dbProduct = Main::checkProduct($firstProduct->group_id);
-
-                    if ($dbProduct) {
-                        $productId = (int)$dbProduct['ID'];
-                        Main::upIblockElementProduct($productId, $firstProduct, $oasisCategories);
-                    } else {
-                        $properties = Main::getPropertiesArray($firstProduct, true);
-                        $productId = Main::addIblockElementProduct($firstProduct, $oasisCategories, $properties, 'clothes');
-                    }
-
-                    Main::executeProduct($productId, $firstProduct, $firstProduct->group_id, true, true);
-                    Main::executePriceProduct($productId, $firstProduct);
-
-                    foreach ($products as $product) {
-                        $dbOffer = Main::checkProduct($product->id, 4);
-
-                        if ($dbOffer) {
-                            $productOfferId = (int)$dbOffer['ID'];
-                            Main::upIblockElementProduct($productOfferId, $product);
+                        if ($dbProduct) {
+                            $productId = (int)$dbProduct['ID'];
+                            Main::upIblockElementProduct($productId, $product, $oasisCategories);
                         } else {
-                            $propertiesOffer = Main::getPropertiesArrayOffer($productId, $product);
-                            $productOfferId = Main::addIblockElementProduct($product, $oasisCategories, $propertiesOffer, 'clothes_offers', true);
-                            Main::executeMeasureRatioTable($productOfferId);
+                            $properties = Main::getPropertiesArray($product);
+                            $properties += Main::getProductImages($product);
+                            $productId = Main::addIblockElementProduct($product, $oasisCategories, $properties, 'clothes');
                         }
 
-                        Main::executeProduct($productOfferId, $product, $product->id, true);
-                        Main::executeStoreProduct($productOfferId, $product->total_stock);
-                        Main::executePriceProduct($productOfferId, $product);
-                    }
+                        Main::executeProduct($productId, $product, $product->group_id);
+                        Main::executeStoreProduct($productId, $product->total_stock);
+                        Main::executePriceProduct($productId, $product);
+                    } else {
+                        $firstProduct = reset($products);
+                        $dbProduct = Main::checkProduct($firstProduct->group_id);
 
-                    Main::upStatusFirstProduct($productId);
+                        if ($dbProduct) {
+                            $productId = (int)$dbProduct['ID'];
+                            Main::upIblockElementProduct($productId, $firstProduct, $oasisCategories);
+                        } else {
+                            $properties = Main::getPropertiesArray($firstProduct, true);
+                            $productId = Main::addIblockElementProduct($firstProduct, $oasisCategories, $properties, 'clothes');
+                        }
+
+                        Main::executeProduct($productId, $firstProduct, $firstProduct->group_id, true, true);
+                        Main::executePriceProduct($productId, $firstProduct);
+
+                        foreach ($products as $product) {
+                            $dbOffer = Main::checkProduct($product->id, 4);
+
+                            if ($dbOffer) {
+                                $productOfferId = (int)$dbOffer['ID'];
+                                Main::upIblockElementProduct($productOfferId, $product);
+                            } else {
+                                $propertiesOffer = Main::getPropertiesArrayOffer($productId, $product);
+                                $productOfferId = Main::addIblockElementProduct($product, $oasisCategories, $propertiesOffer, 'clothes_offers', true);
+                                Main::executeMeasureRatioTable($productOfferId);
+                            }
+
+                            Main::executeProduct($productOfferId, $product, $product->id, true);
+                            Main::executeStoreProduct($productOfferId, $product->total_stock);
+                            Main::executePriceProduct($productOfferId, $product);
+                        }
+
+                        Main::upStatusFirstProduct($productId);
+                    }
                 }
+                Option::set($module_id, 'step', $nextStep);
             }
         } catch (SystemException $e) {
             echo $e->getMessage() . PHP_EOL;
