@@ -58,7 +58,7 @@ class oasis_import extends CModule
         }
 
         $APPLICATION->IncludeAdminFile(
-            Loc::getMessage('OASIS_IMPORT_INSTALL_TITLE') . ' "' . Loc::getMessage("OASIS_IMPORT_NAME") . '"',
+            Loc::getMessage('OASIS_IMPORT_INSTALL_TITLE') . ' "' . Loc::getMessage('OASIS_IMPORT_NAME') . '"',
             __DIR__ . '/step.php'
         );
 
