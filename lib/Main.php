@@ -375,20 +375,31 @@ class Main
      *
      * @param $productId
      * @param $product
-     * @throws Exception
+     * @param array $dataCalcPrice
+     * @throws \Exception
      */
-    public static function executePriceProduct($productId, $product)
+    public static function executePriceProduct($productId, $product, array $dataCalcPrice)
     {
         try {
             $dbPrice = PriceTable::getList([
                 'filter' => ['PRODUCT_ID' => $productId]
             ])->fetch();
 
+            $price = !empty($dataCalcPrice['dealer']) ? $product->discount_price : $product->price;
+
+            if (!empty($dataCalcPrice['factor'])) {
+                $price = $price * (float)$dataCalcPrice['factor'];
+            }
+
+            if (!empty($dataCalcPrice['increase'])) {
+                $price = $price + (float)$dataCalcPrice['increase'];
+            }
+
             $arField = [
                 'CATALOG_GROUP_ID' => self::getBaseCatalogGroupId(),
                 'PRODUCT_ID'       => $productId,
-                'PRICE'            => $product->price,
-                'PRICE_SCALE'      => $product->price,
+                'PRICE'            => $price,
+                'PRICE_SCALE'      => $price,
                 'CURRENCY'         => 'RUB',
             ];
 

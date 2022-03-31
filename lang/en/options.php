@@ -30,6 +30,10 @@ $MESS["OASIS_IMPORT_ORDERS_TAB_AUTH"] = "Uploading orders to Oasiscatalog";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_LIMIT"] = "Limit";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_LIMIT_NOTE"] = "Setting for weak servers. Specify the limit of goods for one-time receipt and processing in CRON.<br/><strong>Attention!</strong> This option increases the time for adding products<br/>Values >1, 0 or empty - disables the limit";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_LIMIT_PRODUCT"] = "Products limit";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_CALC"] = "Price settings";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_FACTOR"] = "Price factor";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_INCREASE"] = "Price surcharge";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_DEALER"] = "Use dealer prices";
 
 $MESS["OASIS_IMPORT_ORDERS_ID"] = "ID";
 $MESS["OASIS_IMPORT_ORDERS_DATE_INSERT"] = "Date insert";

@@ -30,6 +30,10 @@ $MESS["OASIS_IMPORT_ORDERS_TAB_AUTH"] = "Выгрузка заказов в Oasi
 $MESS["OASIS_IMPORT_OPTIONS_TAB_LIMIT"] = "Лимит";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_LIMIT_NOTE"] = "Настройка для слабых серверов. Укажите лимит товаров для разового получения и обработки в CRON.<br/><strong>Внимание!</strong> Данная опция увеличивает время добавления товаров<br/>Значения от 1, 0 или пустота - отключает лимит";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_LIMIT_PRODUCT"] = "Лимит товаров";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_CALC"] = "Настройки цен";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_FACTOR"] = "Коэффициент цены";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_INCREASE"] = "Надбавка к цене";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_DEALER"] = "Использовать диллерские цены";
 
 $MESS["OASIS_IMPORT_ORDERS_ID"] = "ID";
 $MESS["OASIS_IMPORT_ORDERS_DATE_INSERT"] = "Дата создания";
