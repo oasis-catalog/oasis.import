@@ -27,17 +27,10 @@ class Cli
             $module_id = pathinfo(dirname(__DIR__))['basename'];
             $step = (int)Option::get($module_id, 'step');
             $limit = (int)Option::get($module_id, 'limit');
-            $statProducts = Api::getStatProducts();
 
             if ($limit > 0) {
                 $args['limit'] = $limit;
                 $args['offset'] = $step * $limit;
-            }
-
-            if ($args['offset'] > $statProducts) {
-                $nextStep = 0;
-            } else {
-                $nextStep = ++$step;
             }
 
             $oasisProducts = Api::getProductsOasis($args);
@@ -53,6 +46,8 @@ class Cli
             Main::checkProperties();
 
             if ($group_ids) {
+                $nextStep = ++$step;
+
                 foreach ($group_ids as $products) {
                     if (count($products) === 1) {
                         $product = reset($products);
@@ -105,6 +100,11 @@ class Cli
                         Main::upStatusFirstProduct($productId);
                     }
                 }
+            } else {
+                $nextStep = 0;
+            }
+
+            if (!empty($limit)) {
                 Option::set($module_id, 'step', $nextStep);
             }
         } catch (SystemException $e) {
