@@ -27,6 +27,12 @@ class Cli
             $module_id = pathinfo(dirname(__DIR__))['basename'];
             $step = (int)Option::get($module_id, 'step');
             $limit = (int)Option::get($module_id, 'limit');
+            $dataCalcPrice = [
+                'factor'   => str_replace(',', '.', Option::get($module_id, 'factor')),
+                'increase' => str_replace(',', '.', Option::get($module_id, 'increase')),
+                'dealer'   => Option::get($module_id, 'dealer'),
+            ];
+            $dataCalcPrice = array_diff($dataCalcPrice, ['', 0]);
 
             if ($limit > 0) {
                 $args['limit'] = $limit;
@@ -64,7 +70,7 @@ class Cli
 
                         Main::executeProduct($productId, $product, $product->group_id);
                         Main::executeStoreProduct($productId, $product->total_stock);
-                        Main::executePriceProduct($productId, $product);
+                        Main::executePriceProduct($productId, $product, $dataCalcPrice);
                     } else {
                         $firstProduct = reset($products);
                         $dbProduct = Main::checkProduct($firstProduct->group_id);
@@ -78,7 +84,7 @@ class Cli
                         }
 
                         Main::executeProduct($productId, $firstProduct, $firstProduct->group_id, true, true);
-                        Main::executePriceProduct($productId, $firstProduct);
+                        Main::executePriceProduct($productId, $firstProduct, $dataCalcPrice);
 
                         foreach ($products as $product) {
                             $dbOffer = Main::checkProduct($product->id, 4);
@@ -94,7 +100,7 @@ class Cli
 
                             Main::executeProduct($productOfferId, $product, $product->id, true);
                             Main::executeStoreProduct($productOfferId, $product->total_stock);
-                            Main::executePriceProduct($productOfferId, $product);
+                            Main::executePriceProduct($productOfferId, $product, $dataCalcPrice);
                         }
 
                         Main::upStatusFirstProduct($productId);
