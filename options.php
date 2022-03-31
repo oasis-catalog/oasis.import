@@ -129,6 +129,25 @@ try {
                 '',
                 ['text', 10]
             ],
+            Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CALC'),
+            [
+                'factor',
+                Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_FACTOR'),
+                '',
+                ['text', 10]
+            ],
+            [
+                'increase',
+                Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_INCREASE'),
+                '',
+                ['text', 10]
+            ],
+            [
+                'dealer',
+                Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_DEALER'),
+                'N',
+                ['checkbox']
+            ],
         ]);
 
         $aTabs[] = [
