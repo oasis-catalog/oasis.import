@@ -25,6 +25,13 @@ class Cli
         try {
             $args = [];
             $module_id = pathinfo(dirname(__DIR__))['basename'];
+            $iblockIdCatalog = (int)Option::get($module_id, 'iblock_catalog');
+            $iblockIdOffers = (int)Option::get($module_id, 'iblock_offers');
+
+            if (empty($iblockIdCatalog) || empty($iblockIdOffers)) {
+                exit();
+            }
+
             $step = (int)Option::get($module_id, 'step');
             $limit = (int)Option::get($module_id, 'limit');
             $dataCalcPrice = [
@@ -48,8 +55,8 @@ class Cli
             }
             unset($product);
 
-            Main::checkUserFields();
-            Main::checkProperties();
+            Main::checkUserFields($iblockIdCatalog);
+            Main::checkProperties($iblockIdCatalog, $iblockIdOffers);
 
             if ($group_ids) {
                 $nextStep = ++$step;
@@ -61,11 +68,11 @@ class Cli
 
                         if ($dbProduct) {
                             $productId = (int)$dbProduct['ID'];
-                            Main::upIblockElementProduct($productId, $product, $oasisCategories);
+                            Main::upIblockElementProduct($productId, $product, $iblockIdCatalog, $oasisCategories);
                         } else {
                             $properties = Main::getPropertiesArray($product);
                             $properties += Main::getProductImages($product);
-                            $productId = Main::addIblockElementProduct($product, $oasisCategories, $properties, 'clothes');
+                            $productId = Main::addIblockElementProduct($product, $oasisCategories, $properties, $iblockIdCatalog);
                         }
 
                         Main::executeProduct($productId, $product, $product->group_id);
@@ -77,10 +84,10 @@ class Cli
 
                         if ($dbProduct) {
                             $productId = (int)$dbProduct['ID'];
-                            Main::upIblockElementProduct($productId, $firstProduct, $oasisCategories);
+                            Main::upIblockElementProduct($productId, $firstProduct, $iblockIdCatalog, $oasisCategories);
                         } else {
                             $properties = Main::getPropertiesArray($firstProduct, true);
-                            $productId = Main::addIblockElementProduct($firstProduct, $oasisCategories, $properties, 'clothes');
+                            $productId = Main::addIblockElementProduct($firstProduct, $oasisCategories, $properties, $iblockIdCatalog);
                         }
 
                         Main::executeProduct($productId, $firstProduct, $firstProduct->group_id, true, true);
@@ -91,10 +98,10 @@ class Cli
 
                             if ($dbOffer) {
                                 $productOfferId = (int)$dbOffer['ID'];
-                                Main::upIblockElementProduct($productOfferId, $product);
+                                Main::upIblockElementProduct($productOfferId, $product, 0);
                             } else {
                                 $propertiesOffer = Main::getPropertiesArrayOffer($productId, $product);
-                                $productOfferId = Main::addIblockElementProduct($product, $oasisCategories, $propertiesOffer, 'clothes_offers', true);
+                                $productOfferId = Main::addIblockElementProduct($product, $oasisCategories, $propertiesOffer, $iblockIdOffers, true);
                                 Main::executeMeasureRatioTable($productOfferId);
                             }
 
@@ -103,7 +110,7 @@ class Cli
                             Main::executePriceProduct($productOfferId, $product, $dataCalcPrice);
                         }
 
-                        Main::upStatusFirstProduct($productId);
+                        Main::upStatusFirstProduct($productId, $iblockIdCatalog);
                     }
                 }
             } else {
