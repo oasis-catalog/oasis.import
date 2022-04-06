@@ -829,17 +829,20 @@ class Main
      *
      * @param $propertyCode
      * @param $value
+     * @param $iblockId
      * @return array|int|void
-     * @throws LoaderException
-     * @throws Exception
+     * @throws \Bitrix\Main\LoaderException
      */
-    public static function checkPropertyEnum($propertyCode, $value)
+    public static function checkPropertyEnum($propertyCode, $value, $iblockId)
     {
         try {
             Loader::includeModule('iblock');
 
             $dbProperty = PropertyTable::getList([
-                'filter' => ['CODE' => $propertyCode],
+                'filter' => [
+                    'CODE'      => $propertyCode,
+                    'IBLOCK_ID' => $iblockId
+                ],
             ])->fetch();
 
             $dbPropertyEnum = PropertyEnumerationTable::getList([
@@ -928,10 +931,11 @@ class Main
      *
      * @param $productId
      * @param $product
+     * @param $iblockId
      * @return array
-     * @throws LoaderException
+     * @throws \Bitrix\Main\LoaderException
      */
-    public static function getPropertiesArrayOffer($productId, $product): array
+    public static function getPropertiesArrayOffer($productId, $product, $iblockId): array
     {
         $result = [
             'CML2_LINK' => $productId,
@@ -939,18 +943,18 @@ class Main
         ];
 
         if (!is_null($product->size) && in_array(3070, $product->full_categories)) {
-            $result['SIZES_CLOTHES'] = self::checkPropertyEnum('SIZES_CLOTHES', $product->size);
+            $result['SIZES_CLOTHES'] = self::checkPropertyEnum('SIZES_CLOTHES', $product->size, $iblockId);
         }
 
         $sizeFlash = self::searchObject($product->attributes, 219);
 
         if ($sizeFlash) {
-            $result['SIZES_FLASH'] = self::checkPropertyEnum('SIZES_FLASH', $product->size);
+            $result['SIZES_FLASH'] = self::checkPropertyEnum('SIZES_FLASH', $product->size, $iblockId);
         }
 
         foreach ($product->attributes as $attribute) {
             if (isset($attribute->id) && $attribute->id === 1000000001) {
-                $result['COLOR_CLOTHES'] = self::checkPropertyEnum('COLOR_CLOTHES', $attribute->value);
+                $result['COLOR_CLOTHES'] = self::checkPropertyEnum('COLOR_CLOTHES', $attribute->value, $iblockId);
             }
         }
         unset($attribute);
