@@ -100,7 +100,7 @@ class Cli
                                 $productOfferId = (int)$dbOffer['ID'];
                                 Main::upIblockElementProduct($productOfferId, $product, 0);
                             } else {
-                                $propertiesOffer = Main::getPropertiesArrayOffer($productId, $product);
+                                $propertiesOffer = Main::getPropertiesArrayOffer($productId, $product, $iblockIdOffers);
                                 $productOfferId = Main::addIblockElementProduct($product, $oasisCategories, $propertiesOffer, $iblockIdOffers, true);
                                 Main::executeMeasureRatioTable($productOfferId);
                             }
