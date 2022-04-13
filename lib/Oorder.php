@@ -48,8 +48,11 @@ class Oorder extends Main
     /**
      * Get html order list
      *
-     * @throws \Bitrix\Main\LoaderException
+     * @return string
      * @throws \Bitrix\Main\ArgumentException
+     * @throws \Bitrix\Main\ArgumentNullException
+     * @throws \Bitrix\Main\ArgumentOutOfRangeException
+     * @throws \Bitrix\Main\LoaderException
      */
     public static function getOrdersHtml(): string
     {
@@ -161,29 +164,12 @@ class Oorder extends Main
      * @param int $orderId
      * @return array|null
      * @throws \Bitrix\Main\ArgumentException
-     * @throws \Bitrix\Main\DB\SqlQueryException
      * @throws \Bitrix\Main\LoaderException
      */
     public static function getOasisProductIds(int $orderId): ?array
     {
         Loader::includeModule('catalog');
         Loader::includeModule('sale');
-
-        $table = Application::getConnection()->query("SHOW TABLES LIKE 'b_uts_product'")->fetch();
-
-        try {
-            if ($table) {
-                $column = Application::getConnection()->query("SHOW COLUMNS FROM `b_uts_product` LIKE 'b_uts_product'")->fetch();
-
-                if (!$column) {
-                    Main::checkUserFields();
-                }
-            } else {
-                Main::checkUserFields();
-            }
-        } catch (SystemException $e) {
-            echo $e->getMessage() . PHP_EOL;
-        }
 
         $result = null;
         $basket = Basket::getList([
