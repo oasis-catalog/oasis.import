@@ -118,10 +118,8 @@ class Main
      * @param int $type
      * @param bool $fetchAll
      * @return array|false
-     * @throws ArgumentException
-     * @throws LoaderException
-     * @throws ObjectPropertyException
-     * @throws SystemException
+     * @throws \Bitrix\Main\DB\SqlQueryException
+     * @throws \Bitrix\Main\LoaderException
      */
     public static function checkProduct($productId, int $type = 0, $fetchAll = false)
     {
@@ -156,12 +154,11 @@ class Main
      * @param $product
      * @param $oasisCategories
      * @param $properties
-     * @param $iblockCode
+     * @param $iblockId
      * @param bool $offer
      * @return false|mixed|void
-     * @throws LoaderException
      */
-    public static function addIblockElementProduct($product, $oasisCategories, $properties, $iblockCode, $offer = false)
+    public static function addIblockElementProduct($product, $oasisCategories, $properties, $iblockId, $offer = false)
     {
         $productId = null;
 
@@ -169,7 +166,7 @@ class Main
             $data = [
                 'NAME'             => $product->name,
                 'CODE'             => self::getUniqueCodeElement($product->name),
-                'IBLOCK_ID'        => self::getIblockId($iblockCode),
+                'IBLOCK_ID'        => $iblockId,
                 'DETAIL_TEXT'      => '<p>' . $product->description . '</p>' . self::getProductDetailText($product),
                 'DETAIL_TEXT_TYPE' => 'html',
                 'PROPERTY_VALUES'  => $properties,
@@ -181,7 +178,7 @@ class Main
             }
 
             if ($offer === false) {
-                $data += self::getIblockSectionProduct($product, $oasisCategories);
+                $data += self::getIblockSectionProduct($product, $oasisCategories, $iblockId);
             }
 
             $el = new CIBlockElement;
@@ -204,10 +201,10 @@ class Main
      *
      * @param $iblockElementId
      * @param $product
+     * @param $iblockId
      * @param array $oasisCategories
-     * @throws LoaderException
      */
-    public static function upIblockElementProduct($iblockElementId, $product, array $oasisCategories = [])
+    public static function upIblockElementProduct($iblockElementId, $product, $iblockId, array $oasisCategories = [])
     {
         try {
             $data = [
@@ -218,7 +215,7 @@ class Main
             ];
 
             if ($oasisCategories) {
-                $data += self::getIblockSectionProduct($product, $oasisCategories);
+                $data += self::getIblockSectionProduct($product, $oasisCategories, $iblockId);
             }
 
             $el = new CIBlockElement;
@@ -238,11 +235,12 @@ class Main
      * Update status first product
      *
      * @param $productId
+     * @param $iblockId
      */
-    public static function upStatusFirstProduct($productId)
+    public static function upStatusFirstProduct($productId, $iblockId)
     {
         try {
-            $arSKU = \CCatalogSKU::getOffersList($productId, self::getIblockId('clothes'), ['ACTIVE' => 'Y'], [], []);
+            $arSKU = \CCatalogSKU::getOffersList($productId, $iblockId, ['ACTIVE' => 'Y'], [], []);
 
             if ($arSKU) {
                 $el = new CIBlockElement;
@@ -505,12 +503,12 @@ class Main
      *
      * @param $product
      * @param $oasisCategories
+     * @param $iblockId
      * @return array
-     * @throws LoaderException
      */
-    public static function getIblockSectionProduct($product, $oasisCategories): array
+    public static function getIblockSectionProduct($product, $oasisCategories, $iblockId): array
     {
-        $categories = self::getCategories($oasisCategories, $product->categories);
+        $categories = self::getCategories($oasisCategories, $product->categories, $iblockId);
 
         if (count($categories) > 1) {
             $result['IBLOCK_SECTION'] = $categories;
@@ -526,10 +524,10 @@ class Main
      * @throws LoaderException
      * @throws Exception
      */
-    public static function checkProperties()
+    public static function checkProperties($iblockIdCatalog, $iblockIdOffers)
     {
         $arProperties = [
-            'clothes'        => [
+            $iblockIdCatalog => [
                 [
                     'CODE'             => 'MORE_PHOTO',
                     'NAME'             => 'Картинки',
@@ -606,7 +604,7 @@ class Main
                     ],
                 ],
             ],
-            'clothes_offers' => [
+            $iblockIdOffers  => [
                 [
                     'CODE'             => 'MORE_PHOTO',
                     'NAME'             => 'Картинки',
@@ -671,8 +669,7 @@ class Main
         try {
             Loader::includeModule('iblock');
 
-            foreach ($arProperties as $iblockCode => $properties) {
-                $iblockId = self::getIblockId($iblockCode);
+            foreach ($arProperties as $iblockId => $properties) {
 
                 foreach ($properties as $property) {
                     $dbProperty = PropertyTable::getList([
@@ -951,18 +948,14 @@ class Main
      *
      * @param $oasisCategories
      * @param $productCategories
+     * @param $iblockId
      * @return array
-     * @throws LoaderException
      */
-    public static function getCategories($oasisCategories, $productCategories): array
+    public static function getCategories($oasisCategories, $productCategories, $iblockId): array
     {
         $result = [];
 
         try {
-            Loader::includeModule('iblock');
-
-            $iblockId = self::getIblockId('clothes');
-
             foreach ($productCategories as $productCategory) {
                 $result[] = self::getCategoryId($oasisCategories, $productCategory, $iblockId);
             }
@@ -1122,7 +1115,7 @@ class Main
      * @throws ObjectPropertyException
      * @throws SystemException
      */
-    public static function checkUserFields()
+    public static function checkUserFields($iblockId)
     {
         Loader::includeModule('iblock');
 
@@ -1138,7 +1131,7 @@ class Main
         unset($dataField);
 
         $dataField = [
-            'ENTITY_ID'  => 'IBLOCK_' . self::getIblockId('clothes') . '_SECTION',
+            'ENTITY_ID'  => 'IBLOCK_' . $iblockId . '_SECTION',
             'FIELD_NAME' => 'UF_OASIS_ID_CATEGORY',
             'LABEL'      => [
                 'ru' => 'Oasis ID категории',
@@ -1156,7 +1149,10 @@ class Main
      */
     private static function addUserField($data)
     {
-        $dbUserFields = CUserTypeEntity::GetList([], ['FIELD_NAME' => $data['FIELD_NAME']])->fetch();
+        $dbUserFields = CUserTypeEntity::GetList([], [
+            'FIELD_NAME' => $data['FIELD_NAME'],
+            'ENTITY_ID' => $data['ENTITY_ID']
+        ])->fetch();
 
         if (!$dbUserFields) {
             $oUserTypeEntity = new CUserTypeEntity();
@@ -1228,6 +1224,32 @@ class Main
         }
 
         return (int)$arIblock['ID'] ?? 0;
+    }
+
+    /**
+     * Get array active iblocks for selectbox in page options
+     *
+     * @return array
+     * @throws \Bitrix\Main\ArgumentException
+     * @throws \Bitrix\Main\LoaderException
+     * @throws \Bitrix\Main\ObjectPropertyException
+     * @throws \Bitrix\Main\SystemException
+     */
+    public static function getActiveIblocksForOptions(): array
+    {
+        Loader::includeModule('iblock');
+
+        $result = [];
+        $arIblocks = IblockTable::getList([
+            'select' => ['ID', 'NAME', 'IBLOCK_TYPE_ID'],
+            'filter' => ['ACTIVE' => 'Y'],
+        ])->fetchAll();
+
+        foreach ($arIblocks as $arIblock) {
+            $result[$arIblock['ID']] = '(ID=' . $arIblock['ID'] . ') ' . $arIblock['NAME'];
+        }
+
+        return $result;
     }
 
     /**

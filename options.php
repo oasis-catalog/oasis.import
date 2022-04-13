@@ -43,6 +43,19 @@ try {
     $currencies = Main::getCurrenciesOasisArray();
 
     if (!empty($currencies)) {
+        $aTabs[0]['OPTIONS'][] = Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_IBLOCK');
+        $aTabs[0]['OPTIONS'][] = [
+            'iblock_catalog',
+            Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_IBLOCK_CATALOG'),
+            '',
+            ['selectbox', [''  => Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_SELECT')] + Main::getActiveIblocksForOptions()]
+        ];
+        $aTabs[0]['OPTIONS'][] = [
+            'iblock_offers',
+            Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_IBLOCK_OFFERS'),
+            '',
+            ['selectbox', [''  => Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_SELECT')] + Main::getActiveIblocksForOptions()]
+        ];
         $aTabs[0]['OPTIONS'][] = Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CRON_TITLE');
         $aTabs[0]['OPTIONS'][] = [
             'note' => Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CRON_DESC_PREFIX') .
@@ -95,7 +108,7 @@ try {
                 Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_RATING'),
                 '',
                 ['selectbox', [
-                    ''  => Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_RATING_SELECT'),
+                    ''  => Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_SELECT'),
                     '1' => Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_RATING_NEW'),
                     '2' => Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_RATING_HITS'),
                     '3' => Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_RATING_DISCOUNT'),
@@ -168,6 +181,19 @@ try {
 if ($request->isPost() && check_bitrix_sessid()) {
     foreach ($aTabs as $aTab) {
         foreach ($aTab['OPTIONS'] as $arOption) {
+            if ($request['apply']) {
+                if (!empty($arOption[0]) && ($arOption[0] === 'iblock_catalog' || $arOption[0] === 'iblock_offers')) {
+                    $optionValue = $request->getPost($arOption[0]);
+
+                    if (empty($optionValue)) {
+                        LocalRedirect($APPLICATION->GetCurPage() . '?mid=' . $module_id . '&lang=' . LANG . '&errorIblock=1');
+                        break;
+                    }
+                }
+            }
+        }
+
+        foreach ($aTab['OPTIONS'] as $arOption) {
             if (!is_array($arOption)) {
                 continue;
             }
@@ -207,6 +233,26 @@ $tabControl = new CAdminTabControl(
 );
 
 $tabControl->Begin();
+$errorIblock = $request->get('errorIblock');
+
+if (!empty($errorIblock) && $errorIblock == 1) {
+    CUtil::InitJSCore(['window']);
+?>
+
+    <script type="application/javascript">
+        var popup = new BX.CDialog({
+            "title": "<?php echo Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_IBLOCK_ERROR_TITLE') ?>",
+            "content": "<?php echo Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_IBLOCK_ERROR_DESC') ?>",
+            "width": 500,
+            "height": 120,
+            "draggable": true,
+            "resizable": false,
+            "buttons": [BX.CDialog.btnClose]
+        });
+        popup.Show();
+    </script>
+<?php
+}
 ?>
 
     <form action="<? echo($APPLICATION->GetCurPage()); ?>?mid=<? echo($module_id); ?>&lang=<? echo(LANG); ?>" method="post">
