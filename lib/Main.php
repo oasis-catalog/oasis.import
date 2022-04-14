@@ -1190,26 +1190,28 @@ class Main
     {
         Loader::includeModule('iblock');
 
-        $dataField = [
-            'ENTITY_ID'  => 'PRODUCT',
-            'FIELD_NAME' => 'UF_OASIS_ID_PRODUCT',
-            'LABEL'      => [
-                'ru' => 'Oasis ID товара',
-                'en' => 'Oasis ID product',
+        $dataFields = [
+            [
+                'ENTITY_ID'  => 'PRODUCT',
+                'FIELD_NAME' => 'UF_OASIS_ID_PRODUCT',
+                'LABEL'      => [
+                    'ru' => 'Oasis ID товара',
+                    'en' => 'Oasis ID product',
+                ],
+            ],
+            [
+                'ENTITY_ID'  => 'IBLOCK_' . $iblockId . '_SECTION',
+                'FIELD_NAME' => 'UF_OASIS_ID_CATEGORY',
+                'LABEL'      => [
+                    'ru' => 'Oasis ID категории',
+                    'en' => 'Oasis ID category',
+                ],
             ],
         ];
-        self::addUserField($dataField);
-        unset($dataField);
 
-        $dataField = [
-            'ENTITY_ID'  => 'IBLOCK_' . $iblockId . '_SECTION',
-            'FIELD_NAME' => 'UF_OASIS_ID_CATEGORY',
-            'LABEL'      => [
-                'ru' => 'Oasis ID категории',
-                'en' => 'Oasis ID category',
-            ],
-        ];
-        self::addUserField($dataField);
+        foreach ($dataFields as $dataField) {
+            self::addUserField($dataField);
+        }
     }
 
     /**
@@ -1225,7 +1227,10 @@ class Main
     {
         $dbUserFields = UserFieldTable::getList([
             'select' => ['ID'],
-            'filter' => ['FIELD_NAME' => 'UF_' . $data['FIELD_NAME']],
+            'filter' => [
+                'FIELD_NAME' => $data['FIELD_NAME'],
+                'ENTITY_ID' => $data['ENTITY_ID']
+            ],
         ])->fetch();
 
         if (!$dbUserFields) {
