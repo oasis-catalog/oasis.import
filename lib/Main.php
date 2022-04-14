@@ -1114,35 +1114,35 @@ class Main
     /**
      * Check user fields UF_OASIS_ID_CATEGORY and UF_OASIS_ID_PRODUCT
      *
-     * @throws ArgumentException
-     * @throws LoaderException
-     * @throws ObjectPropertyException
-     * @throws SystemException
+     * @param $iblockId
+     * @throws \Bitrix\Main\LoaderException
      */
     public static function checkUserFields($iblockId)
     {
         Loader::includeModule('iblock');
 
-        $dataField = [
-            'ENTITY_ID'  => 'PRODUCT',
-            'FIELD_NAME' => 'UF_OASIS_ID_PRODUCT',
-            'LABEL'      => [
-                'ru' => 'Oasis ID товара',
-                'en' => 'Oasis ID product',
+        $dataFields = [
+            [
+                'ENTITY_ID'  => 'PRODUCT',
+                'FIELD_NAME' => 'UF_OASIS_ID_PRODUCT',
+                'LABEL'      => [
+                    'ru' => 'Oasis ID товара',
+                    'en' => 'Oasis ID product',
+                ],
+            ],
+            [
+                'ENTITY_ID'  => 'IBLOCK_' . $iblockId . '_SECTION',
+                'FIELD_NAME' => 'UF_OASIS_ID_CATEGORY',
+                'LABEL'      => [
+                    'ru' => 'Oasis ID категории',
+                    'en' => 'Oasis ID category',
+                ],
             ],
         ];
-        self::addUserField($dataField);
-        unset($dataField);
 
-        $dataField = [
-            'ENTITY_ID'  => 'IBLOCK_' . $iblockId . '_SECTION',
-            'FIELD_NAME' => 'UF_OASIS_ID_CATEGORY',
-            'LABEL'      => [
-                'ru' => 'Oasis ID категории',
-                'en' => 'Oasis ID category',
-            ],
-        ];
-        self::addUserField($dataField);
+        foreach ($dataFields as $dataField) {
+            self::addUserField($dataField);
+        }
     }
 
     /**
