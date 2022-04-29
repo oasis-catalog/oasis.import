@@ -75,7 +75,7 @@ class Cli
                             $productId = Main::addIblockElementProduct($product, $oasisCategories, $properties, $iblockIdCatalog);
                         }
 
-                        Main::executeProduct($productId, $product, $product->group_id);
+                        Main::executeProduct($productId, $product, $product->id);
                         Main::executeStoreProduct($productId, $product->total_stock);
                         Main::executePriceProduct($productId, $product, $dataCalcPrice);
                     } else {
