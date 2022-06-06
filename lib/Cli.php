@@ -75,6 +75,7 @@ class Cli
                             $productId = Main::addIblockElementProduct($product, $oasisCategories, $properties, $iblockIdCatalog);
                         }
 
+                        Main::checkPropertyValues($productId, $product, $iblockIdCatalog);
                         Main::executeProduct($productId, $product, $product->id);
                         Main::executeStoreProduct($productId, $product->total_stock);
                         Main::executePriceProduct($productId, $product, $dataCalcPrice);
@@ -86,7 +87,7 @@ class Cli
                             $productId = (int)$dbProduct['ID'];
                             Main::upIblockElementProduct($productId, $firstProduct, $iblockIdCatalog, $oasisCategories);
                         } else {
-                            $properties = Main::getPropertiesArray($firstProduct, true);
+                            $properties = Main::getPropertiesArray($firstProduct);
                             $productId = Main::addIblockElementProduct($firstProduct, $oasisCategories, $properties, $iblockIdCatalog);
                         }
 
@@ -105,6 +106,7 @@ class Cli
                                 Main::executeMeasureRatioTable($productOfferId);
                             }
 
+                            Main::checkPropertyValues($productId, $product, $iblockIdCatalog);
                             Main::executeProduct($productOfferId, $product, $product->id, true);
                             Main::executeStoreProduct($productOfferId, $product->total_stock);
                             Main::executePriceProduct($productOfferId, $product, $dataCalcPrice);
