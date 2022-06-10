@@ -265,7 +265,8 @@ if (!empty($errorIblock) && $errorIblock == 1) {
                     $tabControl->BeginNextTab();
                     foreach ($aTab['OPTIONS'] as $option) {
                             if (!empty($option[3][0]) && $option[3][0] === 'checkboxes') {
-                                CustomFields::checkboxes($module_id, $option);
+                                $customFields = new CustomFields();
+                                $customFields->checkboxes($module_id, $option);
                             } else {
                                 __AdmSettingsDrawRow($module_id, $option);
                             }
