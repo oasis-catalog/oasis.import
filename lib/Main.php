@@ -648,6 +648,101 @@ class Main
                         ],
                     ],
                 ],
+                [
+                    'CODE'          => 'GENDER',
+                    'NAME'          => 'Гендер',
+                    'PROPERTY_TYPE' => 'S',
+                    'MULTIPLE'      => 'Y',
+                    'MULTIPLE_CNT'  => 1,
+                    'SORT'          => 510,
+                    'extend'        => [
+                        'feature' => [
+                            'LIST_PAGE_SHOW'   => 'Y',
+                            'DETAIL_PAGE_SHOW' => 'Y',
+                        ],
+                        'section' => [
+                            'smartFilter'     => 'Y',
+                            'displayType'     => 'F',
+                            'displayExpanded' => 'N',
+                        ],
+                    ],
+                ],
+                [
+                    'CODE'          => 'BRANDING',
+                    'NAME'          => 'Метод нанесения',
+                    'PROPERTY_TYPE' => 'S',
+                    'MULTIPLE'      => 'Y',
+                    'MULTIPLE_CNT'  => 1,
+                    'SORT'          => 520,
+                    'extend'        => [
+                        'feature' => [
+                            'LIST_PAGE_SHOW'   => 'Y',
+                            'DETAIL_PAGE_SHOW' => 'Y',
+                        ],
+                        'section' => [
+                            'smartFilter'     => 'Y',
+                            'displayType'     => 'F',
+                            'displayExpanded' => 'N',
+                        ],
+                    ],
+                ],
+                [
+                    'CODE'          => 'MECHANISM',
+                    'NAME'          => 'Вид механизма',
+                    'PROPERTY_TYPE' => 'S',
+                    'MULTIPLE'      => 'Y',
+                    'MULTIPLE_CNT'  => 1,
+                    'SORT'          => 530,
+                    'extend'        => [
+                        'feature' => [
+                            'LIST_PAGE_SHOW'   => 'Y',
+                            'DETAIL_PAGE_SHOW' => 'Y',
+                        ],
+                        'section' => [
+                            'smartFilter'     => 'Y',
+                            'displayType'     => 'F',
+                            'displayExpanded' => 'N',
+                        ],
+                    ],
+                ],
+                [
+                    'CODE'          => 'INK_COLOR',
+                    'NAME'          => 'Цвет чернил',
+                    'PROPERTY_TYPE' => 'S',
+                    'MULTIPLE'      => 'Y',
+                    'MULTIPLE_CNT'  => 1,
+                    'SORT'          => 540,
+                    'extend'        => [
+                        'feature' => [
+                            'LIST_PAGE_SHOW'   => 'Y',
+                            'DETAIL_PAGE_SHOW' => 'Y',
+                        ],
+                        'section' => [
+                            'smartFilter'     => 'Y',
+                            'displayType'     => 'F',
+                            'displayExpanded' => 'N',
+                        ],
+                    ],
+                ],
+                [
+                    'CODE'          => 'ROD_TYPE',
+                    'NAME'          => 'Тип стержня',
+                    'PROPERTY_TYPE' => 'S',
+                    'MULTIPLE'      => 'Y',
+                    'MULTIPLE_CNT'  => 1,
+                    'SORT'          => 550,
+                    'extend'        => [
+                        'feature' => [
+                            'LIST_PAGE_SHOW'   => 'Y',
+                            'DETAIL_PAGE_SHOW' => 'Y',
+                        ],
+                        'section' => [
+                            'smartFilter'     => 'Y',
+                            'displayType'     => 'F',
+                            'displayExpanded' => 'N',
+                        ],
+                    ],
+                ],
             ],
             $iblockIdOffers  => [
                 [
@@ -989,15 +1084,15 @@ class Main
         foreach ($colors as $row) {
             $sort += 100;
             $colorValues[] = [
-                'UF_NAME'     => $row['TITLE'],
-                'UF_FILE'     => [
+                'UF_NAME'   => $row['TITLE'],
+                'UF_FILE'   => [
                     'name'     => $row['FILE_NAME'],
                     'type'     => $row['FILE_TYPE'],
                     'tmp_name' => $imgPath . $row['PATH']
                 ],
-                'UF_SORT'     => $sort,
-                'UF_DEF'      => '0',
-                'UF_XML_ID'   => $row['XML_ID']
+                'UF_SORT'   => $sort,
+                'UF_DEF'    => '0',
+                'UF_XML_ID' => $row['XML_ID']
             ];
         }
         unset($row);
@@ -1317,48 +1412,91 @@ class Main
     }
 
     /**
-     * Check property COLOR_OA_REF in product
+     * Update product properties for filter
      *
      * @param $productId
      * @param $product
      * @param $iblockId
      */
-    public static function checkPropertyValues($productId, $product, $iblockId)
+    public static function upPropertiesFilter($productId, $product, $iblockId)
     {
-        $statusProduct = self::getStatusProduct($product);
+        $properties = [];
 
         if (!empty($product->colors)) {
-            $result = [];
-            CIBlockElement::GetPropertyValuesArray(
-                $result,
-                $iblockId,
-                [
-                    'ID' => [$productId]
-                ],
-                [
-                    'CODE' => 'COLOR_OA_REF'
-                ]
-            );
-
-            $arValues = !empty($result[$productId]['COLOR_OA_REF']['VALUE']) ? $result[$productId]['COLOR_OA_REF']['VALUE'] : [];
-            $colors = [];
-
             foreach ($product->colors as $color) {
-                $colors[] = $color->parent_id;
+                $properties['COLOR_OA_REF'][] = $color->parent_id;
             }
             unset($color);
+        }
 
-            if ($statusProduct === 'Y') {
-                if (empty($arValues)) {
-                    CIBlockElement::SetPropertyValuesEx($productId, $iblockId, ['COLOR_OA_REF' => $colors]);
-                } else {
-                    CIBlockElement::SetPropertyValuesEx($productId, $iblockId, ['COLOR_OA_REF' => array_unique(array_merge($arValues, $colors))]);
+        foreach ($product->attributes as $attribute) {
+            if (isset($attribute->id)) {
+                switch ($attribute->id) {
+                    case 65:
+                        $properties['GENDER'][] = $attribute->value;
+                        break;
+                    case 1000000008:
+                        $properties['BRANDING'][] = $attribute->value;
+                        break;
+                    case 8:
+                        $properties['MECHANISM'][] = $attribute->value;
+                        break;
+                    case 6:
+                        $properties['INK_COLOR'][] = $attribute->value;
+                        break;
+                    case 105:
+                        $properties['ROD_TYPE'][] = $attribute->value;
+                        break;
                 }
-            } elseif (!empty($arValues)) {
-                CIBlockElement::SetPropertyValuesEx($productId, $iblockId, ['COLOR_OA_REF' => array_values(array_diff($arValues, $colors))]);
             }
+        }
+        unset($attribute);
 
-            Manager::updateElementIndex($iblockId, $productId);
+        foreach ($properties as $code => $dataProperty) {
+            self::checkPropertyValues($productId, $product, $iblockId, $code, $dataProperty);
+        }
+        unset($code, $dataProperty);
+
+        Manager::updateElementIndex($iblockId, $productId);
+    }
+
+    /**
+     * Check and set property values for filter
+     *
+     * @param $productId
+     * @param $product
+     * @param $iblockId
+     * @param $code
+     * @param array $properties
+     */
+
+    public static function checkPropertyValues($productId, $product, $iblockId, $code, array $properties = [])
+    {
+        $statusProduct = self::getStatusProduct($product);
+        $result = [];
+
+        CIBlockElement::GetPropertyValuesArray(
+            $result,
+            $iblockId,
+            [
+                'ID' => [$productId]
+            ],
+            [
+                'CODE' => $code
+            ]
+        );
+
+        $arValues = !empty($result[$productId][$code]['VALUE']) ? $result[$productId][$code]['VALUE'] : [];
+        unset($result);
+
+        if ($statusProduct === 'Y') {
+            if (empty($arValues)) {
+                CIBlockElement::SetPropertyValuesEx($productId, $iblockId, [$code => $properties]);
+            } else {
+                CIBlockElement::SetPropertyValuesEx($productId, $iblockId, [$code => array_unique(array_merge($arValues, $properties))]);
+            }
+        } elseif (!empty($arValues)) {
+            CIBlockElement::SetPropertyValuesEx($productId, $iblockId, [$code => array_values(array_diff($arValues, $properties))]);
         }
     }
 
