@@ -21,6 +21,7 @@ use Bitrix\Main\Application;
 use Bitrix\Main\ArgumentException;
 use Bitrix\Main\ArgumentNullException;
 use Bitrix\Main\ArgumentOutOfRangeException;
+use Bitrix\Main\Config\Option;
 use Bitrix\Main\Diag\Debug;
 use Bitrix\Main\Loader;
 use Bitrix\Main\LoaderException;
@@ -107,7 +108,7 @@ class Main
                 foreach ($stock as $item) {
                     if (array_key_exists($item->id, $products)) {
                         ProductTable::update($products[$item->id], ['QUANTITY' => $item->stock]);
-                        self::executeStoreProduct($products[$item->id], $item->stock, true);
+                        self::executeStoreProduct($products[$item->id], $item, true);
                     }
                 }
                 unset($item);
@@ -331,42 +332,143 @@ class Main
     }
 
     /**
+     * Checking stores and adding in the absence
+     *
+     * @throws \Bitrix\Main\ArgumentException
+     * @throws \Bitrix\Main\ObjectPropertyException
+     * @throws \Bitrix\Main\SystemException
+     */
+    public static function checkStores()
+    {
+        $arStores = StoreTable::getList([
+            'filter' => ['ACTIVE' => 'Y'],
+        ])->fetchAll();
+
+        $arFieldsStores = [
+            [
+                'TITLE'   => 'Склад',
+                'ACTIVE'  => 'Y',
+                'ADDRESS' => 'Адрес склада',
+                'SORT'    => 100,
+            ],
+            [
+                'TITLE'   => 'Удаленый склад',
+                'ACTIVE'  => 'Y',
+                'ADDRESS' => 'Удаленый склад',
+                'XML_ID'  => 'OASIS_STOCK_REMOTE',
+                'SORT'    => 500,
+                'CODE'    => 'OASIS_STOCK_REMOTE'
+            ]
+        ];
+
+        if (empty($arStores)) {
+            foreach ($arFieldsStores as $arFieldsStore) {
+                StoreTable::add($arFieldsStore);
+            }
+        } else {
+            $neededStock = array_filter($arStores, function ($e) {
+                return $e['CODE'] == 'OASIS_STOCK_REMOTE';
+            });
+
+            if (empty($neededStock)) {
+                StoreTable::add(array_pop($arFieldsStores));
+            }
+        }
+    }
+
+    /**
      * Execute StoreProductTable
      *
      * @param $productId
-     * @param $quantity
+     * @param $data
      * @param bool $upStock
-     * @throws Exception
+     * @throws \Exception
      */
-    public static function executeStoreProduct($productId, $quantity, bool $upStock = false)
+    public static function executeStoreProduct($productId, $data, bool $upStock = false)
     {
+        if ($upStock) {
+            $stockMain = (int)$data->stock;
+            $stockRemote = (int)$data->{'stock-remote'};
+        } else {
+            $stockMain = (int)$data->outlets->{'000000029'};
+            $stockRemote = !empty($data->outlets->{'1-0000052'}) ? (int)$data->outlets->{'1-0000052'} : 0;
+        }
+
+        $stores = [
+            'main' => [
+                'ID'     => (int)Option::get(pathinfo(dirname(__DIR__))['basename'], 'main_stock'),
+                'AMOUNT' => $stockMain,
+            ]
+        ];
+
         try {
-            $arStore = StoreTable::getList([
-                'filter' => ['ACTIVE' => 'Y'],
-            ])->fetch();
+            $multiStocks = Option::get(pathinfo(dirname(__DIR__))['basename'], 'stocks');
 
-            $rsStoreProduct = StoreProductTable::getList([
-                'filter' => ['=PRODUCT_ID' => $productId, 'STORE.ACTIVE' => 'Y'],
-            ]);
+            if (!empty($multiStocks)) {
+                $stores['remote'] = [
+                    'ID'     => (int)Option::get(pathinfo(dirname(__DIR__))['basename'], 'remote_stock'),
+                    'AMOUNT' => $stockRemote,
+                ];
 
-            $arField = [
-                'PRODUCT_ID' => (int)$productId,
-                'STORE_ID'   => $arStore['ID'],
-            ];
+                if (empty($stores['main']['ID']) || empty($stores['remote']['ID'])) {
+                    throw new SystemException('Stock not updated. No main stock ID or no remote stock ID. Select stocks in module settings.');
+                }
 
-            if ($upStock) {
-                $arField['AMOUNT'] = $quantity;
+                foreach ($stores as $store) {
+                    $arField = [
+                        'PRODUCT_ID' => (int)$productId,
+                        'STORE_ID'   => $store['ID'],
+                        'AMOUNT'     => $store['AMOUNT'],
+                    ];
+
+                    $rsStoreProduct = StoreProductTable::getList([
+                        'filter' => [
+                            '=PRODUCT_ID' => (int)$productId,
+                            'STORE.ID'    => $store['ID'],
+                        ],
+                    ])->fetch();
+
+                    if (!empty($rsStoreProduct)) {
+                        StoreProductTable::update($rsStoreProduct['ID'], $arField);
+                    } else {
+                        StoreProductTable::add($arField);
+                    }
+                }
+
             } else {
-                $arField['AMOUNT'] = is_null($quantity) ? 0 : $quantity;
-            }
+                $rsStoreProduct = StoreProductTable::getList([
+                    'filter' => [
+                        '=PRODUCT_ID' => $productId,
+                        'STORE.ID'    => $stores['main']['ID']
+                    ],
+                ])->fetch();
 
-            if ($arStoreProduct = $rsStoreProduct->fetch()) {
-                StoreProductTable::update($arStoreProduct['ID'], $arField);
-            } else {
-                StoreProductTable::add($arField);
+                $arField = [
+                    'PRODUCT_ID' => (int)$productId,
+                    'STORE_ID'   => $stores['main']['ID'],
+                    'AMOUNT'     => $stockMain + $stockRemote,
+                ];
+
+                if (!empty($rsStoreProduct)) {
+                    StoreProductTable::update($rsStoreProduct['ID'], $arField);
+                } else {
+                    StoreProductTable::add($arField);
+                }
+
+                $arDeleteStoreProducts = StoreProductTable::getList([
+                    'filter' => [
+                        '=PRODUCT_ID' => $productId,
+                        '!=STORE.ID'  => $stores['main']['ID']
+                    ],
+                ])->fetchAll();
+
+                foreach ($arDeleteStoreProducts as $arDeleteStoreProduct) {
+                    StoreProductTable::delete($arDeleteStoreProduct['ID']);
+                }
             }
         } catch (SystemException $e) {
             echo $e->getMessage() . PHP_EOL;
+            exit();
         }
     }
 
@@ -1877,6 +1979,31 @@ class Main
         }
 
         return (int)$arIblock['ID'] ?? 0;
+    }
+
+    /**
+     * Get array active stores for selectbox in page options
+     *
+     * @return array
+     * @throws \Bitrix\Main\ArgumentException
+     * @throws \Bitrix\Main\LoaderException
+     * @throws \Bitrix\Main\ObjectPropertyException
+     * @throws \Bitrix\Main\SystemException
+     */
+    public static function getActiveStoresForOptions(): array
+    {
+        Loader::includeModule('catalog');
+
+        $result = [];
+        $arStores = StoreTable::getList([
+            'filter' => ['ACTIVE' => 'Y'],
+        ])->fetchAll();
+
+        foreach ($arStores as $arStore) {
+            $result[$arStore['ID']] = '(ID=' . $arStore['ID'] . ') ' . $arStore['TITLE'];
+        }
+
+        return $result;
     }
 
     /**

@@ -2,7 +2,7 @@
 
 $MESS["OASIS_IMPORT_OPTIONS_TAB_NAME"] = "Настройки";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_AUTH"] = "Данные API";
-$MESS["OASIS_IMPORT_OPTIONS_TAB_API_KEY"] = "Ключ API";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_API_KEY"] = "Ключ API (<strong style='color: #ff0000;'>обязательное</strong>)";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_API_USER_ID"] = "ИД пользователя API";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_IBLOCK"] = "Настройки инфоблоков";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_IBLOCK_CATALOG"] = "Инфоблок каталога (<strong style='color: #ff0000;'>обязательное</strong>)";
@@ -10,7 +10,7 @@ $MESS["OASIS_IMPORT_OPTIONS_TAB_IBLOCK_OFFERS"] = "Инфоблок торгов
 $MESS["OASIS_IMPORT_OPTIONS_TAB_IBLOCK_ERROR_TITLE"] = "Ошибка!";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_IBLOCK_ERROR_DESC"] = "<div class='ui-alert ui-alert-icon-warning ui-alert-danger'><span class='ui-alert-message'><strong>Внимание!</strong> Данные не сохранены! <br> Не выбраны инфоблоки, выберите инфоблоки и сохраните настройки модуля.</span></div>";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_CRON_TITLE"] = "Настройки cron";
-$MESS["OASIS_IMPORT_OPTIONS_TAB_CRON_DESC_PREFIX"] = "<strong>Добавьте данное задание в CRON</strong><br/><code>*/1 * * * * /usr/bin/php -f ";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_CRON_DESC_PREFIX"] = "<strong>Добавьте данное задание в CRON</strong><br/><code>* * * * * /usr/bin/php -f ";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_CRON_DESC_POSTFIX"] = "/bitrix/php_interface/cron_events.php</code>";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_OPTIONS_IMPORT"] = "Дополнительные настройки импорта";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_CATEGORIES"] = "Категории";
@@ -39,3 +39,8 @@ $MESS["OASIS_IMPORT_OPTIONS_TAB_CALC"] = "Настройки цен";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_FACTOR"] = "Коэффициент цены";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_INCREASE"] = "Надбавка к цене";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_DEALER"] = "Использовать диллерские цены";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_OPTIONS_STOCK"] = "Склады";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_STOCKS"] = "Использовать разные склады";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_STOCKS_ERROR_DESC"] = "<div class='ui-alert ui-alert-icon-warning ui-alert-danger'><span class='ui-alert-message'><strong>Внимание!</strong> Данные не сохранены! <br> Не выбраны склады, выберите склады и сохраните настройки модуля.</span></div>";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_MAIN_STOCK"] = "Главный склад (<strong style='color: #ff0000;'>обязательное</strong>)";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_REMOTE_STOCK"] = "Удаленный склад (<strong style='color: #ff0000;'>обязательное</strong>)";

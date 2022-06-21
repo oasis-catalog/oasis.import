@@ -55,6 +55,7 @@ class Cli
             }
             unset($product);
 
+            Main::checkStores();
             Main::checkUserFields($iblockIdCatalog);
             Main::checkProperties($iblockIdCatalog, $iblockIdOffers);
 
@@ -77,7 +78,7 @@ class Cli
 
                         Main::upPropertiesFilter($productId, $product, $iblockIdCatalog);
                         Main::executeProduct($productId, $product, $product->id);
-                        Main::executeStoreProduct($productId, $product->total_stock);
+                        Main::executeStoreProduct($productId, $product);
                         Main::executePriceProduct($productId, $product, $dataCalcPrice);
                     } else {
                         $firstProduct = reset($products);
@@ -108,7 +109,7 @@ class Cli
 
                             Main::upPropertiesFilter($productId, $product, $iblockIdCatalog);
                             Main::executeProduct($productOfferId, $product, $product->id, true);
-                            Main::executeStoreProduct($productOfferId, $product->total_stock);
+                            Main::executeStoreProduct($productOfferId, $product);
                             Main::executePriceProduct($productOfferId, $product, $dataCalcPrice);
                         }
 
@@ -145,6 +146,7 @@ class Cli
         ini_set('memory_limit', '2G');
 
         try {
+            Main::checkStores();
             $stock = Api::getOasisStock();
             Main::upQuantity($stock);
         } catch (SystemException $e) {

@@ -36,6 +36,38 @@ try {
                     '',
                     ['text', 20]
                 ],
+                Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_IBLOCK'),
+                [
+                    'iblock_catalog',
+                    Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_IBLOCK_CATALOG'),
+                    '',
+                    ['selectbox', ['' => Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_SELECT')] + Main::getActiveIblocksForOptions()]
+                ],
+                [
+                    'iblock_offers',
+                    Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_IBLOCK_OFFERS'),
+                    '',
+                    ['selectbox', ['' => Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_SELECT')] + Main::getActiveIblocksForOptions()]
+                ],
+                Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_OPTIONS_STOCK'),
+                [
+                    'stocks',
+                    Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_STOCKS'),
+                    'N',
+                    ['checkbox']
+                ],
+                [
+                    'main_stock',
+                    Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_MAIN_STOCK'),
+                    '',
+                    ['selectbox', ['' => Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_SELECT')] + Main::getActiveStoresForOptions()]
+                ],
+                [
+                    'remote_stock',
+                    Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_REMOTE_STOCK'),
+                    '',
+                    ['selectbox', ['' => Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_SELECT')] + Main::getActiveStoresForOptions()]
+                ],
             ]
         ]
     ];
@@ -43,36 +75,20 @@ try {
     $currencies = Main::getCurrenciesOasisArray();
 
     if (!empty($currencies)) {
-        $aTabs[0]['OPTIONS'][] = Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_IBLOCK');
-        $aTabs[0]['OPTIONS'][] = [
-            'iblock_catalog',
-            Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_IBLOCK_CATALOG'),
-            '',
-            ['selectbox', [''  => Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_SELECT')] + Main::getActiveIblocksForOptions()]
-        ];
-        $aTabs[0]['OPTIONS'][] = [
-            'iblock_offers',
-            Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_IBLOCK_OFFERS'),
-            '',
-            ['selectbox', [''  => Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_SELECT')] + Main::getActiveIblocksForOptions()]
-        ];
-        $aTabs[0]['OPTIONS'][] = Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CRON_TITLE');
-        $aTabs[0]['OPTIONS'][] = [
-            'note' => Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CRON_DESC_PREFIX') .
-                Application::getDocumentRoot() .
-                Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CRON_DESC_POSTFIX'),
-        ];
-        $aTabs[0]['OPTIONS'][] = Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_OPTIONS_IMPORT');
-        $mainCategories = Main::getOasisMainCategories();
-
-        $aTabs[0]['OPTIONS'][] = [
-            'categories',
-            Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CATEGORIES'),
-            'Y',
-            ['checkboxes', $mainCategories]
-        ];
-
         $aTabs[0]['OPTIONS'] = array_merge($aTabs[0]['OPTIONS'], [
+            Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CRON_TITLE'),
+            [
+                'note' => Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CRON_DESC_PREFIX') .
+                    Application::getDocumentRoot() .
+                    Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CRON_DESC_POSTFIX'),
+            ],
+            Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_OPTIONS_IMPORT'),
+            [
+                'categories',
+                Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CATEGORIES'),
+                'Y',
+                ['checkboxes', Main::getOasisMainCategories()]
+            ],
             [
                 'currency',
                 Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CURRENCY'),
@@ -164,15 +180,13 @@ try {
         ]);
 
         $aTabs[] = [
-            'DIV'     => 'orders',
-            'TAB'     => Loc::getMessage('OASIS_IMPORT_ORDERS_TAB_NAME'),
-            'TITLE'   => Loc::getMessage('OASIS_IMPORT_ORDERS_TAB_AUTH'),
+            'DIV'   => 'orders',
+            'TAB'   => Loc::getMessage('OASIS_IMPORT_ORDERS_TAB_NAME'),
+            'TITLE' => Loc::getMessage('OASIS_IMPORT_ORDERS_TAB_AUTH'),
         ];
     } else {
-        $aTabs[0]['OPTIONS'] = array_merge($aTabs[0]['OPTIONS'], [
-            [
-                'note' => Loc::getMessage('OASIS_IMPORT_OPTIONS_ERROR_API_KEY'),
-            ],
+        array_unshift($aTabs[0]['OPTIONS'], [
+            'note' => Loc::getMessage('OASIS_IMPORT_OPTIONS_ERROR_API_KEY'),
         ]);
     }
 } catch (Exception $e) {
@@ -188,6 +202,24 @@ if ($request->isPost() && check_bitrix_sessid()) {
                     if (empty($optionValue)) {
                         LocalRedirect($APPLICATION->GetCurPage() . '?mid=' . $module_id . '&lang=' . LANG . '&errorIblock=1');
                         break;
+                    }
+                }
+
+                if (!empty($arOption[0]) && ($arOption[0] === 'main_stock' || $arOption[0] === 'remote_stock')) {
+                    $optionValueStock = $request->getPost('stocks');
+                    $optionValue = $request->getPost($arOption[0]);
+
+                    if ($arOption[0] === 'main_stock') {
+                        if (empty($optionValue)) {
+                            LocalRedirect($APPLICATION->GetCurPage() . '?mid=' . $module_id . '&lang=' . LANG . '&errorStock=1');
+                            break;
+                        }
+                    } elseif (!empty($optionValueStock)) {
+                        $optionValue = $request->getPost($arOption[0]);
+                        if (empty($optionValue)) {
+                            LocalRedirect($APPLICATION->GetCurPage() . '?mid=' . $module_id . '&lang=' . LANG . '&errorStock=1');
+                            break;
+                        }
                     }
                 }
             }
@@ -236,20 +268,42 @@ $tabControl->Begin();
 
 $values = $request->getValues();
 
-if (!empty($values['errorIblock'] && $values['errorIblock'] == 1)) {
+if ((!empty($values['errorIblock']) && $values['errorIblock'] == 1) || (!empty($values['errorStock']) && $values['errorStock'] == 1)) {
     \Bitrix\Main\UI\Extension::load("ui.alerts");
     \Bitrix\Main\UI\Extension::load("ui.dialogs.messagebox");
-?>
+
+    $title = Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_IBLOCK_ERROR_TITLE');
+
+    if (!empty($values['errorIblock'])) {
+        $desc = Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_IBLOCK_ERROR_DESC');
+    } else {
+        $desc = Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_STOCKS_ERROR_DESC');
+    }
+    ?>
     <script type="application/javascript">
-        BX.UI.Dialogs.MessageBox.alert("<?php echo Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_IBLOCK_ERROR_DESC') ?>", "<?php echo Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_IBLOCK_ERROR_TITLE') ?>", (messageBox, button, event) =>
-            {
+        BX.UI.Dialogs.MessageBox.alert("<?php echo $desc; ?>", "<?php echo $title; ?>", (messageBox, button, event) => {
                 messageBox.close();
             }
         );
     </script>
-<?php
+    <?php
 }
 ?>
+    <script type="application/javascript">
+        BX.ready(function () {
+            BX.bind(BX('stocks'), 'click', function () {
+                const checkbox = document.querySelector("#stocks");
+
+                checkbox.addEventListener("change", function () {
+                    if (this.checked) {
+                        BX.adjust(BX('remote_stock'), {style: {display: "table-row"}});
+                    } else {
+                        BX.adjust(BX('remote_stock'), {style: {display: "none"}});
+                    }
+                })
+            });
+        });
+    </script>
 
     <form action="<? echo($APPLICATION->GetCurPage()); ?>?mid=<? echo($module_id); ?>&lang=<? echo(LANG); ?>" method="post">
 
@@ -259,12 +313,15 @@ if (!empty($values['errorIblock'] && $values['errorIblock'] == 1)) {
                 if ($aTab['OPTIONS']) {
                     $tabControl->BeginNextTab();
                     foreach ($aTab['OPTIONS'] as $option) {
-                            if (!empty($option[3][0]) && $option[3][0] === 'checkboxes') {
-                                $customFields = new CustomFields();
-                                $customFields->checkboxes($module_id, $option);
-                            } else {
-                                __AdmSettingsDrawRow($module_id, $option);
-                            }
+                        if (!empty($option[3][0]) && $option[3][0] === 'checkboxes') {
+                            $customFields = new CustomFields();
+                            $customFields->checkboxes($module_id, $option);
+                        } elseif (!empty($option[0]) && $option[0] === 'remote_stock') {
+                            $customFields = new CustomFields();
+                            $customFields->hiddenSelect($module_id, $option);
+                        } else {
+                            __AdmSettingsDrawRow($module_id, $option);
+                        }
                     }
                 }
             } else {

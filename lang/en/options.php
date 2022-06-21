@@ -2,7 +2,7 @@
 
 $MESS["OASIS_IMPORT_OPTIONS_TAB_NAME"] = "Options";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_AUTH"] = "Data API";
-$MESS["OASIS_IMPORT_OPTIONS_TAB_API_KEY"] = "API Key";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_API_KEY"] = "API Key (<strong style='color: #ff0000;'>required</strong>)";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_API_USER_ID"] = "API user ID";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_IBLOCK"] = "Options Iblocks";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_IBLOCK_CATALOG"] = "Iblock catalog (<strong style='color: #ff0000;'>required</strong>)";
@@ -10,7 +10,7 @@ $MESS["OASIS_IMPORT_OPTIONS_TAB_IBLOCK_OFFERS"] = "Iblock offers (<strong style=
 $MESS["OASIS_IMPORT_OPTIONS_TAB_IBLOCK_ERROR_TITLE"] = "Error!";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_IBLOCK_ERROR_DESC"] = "<div class='ui-alert ui-alert-icon-warning ui-alert-danger'><span class='ui-alert-message'><strong>Attention!</strong> Data not saved! <br> No infoblocks selected, select infoblocks and save the module.</span></div>";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_CRON_TITLE"] = "Options cron";
-$MESS["OASIS_IMPORT_OPTIONS_TAB_CRON_DESC_PREFIX"] = "<strong>Add this job to CRON</strong><br/><code>*/1 * * * * /usr/bin/php -f ";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_CRON_DESC_PREFIX"] = "<strong>Add this job to CRON</strong><br/><code>* * * * * /usr/bin/php -f ";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_CRON_DESC_POSTFIX"] = "/bitrix/php_interface/cron_events.php</code>";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_OPTIONS_IMPORT"] = "Advanced options import";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_CATEGORIES"] = "Categories";
@@ -39,3 +39,8 @@ $MESS["OASIS_IMPORT_OPTIONS_TAB_CALC"] = "Price settings";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_FACTOR"] = "Price factor";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_INCREASE"] = "Price surcharge";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_DEALER"] = "Use dealer prices";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_OPTIONS_STOCK"] = "Stocks";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_STOCKS"] = "Use different stocks";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_STOCKS_ERROR_DESC"] = "<div class='ui-alert ui-alert-icon-warning ui-alert-danger'><span class='ui-alert-message'><strong>Attention!</strong> Data not saved! <br> No stocks selected, select stocks and save the module.</span></div>";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_MAIN_STOCK"] = "Main stock (<strong style='color: #ff0000;'>required</strong>)";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_REMOTE_STOCK"] = "Remote stock (<strong style='color: #ff0000;'>required</strong>)";
