@@ -44,14 +44,15 @@ class oasis_import extends CModule
 
             $this->InstallEvents();
 
-            $objDateTime = new DateTime();
-            $dateImport = new DateTime($objDateTime, 'd.m.Y');
+            $objDateTime = new \Bitrix\Main\Type\DateTime();
+            $dateUpStock = $objDateTime->add('-30 min')->toString();
+            $dateImport = $objDateTime->add('-1 days')->toString();
 
             Option::set('main', 'agents_use_crontab', 'N');
             Option::set('main', 'check_agents', 'N');
             Option::set($this->MODULE_ID, 'step', 0);
-            \CAgent::AddAgent('\\Oasis\\Import\\Cli::import();', 'oasis.import', 'N', 24 * 60 * 60, '', 'Y', $dateImport->add('1 days 1 hours 30 min')->toString());
-            \CAgent::AddAgent('\\Oasis\\Import\\Cli::upStock();', 'oasis.import', 'N', 30 * 60, '', 'Y', $objDateTime->add('30 min')->format('d.m.Y H:i:s'));
+            \CAgent::AddAgent('\\Oasis\\Import\\Cli::import();', 'oasis.import', 'N', 24 * 60 * 60, '', 'Y', $dateImport);
+            \CAgent::AddAgent('\\Oasis\\Import\\Cli::upStock();', 'oasis.import', 'N', 30 * 60, '', 'Y', $dateUpStock);
         } else {
             $APPLICATION->ThrowException(
                 Loc::getMessage('OASIS_IMPORT_INSTALL_ERROR_VERSION')
