@@ -17,6 +17,7 @@ use Bitrix\Iblock\PropertyIndex\Manager;
 use Bitrix\Iblock\PropertyTable;
 use Bitrix\Iblock\SectionPropertyTable;
 use Bitrix\Highloadblock;
+use Bitrix\Iblock\SectionTable;
 use Bitrix\Main\Application;
 use Bitrix\Main\ArgumentException;
 use Bitrix\Main\ArgumentNullException;
@@ -1819,7 +1820,12 @@ class Main
         $code = self::transliteration($slug);
         $code = $i === 0 ? $code : $code . '-' . $i;
 
-        $dbCode = CIBlockSection::GetList([], ['CODE' => $code], false, ['ID'])->Fetch();
+        $dbCode = SectionTable::getList([
+            'filter' => [
+                'CODE' => $code,
+            ],
+            'select' =>  ['ID'],
+        ])->fetch();
 
         if ($dbCode) {
             $code = self::getUniqueCodeSection($slug, ++$i);
