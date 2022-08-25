@@ -305,13 +305,80 @@ if ((!empty($values['errorIblock']) && $values['errorIblock'] == 1) || (!empty($
         });
     </script>
 
-    <form action="<? echo($APPLICATION->GetCurPage()); ?>?mid=<? echo($module_id); ?>&lang=<? echo(LANG); ?>" method="post">
+    <form action="<? echo($APPLICATION->GetCurPage()); ?>?mid=<? echo($module_id); ?>&lang=<? echo(LANG); ?>"
+          method="post">
 
         <?php
         foreach ($aTabs as $aTab) {
             if ($aTab['DIV'] !== 'orders') {
                 if ($aTab['OPTIONS']) {
                     $tabControl->BeginNextTab();
+
+                    if ($currencies) {
+                        \Bitrix\Main\UI\Extension::load("ui.progressbar");
+                        $APPLICATION->SetAdditionalCSS('/bitrix/css/' . $module_id . '/stylesheet.css');
+
+                        $progressTotal = (int)Option::get($module_id, 'progressTotal');
+                        $progressItem = (int)Option::get($module_id, 'progressItem');
+                        $progressStepTotal = (int)Option::get($module_id, 'progressStepTotal');
+                        $progressStepItem = (int)Option::get($module_id, 'progressStepItem');
+                        $progressDate = Option::get($module_id, 'progressDate');
+                        $limit = (int)Option::get($module_id, 'limit');
+
+                        if (!empty($limit)) {
+                            $step = (int)Option::get($module_id, 'step');
+                            $stepTotal = !empty($progressTotal) ? ceil($progressTotal / $limit) : 0;
+                        }
+
+                        if (!empty($progressTotal) || !empty($progressItem)) {
+                            $percentTotal = round(($progressItem / $progressTotal) * 100);
+                        } else {
+                            $percentTotal = 0;
+                        }
+
+                        if (!empty($progressStepTotal) || !empty($progressStepItem)) {
+                            $percentStep = round(($progressStepItem / $progressStepTotal) * 100);
+                        } else {
+                            $percentStep = 0;
+                        }
+
+                        ?>
+                        <div class="progress-notice">
+                            <div class="progress-row">
+                                <div class="progress-label">
+                                    <h3><?php echo Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_PROGRESS_TOTAL'); ?></h3>
+                                </div>
+                                <div class="progress-container">
+                                    <div class="ui-progressbar">
+                                        <div class="ui-progressbar-track">
+                                            <div class="ui-progressbar-bar"
+                                                 style="width:<?php echo $percentTotal; ?>%;"></div>
+                                        </div>
+                                        <div class="ui-progressbar-text-after"><?php echo $percentTotal; ?>%</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <?php if (!empty($limit)) { ?>
+                                <div class="progress-row">
+                                    <div class="progress-label">
+                                        <h3><?php echo sprintf(Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_PROGRESS_STEP'), ++$step, $stepTotal); ?><?php echo $progressBar['date'] ?? ''; ?></h3>
+                                    </div>
+                                    <div class="progress-container">
+                                        <div class="ui-progressbar">
+                                            <div class="ui-progressbar-track">
+                                                <div class="ui-progressbar-bar"
+                                                     style="width:<?php echo $percentStep; ?>%;"></div>
+                                            </div>
+                                            <div class="ui-progressbar-text-after"><?php echo $percentStep; ?>%</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php } ?>
+                            <p><?php echo Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_PROGRESS_DATE'); ?><?php echo $progressDate ?? ''; ?></p>
+                        </div>
+                        <?php
+                    }
+
                     foreach ($aTab['OPTIONS'] as $option) {
                         if (!empty($option[3][0]) && $option[3][0] === 'checkboxes') {
                             $customFields = new CustomFields();
@@ -333,7 +400,8 @@ if ((!empty($values['errorIblock']) && $values['errorIblock'] == 1) || (!empty($
         $tabControl->Buttons();
         ?>
 
-        <input type="submit" name="apply" value="<? echo(Loc::GetMessage('OASIS_IMPORT_OPTIONS_INPUT_APPLY')); ?>" class="adm-btn-save"/>
+        <input type="submit" name="apply" value="<? echo(Loc::GetMessage('OASIS_IMPORT_OPTIONS_INPUT_APPLY')); ?>"
+               class="adm-btn-save"/>
         <input type="submit" name="default" value="<? echo(Loc::GetMessage('OASIS_IMPORT_OPTIONS_INPUT_DEFAULT')); ?>"/>
 
         <?php

@@ -1824,7 +1824,7 @@ class Main
             'filter' => [
                 'CODE' => $code,
             ],
-            'select' =>  ['ID'],
+            'select' => ['ID'],
         ])->fetch();
 
         if ($dbCode) {
@@ -2200,5 +2200,23 @@ class Main
         $string = preg_replace('/[\s]+/us', ' ', $string);
 
         return strtolower(strtr($string, $arr_trans));
+    }
+
+    /**
+     * Update progress bar
+     *
+     * @param $module_id
+     * @param $limit
+     * @throws ArgumentOutOfRangeException
+     */
+    public static function upProgressBar($module_id, $limit)
+    {
+        $progressItem = Option::get($module_id, 'progressItem');
+        Option::set($module_id, 'progressItem', ++$progressItem);
+
+        if (!empty($limit)) {
+            $progressStepItem = Option::get($module_id, 'progressStepItem');
+            Option::set($module_id, 'progressStepItem', ++$progressStepItem);
+        }
     }
 }

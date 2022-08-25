@@ -76,6 +76,13 @@ class oasis_import extends CModule
             true
         );
 
+        CopyDirFiles(
+            __DIR__ . '/assets/css',
+            Application::getDocumentRoot() . '/bitrix/css/' . $this->MODULE_ID . '/',
+            true,
+            true
+        );
+
         return false;
     }
 
@@ -139,6 +146,10 @@ class oasis_import extends CModule
 
     public function UnInstallFiles()
     {
+        Directory::deleteDirectory(
+            Application::getDocumentRoot() . '/bitrix/css/' . $this->MODULE_ID
+        );
+
         return false;
     }
 

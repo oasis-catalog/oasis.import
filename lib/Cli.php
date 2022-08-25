@@ -6,6 +6,7 @@ use Bitrix\Main\Config\Option;
 use Bitrix\Main\Loader;
 use Bitrix\Main\LoaderException;
 use Bitrix\Main\SystemException;
+use Bitrix\Main\Type\DateTime;
 use Exception;
 
 class Cli
@@ -29,7 +30,7 @@ class Cli
             $iblockIdOffers = (int)Option::get($module_id, 'iblock_offers');
 
             if (empty($iblockIdCatalog) || empty($iblockIdOffers)) {
-                exit();
+                throw new Exception('Infoblocks not selected');
             }
 
             $step = (int)Option::get($module_id, 'step');
@@ -48,6 +49,7 @@ class Cli
 
             $oasisProducts = Api::getProductsOasis($args);
             $oasisCategories = Api::getCategoriesOasis();
+            $stat = Api::getStatProducts();
 
             $group_ids = [];
             foreach ($oasisProducts as $product) {
@@ -60,6 +62,10 @@ class Cli
             Main::checkProperties($iblockIdCatalog, $iblockIdOffers);
 
             if ($group_ids) {
+                Option::set($module_id, 'progressTotal', $stat['products']);
+                Option::set($module_id, 'progressStepItem', 0);
+                Option::set($module_id, 'progressStepTotal', (!empty($limit)) ? count($oasisProducts) : 0);
+
                 $nextStep = ++$step;
 
                 foreach ($group_ids as $products) {
@@ -80,6 +86,7 @@ class Cli
                         Main::executeProduct($productId, $product, $product->id);
                         Main::executeStoreProduct($productId, $product);
                         Main::executePriceProduct($productId, $product, $dataCalcPrice);
+                        Main::upProgressBar($module_id, $limit);
                     } else {
                         $firstProduct = reset($products);
                         $dbProduct = Main::checkProduct($firstProduct->group_id);
@@ -111,6 +118,7 @@ class Cli
                             Main::executeProduct($productOfferId, $product, $product->id, true);
                             Main::executeStoreProduct($productOfferId, $product);
                             Main::executePriceProduct($productOfferId, $product, $dataCalcPrice);
+                            Main::upProgressBar($module_id, $limit);
                         }
 
                         Main::upStatusFirstProduct($productId, $iblockIdCatalog);
@@ -122,9 +130,15 @@ class Cli
 
             if (!empty($limit)) {
                 Option::set($module_id, 'step', $nextStep);
+            } else {
+                Option::set($module_id, 'progressItem', $stat['products']);
             }
+
+            $objDateTime = new DateTime();
+            Option::set($module_id, 'progressDate', $objDateTime->toString());
         } catch (SystemException $e) {
             echo $e->getMessage() . PHP_EOL;
+            exit();
         }
 
         return "\\Oasis\\Import\\Cli::import();";

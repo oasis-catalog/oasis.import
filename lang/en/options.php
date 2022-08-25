@@ -44,3 +44,6 @@ $MESS["OASIS_IMPORT_OPTIONS_TAB_STOCKS"] = "Use different stocks";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_STOCKS_ERROR_DESC"] = "<div class='ui-alert ui-alert-icon-warning ui-alert-danger'><span class='ui-alert-message'><strong>Attention!</strong> Data not saved! <br> No stocks selected, select stocks and save the module.</span></div>";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_MAIN_STOCK"] = "Main stock (<strong style='color: #ff0000;'>required</strong>)";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_REMOTE_STOCK"] = "Remote stock (<strong style='color: #ff0000;'>required</strong>)";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_PROGRESS_TOTAL"] = "Total processing status";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_PROGRESS_STEP"] = "Step %d out of %d in progress. Current step status";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_PROGRESS_DATE"] = "Last import completed: ";

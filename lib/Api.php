@@ -81,35 +81,32 @@ class Api
     {
         $module_id = pathinfo(dirname(__DIR__))['basename'];
 
-        try {
-            $data = [
-                'not_on_order' => (bool)Option::get($module_id, 'not_on_order'),
-                'price_from'   => (float)Option::get($module_id, 'price_from'),
-                'price_to'     => (float)Option::get($module_id, 'price_to'),
-                'rating'       => (bool)Option::get($module_id, 'rating'),
-                'moscow'       => (bool)Option::get($module_id, 'warehouse_moscow'),
-                'europe'       => (bool)Option::get($module_id, 'warehouse_europe'),
-                'remote'       => (bool)Option::get($module_id, 'remote_warehouse'),
-            ];
+        $data = [
+            'not_on_order' => (int)Option::get($module_id, 'not_on_order'),
+            'price_from'   => (float)Option::get($module_id, 'price_from'),
+            'price_to'     => (float)Option::get($module_id, 'price_to'),
+            'rating'       => Option::get($module_id, 'rating') ? (int)Option::get($module_id, 'rating') : '0,1,2,3,4,5',
+            'moscow'       => (int)Option::get($module_id, 'warehouse_moscow'),
+            'europe'       => (int)Option::get($module_id, 'warehouse_europe'),
+            'remote'       => (int)Option::get($module_id, 'remote_warehouse'),
+        ];
 
-            $categories = Option::get($module_id, 'categories');
+        $categories = Option::get($module_id, 'categories');
 
-            if (!$categories) {
-                $categories = implode(',', array_keys(Main::getOasisMainCategories()));
-            }
-
-            $args = [
-                'category' => $categories,
-            ];
-
-            foreach ($data as $key => $value) {
-                if ($value) {
-                    $args[$key] = $value;
-                }
-            }
-            unset($category, $data, $key, $value);
-        } catch (\Exception $e) {
+        if (!$categories) {
+            $categories = implode(',', array_keys(Main::getOasisMainCategories()));
         }
+
+        $args = [
+            'category' => $categories,
+        ];
+
+        foreach ($data as $key => $value) {
+            if ($value) {
+                $args[$key] = $value;
+            }
+        }
+        unset($category, $data, $key, $value);
 
         return self::curlQuery('stat', $args);
     }
@@ -217,6 +214,7 @@ class Api
         $result = json_decode(curl_exec($ch));
         $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
+        sleep(1);
 
         return $http_code === 200 ? (array)$result : [];
     }
