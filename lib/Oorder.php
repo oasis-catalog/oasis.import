@@ -182,7 +182,6 @@ class Oorder extends Main
             foreach ($basket as $item) {
                 try {
                     $product = ProductTable::getList([
-                        'select' => ['UF_OASIS_ID_PRODUCT'],
                         'filter' => [
                             'ID' => intval($item['PRODUCT_ID']),
                         ],
