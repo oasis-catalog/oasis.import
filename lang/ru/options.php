@@ -10,8 +10,10 @@ $MESS["OASIS_IMPORT_OPTIONS_TAB_IBLOCK_OFFERS"] = "Инфоблок торгов
 $MESS["OASIS_IMPORT_OPTIONS_TAB_IBLOCK_ERROR_TITLE"] = "Ошибка!";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_IBLOCK_ERROR_DESC"] = "<div class='ui-alert ui-alert-icon-warning ui-alert-danger'><span class='ui-alert-message'><strong>Внимание!</strong> Данные не сохранены! <br> Не выбраны инфоблоки, выберите инфоблоки и сохраните настройки модуля.</span></div>";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_CRON_TITLE"] = "Настройки cron";
-$MESS["OASIS_IMPORT_OPTIONS_TAB_CRON_DESC_PREFIX"] = "<strong>Добавьте данное задание в CRON</strong><br/><code>* * * * * /usr/bin/php -f ";
-$MESS["OASIS_IMPORT_OPTIONS_TAB_CRON_DESC_POSTFIX"] = "/bitrix/php_interface/cron_events.php</code>";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_CRON_TYPE"] = "Режим работы Cron";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_CRON_BITRIX"] = "Системный (агенты)";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_CRON_CUSTOM"] = "Cron CLI (работает независимо от агентов)";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_CRON_DESC"] = "<strong>Добавьте данное задание в CRON</strong><br/><code>* * * * * /usr/bin/php -f %s</code>";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_OPTIONS_IMPORT"] = "Дополнительные настройки импорта";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_CATEGORIES"] = "Категории";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_CURRENCY"] = "Валюта";

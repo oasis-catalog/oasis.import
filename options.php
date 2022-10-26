@@ -68,6 +68,19 @@ try {
                     '',
                     ['selectbox', ['' => Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_SELECT')] + Main::getActiveStoresForOptions()]
                 ],
+                Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CRON_TITLE'),
+                [
+                    'cron_type',
+                    Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CRON_TYPE'),
+                    '',
+                    [
+                        'selectbox',
+                        [
+                            'bitrix' => Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CRON_BITRIX'),
+                            'custom' => Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CRON_CUSTOM'),
+                        ]
+                    ]
+                ],
             ]
         ]
     ];
@@ -75,12 +88,17 @@ try {
     $currencies = Main::getCurrenciesOasisArray();
 
     if (!empty($currencies)) {
+        $cronType = Option::get($module_id, 'cron_type');
+
+        if ($cronType === 'custom') {
+            $cronPath = str_replace('\\', '/', realpath(dirname(__FILE__))) . '/cron.php';
+        } else {
+            $cronPath = Application::getDocumentRoot() . '/bitrix/php_interface/cron_events.php';
+        }
+
         $aTabs[0]['OPTIONS'] = array_merge($aTabs[0]['OPTIONS'], [
-            Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CRON_TITLE'),
             [
-                'note' => Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CRON_DESC_PREFIX') .
-                    Application::getDocumentRoot() .
-                    Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CRON_DESC_POSTFIX'),
+                'note' => sprintf(Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CRON_DESC'), $cronPath),
             ],
             Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_OPTIONS_IMPORT'),
             [
@@ -195,17 +213,15 @@ try {
 if ($request->isPost() && check_bitrix_sessid()) {
     foreach ($aTabs as $aTab) {
         foreach ($aTab['OPTIONS'] as $arOption) {
-            if ($request['apply']) {
-                if (!empty($arOption[0]) && ($arOption[0] === 'iblock_catalog' || $arOption[0] === 'iblock_offers')) {
+            if ($request['apply'] && !empty($arOption[0])) {
+                if ($arOption[0] === 'iblock_catalog' || $arOption[0] === 'iblock_offers') {
                     $optionValue = $request->getPost($arOption[0]);
 
                     if (empty($optionValue)) {
                         LocalRedirect($APPLICATION->GetCurPage() . '?mid=' . $module_id . '&lang=' . LANG . '&errorIblock=1');
                         break;
                     }
-                }
-
-                if (!empty($arOption[0]) && ($arOption[0] === 'main_stock' || $arOption[0] === 'remote_stock')) {
+                } elseif ($arOption[0] === 'main_stock' || $arOption[0] === 'remote_stock') {
                     $optionValueStock = $request->getPost('stocks');
                     $optionValue = $request->getPost($arOption[0]);
 
@@ -220,6 +236,14 @@ if ($request->isPost() && check_bitrix_sessid()) {
                             LocalRedirect($APPLICATION->GetCurPage() . '?mid=' . $module_id . '&lang=' . LANG . '&errorStock=1');
                             break;
                         }
+                    }
+                } elseif ($arOption[0] === 'cron_type') {
+                    $optionValue = $request->getPost($arOption[0]);
+                    $arFields = $optionValue === 'custom' ? ['ACTIVE' => 'N'] : ['ACTIVE' => 'Y'];
+                    $agents = \CAgent::GetList([], ['MODULE_ID' => 'oasis.import']);
+
+                    while ($agent = $agents->Fetch()) {
+                        \CAgent::Update($agent['ID'], $arFields);
                     }
                 }
             }
@@ -269,8 +293,8 @@ $tabControl->Begin();
 $values = $request->getValues();
 
 if ((!empty($values['errorIblock']) && $values['errorIblock'] == 1) || (!empty($values['errorStock']) && $values['errorStock'] == 1)) {
-    \Bitrix\Main\UI\Extension::load("ui.alerts");
-    \Bitrix\Main\UI\Extension::load("ui.dialogs.messagebox");
+    \Bitrix\Main\UI\Extension::load('ui.alerts');
+    \Bitrix\Main\UI\Extension::load('ui.dialogs.messagebox');
 
     $title = Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_IBLOCK_ERROR_TITLE');
 

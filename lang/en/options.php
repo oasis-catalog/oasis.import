@@ -10,8 +10,10 @@ $MESS["OASIS_IMPORT_OPTIONS_TAB_IBLOCK_OFFERS"] = "Iblock offers (<strong style=
 $MESS["OASIS_IMPORT_OPTIONS_TAB_IBLOCK_ERROR_TITLE"] = "Error!";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_IBLOCK_ERROR_DESC"] = "<div class='ui-alert ui-alert-icon-warning ui-alert-danger'><span class='ui-alert-message'><strong>Attention!</strong> Data not saved! <br> No infoblocks selected, select infoblocks and save the module.</span></div>";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_CRON_TITLE"] = "Options cron";
-$MESS["OASIS_IMPORT_OPTIONS_TAB_CRON_DESC_PREFIX"] = "<strong>Add this job to CRON</strong><br/><code>* * * * * /usr/bin/php -f ";
-$MESS["OASIS_IMPORT_OPTIONS_TAB_CRON_DESC_POSTFIX"] = "/bitrix/php_interface/cron_events.php</code>";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_CRON_TYPE"] = "Cron run mode";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_CRON_BITRIX"] = "System (agents)";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_CRON_CUSTOM"] = "Cron CLI (works independently of agents)";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_CRON_DESC"] = "<strong>Add this job to CRON</strong><br/><code>* * * * * /usr/bin/php -f %s/bitrix/php_interface/cron_events.php</code>";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_OPTIONS_IMPORT"] = "Advanced options import";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_CATEGORIES"] = "Categories";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_CURRENCY"] = "Currency";
