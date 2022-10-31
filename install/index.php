@@ -83,6 +83,20 @@ class oasis_import extends CModule
             true
         );
 
+        CopyDirFiles(
+            __DIR__ . '/assets/js',
+            Application::getDocumentRoot() . '/bitrix/js/' . $this->MODULE_ID . '/',
+            true,
+            true
+        );
+
+        CopyDirFiles(
+            __DIR__ . '/assets/images',
+            Application::getDocumentRoot() . '/bitrix/images/' . $this->MODULE_ID . '/',
+            true,
+            true
+        );
+
         return false;
     }
 
@@ -148,6 +162,14 @@ class oasis_import extends CModule
     {
         Directory::deleteDirectory(
             Application::getDocumentRoot() . '/bitrix/css/' . $this->MODULE_ID
+        );
+
+        Directory::deleteDirectory(
+            Application::getDocumentRoot() . '/bitrix/js/' . $this->MODULE_ID
+        );
+
+        Directory::deleteDirectory(
+            Application::getDocumentRoot() . '/bitrix/images/' . $this->MODULE_ID
         );
 
         return false;

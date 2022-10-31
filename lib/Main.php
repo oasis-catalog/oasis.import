@@ -2039,6 +2039,28 @@ class Main
     }
 
     /**
+     * Get an array of categories for a tree
+     *
+     * @return array
+     * @throws ArgumentNullException
+     * @throws ArgumentOutOfRangeException
+     */
+    public static function getOasisCategoriesToTree(): array
+    {
+        $result = [];
+        $categories = Api::getCategoriesOasis();
+
+        foreach ($categories as $category) {
+            if (empty($result[intval($category->parent_id)])) {
+                $result[intval($category->parent_id)] = [];
+            }
+            $result[intval($category->parent_id)][] = (array)$category;
+        }
+
+        return $result;
+    }
+
+    /**
      * Get categories level 1
      *
      * @return array

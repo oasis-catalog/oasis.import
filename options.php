@@ -5,6 +5,7 @@ use Bitrix\Main\Localization\Loc;
 use Bitrix\Main\HttpApplication;
 use Bitrix\Main\Loader;
 use Bitrix\Main\Config\Option;
+use Bitrix\Main\Page\Asset;
 use Oasis\Import\Main;
 use Oasis\Import\CustomFields;
 use Oasis\Import\Oorder;
@@ -105,7 +106,7 @@ try {
                 'categories',
                 Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CATEGORIES'),
                 'Y',
-                ['checkboxes', Main::getOasisMainCategories()]
+                ['checkboxes', Main::getOasisCategoriesToTree()]
             ],
             [
                 'currency',
@@ -341,6 +342,13 @@ if ((!empty($values['errorIblock']) && $values['errorIblock'] == 1) || (!empty($
                     if ($currencies) {
                         \Bitrix\Main\UI\Extension::load("ui.progressbar");
                         $APPLICATION->SetAdditionalCSS('/bitrix/css/' . $module_id . '/stylesheet.css');
+                        CJSCore::Init(['jquery3']);
+                        Asset::getInstance()->addJs('/bitrix/js/' . $module_id . '/jquery.tree.js');
+                        Asset::getInstance()->addString('<script type="text/javascript">
+    jQuery(document).ready(function () {
+        jQuery("#tree").Tree();
+    });
+</script>');
 
                         $progressTotal = (int)Option::get($module_id, 'progressTotal');
                         $progressItem = (int)Option::get($module_id, 'progressItem');
@@ -406,7 +414,7 @@ if ((!empty($values['errorIblock']) && $values['errorIblock'] == 1) || (!empty($
                     foreach ($aTab['OPTIONS'] as $option) {
                         if (!empty($option[3][0]) && $option[3][0] === 'checkboxes') {
                             $customFields = new CustomFields();
-                            $customFields->checkboxes($module_id, $option);
+                            echo $customFields->treeCategories($module_id, $option);
                         } elseif (!empty($option[0]) && $option[0] === 'remote_stock') {
                             $customFields = new CustomFields();
                             $customFields->hiddenSelect($module_id, $option);
