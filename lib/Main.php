@@ -2241,4 +2241,36 @@ class Main
             Option::set($module_id, 'progressStepItem', ++$progressStepItem);
         }
     }
+
+    /**
+     * Delete log file in /
+     *
+     * @param string $fileName
+     */
+    public static function deleteLogFile(string $fileName = '__oasis.log')
+    {
+        $filePath = Application::getDocumentRoot() . '/' . $fileName;
+
+        if (file_exists($filePath)) {
+            unlink($filePath);
+        }
+    }
+
+    /**
+     * Print message in console
+     *
+     * @param $str
+     * @param bool $status
+     * @param bool $debug
+     */
+    public static function cliMsg($str, bool $status = true, bool $debug = false)
+    {
+        if ($status) {
+            if ($debug) {
+                Debug::writeToFile($str, '', '__oasis.log');
+            } else {
+                echo '[' . date('Y-m-d H:i:s') . '] ' . $str . PHP_EOL;
+            }
+        }
+    }
 }

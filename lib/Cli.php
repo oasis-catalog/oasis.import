@@ -11,6 +11,9 @@ use Exception;
 
 class Cli
 {
+    const MSG_STATUS = true;
+    const MSG_TO_FILE = false;
+
     /**
      * @throws LoaderException
      * @throws Exception
@@ -47,6 +50,7 @@ class Cli
                 $args['offset'] = $step * $limit;
             }
 
+            Main::deleteLogFile();
             $oasisProducts = Api::getProductsOasis($args);
             $oasisCategories = Api::getCategoriesOasis();
             $stat = Api::getStatProducts();
@@ -67,6 +71,8 @@ class Cli
                 Option::set($module_id, 'progressStepTotal', (!empty($limit)) ? count($oasisProducts) : 0);
 
                 $nextStep = ++$step;
+                $totalGroup = count($group_ids);
+                $itemGroup = 0;
 
                 foreach ($group_ids as $products) {
                     if (count($products) === 1) {
@@ -76,10 +82,12 @@ class Cli
                         if ($dbProduct) {
                             $productId = (int)$dbProduct['ID'];
                             Main::upIblockElementProduct($productId, $product, $iblockIdCatalog, $oasisCategories);
+                            Main::cliMsg('Up product id ' . $product->id, self::MSG_STATUS, self::MSG_TO_FILE);
                         } else {
                             $properties = Main::getPropertiesArray($product);
                             $properties += Main::getProductImages($product);
                             $productId = Main::addIblockElementProduct($product, $oasisCategories, $properties, $iblockIdCatalog);
+                            Main::cliMsg('Add product id ' . $product->id, self::MSG_STATUS, self::MSG_TO_FILE);
                         }
 
                         Main::upPropertiesFilter($productId, $product, $iblockIdCatalog);
@@ -94,9 +102,11 @@ class Cli
                         if ($dbProduct) {
                             $productId = (int)$dbProduct['ID'];
                             Main::upIblockElementProduct($productId, $firstProduct, $iblockIdCatalog, $oasisCategories);
+                            Main::cliMsg('Up product id ' . $firstProduct->id, self::MSG_STATUS, self::MSG_TO_FILE);
                         } else {
                             $properties = Main::getPropertiesArray($firstProduct);
                             $productId = Main::addIblockElementProduct($firstProduct, $oasisCategories, $properties, $iblockIdCatalog);
+                            Main::cliMsg('Add product id ' . $firstProduct->id, self::MSG_STATUS, self::MSG_TO_FILE);
                         }
 
                         Main::executeProduct($productId, $firstProduct, $firstProduct->group_id, true, true);
@@ -108,10 +118,12 @@ class Cli
                             if ($dbOffer) {
                                 $productOfferId = (int)$dbOffer['ID'];
                                 Main::upIblockElementProduct($productOfferId, $product, 0);
+                                Main::cliMsg('Up offer id ' . $product->id, self::MSG_STATUS, self::MSG_TO_FILE);
                             } else {
                                 $propertiesOffer = Main::getPropertiesArrayOffer($productId, $product, $iblockIdOffers);
                                 $productOfferId = Main::addIblockElementProduct($product, $oasisCategories, $propertiesOffer, $iblockIdOffers, true);
                                 Main::executeMeasureRatioTable($productOfferId);
+                                Main::cliMsg('Add offer id ' . $product->id, self::MSG_STATUS, self::MSG_TO_FILE);
                             }
 
                             Main::upPropertiesFilter($productId, $product, $iblockIdCatalog);
@@ -123,6 +135,7 @@ class Cli
 
                         Main::upStatusFirstProduct($productId, $iblockIdCatalog);
                     }
+                    Main::cliMsg('Done ' . ++$itemGroup . ' from ' . $totalGroup, self::MSG_STATUS, self::MSG_TO_FILE);
                 }
             } else {
                 $nextStep = 0;
