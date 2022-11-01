@@ -79,8 +79,6 @@ class CustomFields
      *
      * @param $module_id
      * @param $option
-     * @throws \Bitrix\Main\ArgumentNullException
-     * @throws \Bitrix\Main\ArgumentOutOfRangeException
      */
     public function checkboxes($module_id, $option)
     {
@@ -115,8 +113,6 @@ class CustomFields
      *
      * @param $module_id
      * @param $option
-     * @throws \Bitrix\Main\ArgumentNullException
-     * @throws \Bitrix\Main\ArgumentOutOfRangeException
      */
     public function hiddenSelect($module_id, $option)
     {

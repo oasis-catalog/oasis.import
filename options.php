@@ -414,7 +414,7 @@ if ((!empty($values['errorIblock']) && $values['errorIblock'] == 1) || (!empty($
                     foreach ($aTab['OPTIONS'] as $option) {
                         if (!empty($option[3][0]) && $option[3][0] === 'checkboxes') {
                             $customFields = new CustomFields();
-                            echo $customFields->treeCategories($module_id, $option);
+                            $customFields->treeCategories($module_id, $option);
                         } elseif (!empty($option[0]) && $option[0] === 'remote_stock') {
                             $customFields = new CustomFields();
                             $customFields->hiddenSelect($module_id, $option);
