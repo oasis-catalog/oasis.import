@@ -48,6 +48,8 @@ class Cli
             if ($limit > 0) {
                 $args['limit'] = $limit;
                 $args['offset'] = $step * $limit;
+            } else {
+                Option::set($module_id, 'progressItem', 0);
             }
 
             Main::deleteLogFile();
