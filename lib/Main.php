@@ -2244,12 +2244,10 @@ class Main
 
     /**
      * Delete log file in /
-     *
-     * @param string $fileName
      */
-    public static function deleteLogFile(string $fileName = '__oasis.log')
+    public static function deleteLogFile()
     {
-        $filePath = Application::getDocumentRoot() . '/' . $fileName;
+        $filePath = Application::getDocumentRoot() . '/__oasis.log';
 
         if (file_exists($filePath)) {
             unlink($filePath);
