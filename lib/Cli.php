@@ -58,8 +58,14 @@ class Cli
             $stat = Api::getStatProducts();
 
             $group_ids = [];
+            $countProducts = 0;
             foreach ($oasisProducts as $product) {
-                $group_ids[$product->group_id][$product->id] = $product;
+                if ($product->is_deleted === false) {
+                    $group_ids[$product->group_id][$product->id] = $product;
+                    $countProducts++;
+                } else {
+                    Main::checkDeleteProduct($product->id);
+                }
             }
             unset($product);
 
@@ -70,7 +76,7 @@ class Cli
             if ($group_ids) {
                 Option::set($module_id, 'progressTotal', $stat['products']);
                 Option::set($module_id, 'progressStepItem', 0);
-                Option::set($module_id, 'progressStepTotal', (!empty($limit)) ? count($oasisProducts) : 0);
+                Option::set($module_id, 'progressStepTotal', (!empty($limit)) ? $countProducts : 0);
 
                 $nextStep = ++$step;
                 $totalGroup = count($group_ids);
@@ -79,7 +85,7 @@ class Cli
                 foreach ($group_ids as $products) {
                     if (count($products) === 1) {
                         $product = reset($products);
-                        $dbProduct = Main::checkProduct($product->id);
+                        $dbProduct = Main::checkProduct($product->group_id);
 
                         if ($dbProduct) {
                             $productId = (int)$dbProduct['ID'];
@@ -93,7 +99,7 @@ class Cli
                         }
 
                         Main::upPropertiesFilter($productId, $product, $iblockIdCatalog);
-                        Main::executeProduct($productId, $product, $product->id);
+                        Main::executeProduct($productId, $product, $product->group_id);
                         Main::executeStoreProduct($productId, $product);
                         Main::executePriceProduct($productId, $product, $dataCalcPrice);
                         Main::upProgressBar($module_id, $limit);

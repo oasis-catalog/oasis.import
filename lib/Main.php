@@ -31,6 +31,7 @@ use Bitrix\Main\ObjectPropertyException;
 use Bitrix\Main\SystemException;
 use Bitrix\Main\Type\DateTime;
 use Bitrix\Main\UserFieldTable;
+use CCatalogSKU;
 use CFile;
 use CIBlockElement;
 use CIBlockSection;
@@ -129,7 +130,7 @@ class Main
      * @throws ObjectPropertyException
      * @throws SystemException
      */
-    public static function checkProduct($productId, int $type = 0, $fetchAll = false)
+    public static function checkProduct($productId, int $type = 0, bool $fetchAll = false)
     {
         Loader::includeModule('catalog');
 
@@ -162,10 +163,8 @@ class Main
      * @param bool $offer
      * @return false|mixed|void
      */
-    public static function addIblockElementProduct($product, $oasisCategories, $properties, $iblockId, $offer = false)
+    public static function addIblockElementProduct($product, $oasisCategories, $properties, $iblockId, bool $offer = false)
     {
-        $productId = null;
-
         try {
             $data = [
                 'NAME'             => $product->name,
@@ -189,12 +188,11 @@ class Main
             $productId = $el->Add($data);
 
             if (!empty($el->LAST_ERROR)) {
-                $str = $offer === false ? 'Ошибка добавления товара: ' : 'Ошибка добавления торгового предложения: ';
-                echo $str . $el->LAST_ERROR . PHP_EOL;
-                die();
+                throw new SystemException($offer === false ? 'Ошибка добавления товара: ' : 'Ошибка добавления торгового предложения: ' . $el->LAST_ERROR);
             }
         } catch (SystemException $e) {
             echo $e->getMessage() . PHP_EOL;
+            die();
         }
 
         return $productId;
@@ -226,13 +224,48 @@ class Main
             $el->Update($iblockElementId, $data);
 
             if (!empty($el->LAST_ERROR)) {
-                $str = $oasisCategories ? 'Ошибка обновления товара: ' : 'Ошибка обновления торгового предложения: ';
-                echo $str . $el->LAST_ERROR . PHP_EOL;
-                die();
+                throw new SystemException($oasisCategories ? 'Ошибка обновления товара: ' : 'Ошибка обновления торгового предложения: ' . $el->LAST_ERROR);
+            }
+        } catch (SystemException $e) {
+            echo $e->getMessage() . PHP_EOL;
+            die();
+        }
+    }
+
+    /**
+     * Check and delete product by Oasis product id
+     *
+     * @param $productId
+     * @throws \Bitrix\Main\LoaderException
+     */
+    public static function checkDeleteProduct($productId)
+    {
+        try {
+            $dbProduct = Main::checkProduct($productId);
+
+            if ($dbProduct) {
+                self::deleteIblockElementProduct(intval($dbProduct['ID']));
             }
         } catch (SystemException $e) {
             echo $e->getMessage() . PHP_EOL;
         }
+    }
+
+    /**
+     * Delete iblock element
+     *
+     * @param $iblockElementId
+     */
+    private static function deleteIblockElementProduct($iblockElementId)
+    {
+        try {
+            if (!CIBlockElement::Delete($iblockElementId)) {
+                throw new SystemException('Iblock element not deleted.');
+            }
+        } catch (SystemException $e) {
+            echo $e->getMessage() . PHP_EOL;
+        }
+
     }
 
     /**
@@ -244,19 +277,19 @@ class Main
     public static function upStatusFirstProduct($productId, $iblockId)
     {
         try {
-            $arSKU = \CCatalogSKU::getOffersList($productId, $iblockId, ['ACTIVE' => 'Y'], [], []);
+            $arSKU = CCatalogSKU::getOffersList($productId, $iblockId, ['ACTIVE' => 'Y'], [], []);
 
             if ($arSKU) {
                 $el = new CIBlockElement;
                 $el->Update($productId, ['ACTIVE' => 'Y']);
 
                 if (!empty($el->LAST_ERROR)) {
-                    echo $el->LAST_ERROR . PHP_EOL;
-                    die();
+                    throw new SystemException($el->LAST_ERROR);
                 }
             }
         } catch (SystemException $e) {
             echo $e->getMessage() . PHP_EOL;
+            die();
         }
     }
 
@@ -270,7 +303,7 @@ class Main
      * @param bool $parent
      * @throws \Exception
      */
-    public static function executeProduct($productId, $product, $utsProductId, $offer = false, $parent = false)
+    public static function executeProduct($productId, $product, $utsProductId, bool $offer = false, bool $parent = false)
     {
         try {
             $dbProduct = ProductTable::getList([
@@ -338,6 +371,7 @@ class Main
      * @throws \Bitrix\Main\ArgumentException
      * @throws \Bitrix\Main\ObjectPropertyException
      * @throws \Bitrix\Main\SystemException
+     * @throws \Exception
      */
     public static function checkStores()
     {
@@ -1015,6 +1049,7 @@ class Main
      * @throws \Bitrix\Main\LoaderException
      * @throws \Bitrix\Main\ObjectPropertyException
      * @throws \Bitrix\Main\SystemException
+     * @throws \Exception
      */
     private static function checkHLblock()
     {
@@ -1320,11 +1355,11 @@ class Main
                 if ($result->isSuccess()) {
                     $sort = 100;
                     $tableId = $result->getId();
-                    $userField = new \CUserTypeEntity;
+                    $userField = new CUserTypeEntity;
 
                     foreach ($table['fields'] as $field) {
                         $field['ENTITY_ID'] = 'HLBLOCK_' . $tableId;
-                        $res = \CUserTypeEntity::getList(
+                        $res = CUserTypeEntity::getList(
                             [],
                             [
                                 'ENTITY_ID'  => $field['ENTITY_ID'],
@@ -1423,7 +1458,6 @@ class Main
      * @param $value
      * @param $iblockId
      * @return array|int|void
-     * @throws \Bitrix\Main\LoaderException
      */
     public static function checkPropertyEnum($propertyCode, $value, $iblockId)
     {
@@ -1450,7 +1484,7 @@ class Main
                 return (int)$dbPropertyEnum['ID'];
             }
 
-        } catch (SystemException $e) {
+        } catch (SystemException | Exception $e) {
             echo $e->getMessage() . PHP_EOL;
         }
     }
@@ -1610,7 +1644,6 @@ class Main
      * @param $product
      * @param $iblockId
      * @return array
-     * @throws \Bitrix\Main\LoaderException
      */
     public static function getPropertiesArrayOffer($productId, $product, $iblockId): array
     {
@@ -1703,12 +1736,8 @@ class Main
     {
         $result = [];
 
-        try {
-            foreach ($productCategories as $productCategory) {
-                $result[] = self::getCategoryId($oasisCategories, $productCategory, $iblockId);
-            }
-        } catch (SystemException $e) {
-            echo $e->getMessage() . PHP_EOL;
+        foreach ($productCategories as $productCategory) {
+            $result[] = self::getCategoryId($oasisCategories, $productCategory, $iblockId);
         }
 
         return $result;
@@ -1753,16 +1782,20 @@ class Main
      *
      * @param $iblockId
      * @param $categoryId
-     * @return mixed
+     * @return array|false|void
      */
     public static function getSectionByOasisCategoryId($iblockId, $categoryId)
     {
         $entity = Section::compileEntityByIblock($iblockId);
 
-        return $entity::getList([
-            'select' => ['ID'],
-            'filter' => ['UF_OASIS_ID_CATEGORY' => $categoryId]
-        ])->fetch();
+        try {
+            return $entity::getList([
+                'select' => ['ID'],
+                'filter' => ['UF_OASIS_ID_CATEGORY' => $categoryId]
+            ])->fetch();
+        } catch (ObjectPropertyException | ArgumentException | SystemException $e) {
+            echo $e->getMessage() . PHP_EOL;
+        }
     }
 
     /**
@@ -1952,39 +1985,6 @@ class Main
         }
 
         return $userFieldId;
-    }
-
-    /**
-     * Get Iblock Id
-     *
-     * @param string $code
-     * @return int
-     * @throws ArgumentException
-     * @throws ObjectPropertyException
-     * @throws SystemException
-     */
-    public static function getIblockId(string $code): int
-    {
-        $arIblock = IblockTable::getList([
-            'select' => ['ID'],
-            'filter' => ['CODE' => $code],
-        ])->fetch();
-
-        if (!$arIblock) {
-            $arIblock = IblockTable::getList([
-                'select' => ['ID'],
-                'filter' => ['IBLOCK_TYPE_ID' => 'catalog'],
-            ])->fetch();
-
-            if (!$arIblock) {
-                //TODO Добавить инфоблок
-                print_r('Добавить инфоблок');
-                Debug::dumpToFile('Добавить инфоблок');
-                exit();
-            }
-        }
-
-        return (int)$arIblock['ID'] ?? 0;
     }
 
     /**
