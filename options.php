@@ -90,16 +90,17 @@ try {
 
     if (!empty($currencies)) {
         $cronType = Option::get($module_id, 'cron_type');
+        $apiKey = Option::get($module_id, 'api_key');
 
         if ($cronType === 'custom') {
-            $cronPath = str_replace('\\', '/', realpath(dirname(__FILE__))) . '/cron.php';
+            $cronPath = str_replace('\\', '/', realpath(dirname(__FILE__))) . '/cron.php --key=' . md5($apiKey);
         } else {
             $cronPath = Application::getDocumentRoot() . '/bitrix/php_interface/cron_events.php';
         }
 
         $aTabs[0]['OPTIONS'] = array_merge($aTabs[0]['OPTIONS'], [
             [
-                'note' => sprintf(Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CRON_DESC'), $cronPath),
+                'note' => $cronType === 'custom' ? sprintf(Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CRON_DESC_CUSTOM'), $cronPath, $cronPath) : sprintf(Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CRON_DESC'), $cronPath),
             ],
             Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_OPTIONS_IMPORT'),
             [

@@ -14,6 +14,7 @@ $MESS["OASIS_IMPORT_OPTIONS_TAB_CRON_TYPE"] = "Cron run mode";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_CRON_BITRIX"] = "System (agents)";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_CRON_CUSTOM"] = "Cron CLI (works independently of agents)";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_CRON_DESC"] = "<strong>Add this job to CRON</strong><br/><code>* * * * * /usr/bin/php -f %s/bitrix/php_interface/cron_events.php</code>";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_CRON_DESC_CUSTOM"] = "<strong>Add this job to CRON</strong><br/>Import/update products: <br/><code>* * * * * /usr/bin/php -f %s</code><br/>Update quantity: <br/><code>* * * * * /usr/bin/php -f %s --up</code>";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_OPTIONS_IMPORT"] = "Advanced options import";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_CATEGORIES"] = "Categories";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_CURRENCY"] = "Currency";
