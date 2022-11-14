@@ -147,10 +147,12 @@ class Cli
                 }
             } else {
                 $nextStep = 0;
+                Option::set($module_id, 'progressItem', 0);
             }
 
             if (!empty($limit)) {
                 Option::set($module_id, 'step', $nextStep);
+                Option::set($module_id, 'progressStepItem', 0);
             } else {
                 Option::set($module_id, 'progressItem', $stat['products']);
             }
