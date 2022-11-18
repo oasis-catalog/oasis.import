@@ -235,16 +235,26 @@ class Main
     /**
      * Check and delete product by Oasis product id
      *
-     * @param $productId
+     * @param $product
+     * @param $iblockId
      * @throws \Bitrix\Main\LoaderException
      */
-    public static function checkDeleteProduct($productId)
+    public static function checkDeleteProduct($product, $iblockId)
     {
         try {
-            $dbProduct = Main::checkProduct($productId);
+            $dbProducts = Main::checkProduct($product->id, 0, true);
 
-            if ($dbProduct) {
-                self::deleteIblockElementProduct(intval($dbProduct['ID']));
+            if ($dbProducts) {
+                foreach ($dbProducts as $dbProduct) {
+                    if ($product->id == $product->group_id && $dbProduct['TYPE'] == ProductTable::TYPE_SKU) {
+                        $offersExist = CCatalogSKU::getExistOffers($dbProduct['ID'], $iblockId);
+                        if (reset($offersExist) == false) {
+                            self::deleteIblockElementProduct(intval($dbProduct['ID']));
+                        }
+                    } else {
+                        self::deleteIblockElementProduct(intval($dbProduct['ID']));
+                    }
+                }
             }
         } catch (SystemException $e) {
             echo $e->getMessage() . PHP_EOL;
@@ -262,6 +272,8 @@ class Main
             if (!CIBlockElement::Delete($iblockElementId)) {
                 throw new SystemException('Iblock element not deleted.');
             }
+
+            self::cliMsg('Delete iblock element id: ' . $iblockElementId);
         } catch (SystemException $e) {
             echo $e->getMessage() . PHP_EOL;
         }
@@ -1549,19 +1561,60 @@ class Main
     }
 
     /**
+     * Update product offers properties for filter
+     *
+     * @param $productId
+     * @param $firstProduct
+     * @param $products
+     * @param $iblockId
+     */
+    public static function upPropertiesFilterOffers($productId, $firstProduct, $products, $iblockId)
+    {
+        $properties = [];
+
+        foreach ($products as $product) {
+            $properties = self::preparePropertiesFilter($product, $properties);
+        }
+
+        self::upPropertiesFilter($productId, $firstProduct, $iblockId, $properties);
+    }
+
+    /**
      * Update product properties for filter
      *
      * @param $productId
      * @param $product
      * @param $iblockId
+     * @param array $properties
      */
-    public static function upPropertiesFilter($productId, $product, $iblockId)
+    public static function upPropertiesFilter($productId, $product, $iblockId, array $properties = [])
     {
-        $properties = [];
+        if (empty($properties)) {
+            $properties = self::preparePropertiesFilter($product);
+        }
 
+        foreach ($properties as $code => $dataProperty) {
+            self::checkPropertyValues($productId, $product, $iblockId, $code, $dataProperty);
+        }
+        unset($code, $dataProperty);
+
+        Manager::updateElementIndex($iblockId, $productId);
+    }
+
+    /**
+     * Prepare properties for filter
+     *
+     * @param $product
+     * @param array $properties
+     * @return array
+     */
+    public static function preparePropertiesFilter($product, array $properties = []): array
+    {
         if (!empty($product->colors)) {
             foreach ($product->colors as $color) {
-                $properties['COLOR_OA_REF'][] = $color->parent_id;
+                if (empty($properties['COLOR_OA_REF']) || array_search($color->parent_id, $properties['COLOR_OA_REF']) === false) {
+                    $properties['COLOR_OA_REF'][] = $color->parent_id;
+                }
             }
             unset($color);
         }
@@ -1570,31 +1623,36 @@ class Main
             if (isset($attribute->id)) {
                 switch ($attribute->id) {
                     case 65:
-                        $properties['GENDER'][] = $attribute->value;
+                        if (empty($properties['GENDER']) || array_search($attribute->value, $properties['GENDER']) === false) {
+                            $properties['GENDER'][] = $attribute->value;
+                        }
                         break;
                     case 1000000008:
-                        $properties['BRANDING'][] = $attribute->value;
+                        if (empty($properties['BRANDING']) || array_search($attribute->value, $properties['BRANDING']) === false) {
+                            $properties['BRANDING'][] = $attribute->value;
+                        }
                         break;
                     case 8:
-                        $properties['MECHANISM'][] = $attribute->value;
+                        if (empty($properties['MECHANISM']) || array_search($attribute->value, $properties['MECHANISM']) === false) {
+                            $properties['MECHANISM'][] = $attribute->value;
+                        }
                         break;
                     case 6:
-                        $properties['INK_COLOR'][] = $attribute->value;
+                        if (empty($properties['INK_COLOR']) || array_search($attribute->value, $properties['INK_COLOR']) === false) {
+                            $properties['INK_COLOR'][] = $attribute->value;
+                        }
                         break;
                     case 105:
-                        $properties['ROD_TYPE'][] = $attribute->value;
+                        if (empty($properties['ROD_TYPE']) || array_search($attribute->value, $properties['ROD_TYPE']) === false) {
+                            $properties['ROD_TYPE'][] = $attribute->value;
+                        }
                         break;
                 }
             }
         }
         unset($attribute);
 
-        foreach ($properties as $code => $dataProperty) {
-            self::checkPropertyValues($productId, $product, $iblockId, $code, $dataProperty);
-        }
-        unset($code, $dataProperty);
-
-        Manager::updateElementIndex($iblockId, $productId);
+        return $properties;
     }
 
     /**

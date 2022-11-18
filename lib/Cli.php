@@ -64,7 +64,7 @@ class Cli
                     $group_ids[$product->group_id][$product->id] = $product;
                     $countProducts++;
                 } else {
-                    Main::checkDeleteProduct($product->id);
+                    Main::checkDeleteProduct($product, $iblockIdCatalog);
                 }
             }
             unset($product);
@@ -134,13 +134,13 @@ class Cli
                                 Main::cliMsg('Add offer id ' . $product->id, self::MSG_STATUS, self::MSG_TO_FILE);
                             }
 
-                            Main::upPropertiesFilter($productId, $product, $iblockIdCatalog);
                             Main::executeProduct($productOfferId, $product, $product->id, true);
                             Main::executeStoreProduct($productOfferId, $product);
                             Main::executePriceProduct($productOfferId, $product, $dataCalcPrice);
                             Main::upProgressBar($module_id, $limit);
                         }
 
+                        Main::upPropertiesFilterOffers($productId, $firstProduct, $products, $iblockIdCatalog);
                         Main::upStatusFirstProduct($productId, $iblockIdCatalog);
                     }
                     Main::cliMsg('Done ' . ++$itemGroup . ' from ' . $totalGroup, self::MSG_STATUS, self::MSG_TO_FILE);
