@@ -2,6 +2,7 @@
 
 namespace Oasis\Import;
 
+use Bitrix\Catalog\ProductTable;
 use Bitrix\Main\Config\Option;
 use Bitrix\Main\Loader;
 use Bitrix\Main\LoaderException;
@@ -53,6 +54,10 @@ class Cli
             }
 
             Main::deleteLogFile();
+            Main::checkStores();
+            Main::checkUserFields($iblockIdCatalog);
+            Main::checkProperties($iblockIdCatalog, $iblockIdOffers);
+
             $oasisProducts = Api::getProductsOasis($args);
             $oasisCategories = Api::getCategoriesOasis();
             $stat = Api::getStatProducts();
@@ -60,23 +65,16 @@ class Cli
             $group_ids = [];
             $countProducts = 0;
             foreach ($oasisProducts as $product) {
-                if ($product->is_deleted === false) {
-                    $group_ids[$product->group_id][$product->id] = $product;
-                    $countProducts++;
-                } else {
-                    Main::checkDeleteProduct($product, $iblockIdCatalog);
-                }
+                //TODO delete products
+                $group_ids[$product->group_id][$product->id] = $product;
+                $countProducts++;
             }
             unset($product);
-
-            Main::checkStores();
-            Main::checkUserFields($iblockIdCatalog);
-            Main::checkProperties($iblockIdCatalog, $iblockIdOffers);
 
             if ($group_ids) {
                 Option::set($module_id, 'progressTotal', $stat['products']);
                 Option::set($module_id, 'progressStepItem', 0);
-                Option::set($module_id, 'progressStepTotal', (!empty($limit)) ? $countProducts : 0);
+                Option::set($module_id, 'progressStepTotal', !empty($limit) ? $countProducts : 0);
 
                 $nextStep = ++$step;
                 $totalGroup = count($group_ids);
@@ -85,9 +83,18 @@ class Cli
                 foreach ($group_ids as $products) {
                     if (count($products) === 1) {
                         $product = reset($products);
-                        $dbProduct = Main::checkProduct($product->group_id);
+                        $dbProducts = Main::checkProduct($product->group_id, 0, true);
 
-                        if ($dbProduct) {
+                        if ($dbProducts) {
+                            if (count($dbProducts) > 1) {
+                                foreach ($dbProducts as $dbProductsItem) {
+                                    if ($dbProductsItem['TYPE'] == ProductTable::TYPE_OFFER) {
+                                        $dbProduct = $dbProductsItem;
+                                    }
+                                }
+                            }
+
+                            $dbProduct = $dbProduct ?? reset($dbProducts);
                             $productId = (int)$dbProduct['ID'];
                             Main::upIblockElementProduct($productId, $product, $iblockIdCatalog, $oasisCategories);
                             Main::cliMsg('Up product id ' . $product->id, self::MSG_STATUS, self::MSG_TO_FILE);
@@ -99,7 +106,7 @@ class Cli
                         }
 
                         Main::upPropertiesFilter($productId, $product, $iblockIdCatalog);
-                        Main::executeProduct($productId, $product, $product->group_id);
+                        Main::executeProduct($productId, $product, $product->group_id, ProductTable::TYPE_PRODUCT);
                         Main::executeStoreProduct($productId, $product);
                         Main::executePriceProduct($productId, $product, $dataCalcPrice);
                         Main::upProgressBar($module_id, $limit);
@@ -117,11 +124,11 @@ class Cli
                             Main::cliMsg('Add product id ' . $firstProduct->id, self::MSG_STATUS, self::MSG_TO_FILE);
                         }
 
-                        Main::executeProduct($productId, $firstProduct, $firstProduct->group_id, true, true);
+                        Main::executeProduct($productId, $firstProduct, $firstProduct->group_id, ProductTable::TYPE_SKU, true);
                         Main::executePriceProduct($productId, $firstProduct, $dataCalcPrice);
 
                         foreach ($products as $product) {
-                            $dbOffer = Main::checkProduct($product->id, 4);
+                            $dbOffer = Main::checkProduct($product->id, ProductTable::TYPE_OFFER);
 
                             if ($dbOffer) {
                                 $productOfferId = (int)$dbOffer['ID'];
@@ -134,7 +141,7 @@ class Cli
                                 Main::cliMsg('Add offer id ' . $product->id, self::MSG_STATUS, self::MSG_TO_FILE);
                             }
 
-                            Main::executeProduct($productOfferId, $product, $product->id, true);
+                            Main::executeProduct($productOfferId, $product, $product->id, ProductTable::TYPE_OFFER);
                             Main::executeStoreProduct($productOfferId, $product);
                             Main::executePriceProduct($productOfferId, $product, $dataCalcPrice);
                             Main::upProgressBar($module_id, $limit);

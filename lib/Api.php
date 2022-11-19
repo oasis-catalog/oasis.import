@@ -125,7 +125,6 @@ class Api
 
         try {
             $args['fieldset'] = 'full';
-            $args['showDeleted'] = 1;
 
             $data = [
                 'currency'         => Option::get($module_id, 'currency') ?? 'rub',

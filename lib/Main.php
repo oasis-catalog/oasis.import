@@ -311,11 +311,11 @@ class Main
      * @param $productId
      * @param $product
      * @param $utsProductId
-     * @param bool $offer
+     * @param int $type
      * @param bool $parent
      * @throws \Exception
      */
-    public static function executeProduct($productId, $product, $utsProductId, bool $offer = false, bool $parent = false)
+    public static function executeProduct($productId, $product, $utsProductId, int $type, bool $parent = false)
     {
         try {
             $dbProduct = ProductTable::getList([
@@ -340,7 +340,9 @@ class Main
                     'AVAILABLE'           => 'Y',
                     'BUNDLE'              => 'N',
                     'UF_OASIS_ID_PRODUCT' => $utsProductId,
-                    'TYPE'                => $offer ? ProductTable::TYPE_OFFER : ProductTable::TYPE_PRODUCT,
+                    'UF_OASIS_PRODUCT_ID' => $product->id,
+                    'UF_OASIS_GROUP_ID'   => $product->group_id,
+                    'TYPE'                => $type,
                 ];
 
                 $arFields = array_merge($arFields, self::getAdditionalFields($parent, $product->rating));
@@ -1959,7 +1961,7 @@ class Main
      * @throws ObjectPropertyException
      * @throws SystemException
      */
-    public static function checkUserFields($iblockId)
+    public static function checkUserFields($iblockIdCatalog)
     {
         Loader::includeModule('iblock');
 
@@ -1973,7 +1975,23 @@ class Main
                 ],
             ],
             [
-                'ENTITY_ID'  => 'IBLOCK_' . $iblockId . '_SECTION',
+                'ENTITY_ID'  => 'PRODUCT',
+                'FIELD_NAME' => 'UF_OASIS_PRODUCT_ID',
+                'LABEL'      => [
+                    'ru' => 'Oasis PRODUCT ID',
+                    'en' => 'Oasis PRODUCT ID',
+                ],
+            ],
+            [
+                'ENTITY_ID'  => 'PRODUCT',
+                'FIELD_NAME' => 'UF_OASIS_GROUP_ID',
+                'LABEL'      => [
+                    'ru' => 'Oasis GROUP ID',
+                    'en' => 'Oasis GROUP ID',
+                ],
+            ],
+            [
+                'ENTITY_ID'  => 'IBLOCK_' . $iblockIdCatalog . '_SECTION',
                 'FIELD_NAME' => 'UF_OASIS_ID_CATEGORY',
                 'LABEL'      => [
                     'ru' => 'Oasis ID категории',
