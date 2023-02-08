@@ -50,3 +50,16 @@ $MESS["OASIS_IMPORT_OPTIONS_TAB_REMOTE_STOCK"] = "Удаленный склад 
 $MESS["OASIS_IMPORT_OPTIONS_TAB_PROGRESS_TOTAL"] = "Общий статус обработки";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_PROGRESS_STEP"] = "Выполняется %d шаг из %d. Статус текущего шага";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_PROGRESS_DATE"] = "Последний импорт завершен: ";
+
+// Orders
+$MESS["OASIS_IMPORT_ORDERS_ID"] = "ID";
+$MESS["OASIS_IMPORT_ORDERS_DATE_INSERT"] = "Дата создания";
+$MESS["OASIS_IMPORT_ORDERS_PRICE"] = "Сумма";
+$MESS["OASIS_IMPORT_ORDERS_UPLOAD"] = "Выгрузить";
+$MESS["OASIS_IMPORT_ORDERS_SEND"] = "Отправить";
+$MESS["OASIS_IMPORT_ORDERS_NOT_PRODUCT"] = "В заказе недопустимые товары";
+$MESS["OASIS_IMPORT_ORDERS_SENT"] = "Статус: ";
+$MESS["OASIS_IMPORT_ORDERS_ORDER_NUMBER"] = ", заказ №";
+$MESS["OASIS_IMPORT_ORDERS_ORDER_PENDING"] = "заказ создается";
+$MESS["OASIS_IMPORT_ORDERS_ORDER_ERROR"] = "ошибка создания заказ";
+$MESS["OASIS_IMPORT_ORDERS_CONNECTION_ERROR"] = "Ошибка получения данных";

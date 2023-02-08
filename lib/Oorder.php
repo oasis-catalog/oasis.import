@@ -184,7 +184,9 @@ class Oorder extends Main
                     $product = ProductTable::getList([
                         'filter' => [
                             'ID' => intval($item['PRODUCT_ID']),
+                            '!UF_OASIS_ID_PRODUCT' => '',
                         ],
+                        'select' => ['UF_OASIS_ID_PRODUCT'],
                     ])->fetch();
                 } catch (SystemException $e) {
                     echo $e->getMessage() . PHP_EOL;

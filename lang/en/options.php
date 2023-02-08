@@ -50,3 +50,16 @@ $MESS["OASIS_IMPORT_OPTIONS_TAB_REMOTE_STOCK"] = "Remote stock (<strong style='c
 $MESS["OASIS_IMPORT_OPTIONS_TAB_PROGRESS_TOTAL"] = "Total processing status";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_PROGRESS_STEP"] = "Step %d out of %d in progress. Current step status";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_PROGRESS_DATE"] = "Last import completed: ";
+
+// Orders
+$MESS["OASIS_IMPORT_ORDERS_ID"] = "ID";
+$MESS["OASIS_IMPORT_ORDERS_DATE_INSERT"] = "Date insert";
+$MESS["OASIS_IMPORT_ORDERS_PRICE"] = "Price";
+$MESS["OASIS_IMPORT_ORDERS_UPLOAD"] = "Upload";
+$MESS["OASIS_IMPORT_ORDERS_SEND"] = "Send";
+$MESS["OASIS_IMPORT_ORDERS_NOT_PRODUCT"] = "Invalid items in the order";
+$MESS["OASIS_IMPORT_ORDERS_SENT"] = "Status: ";
+$MESS["OASIS_IMPORT_ORDERS_ORDER_NUMBER"] = ", order №";
+$MESS["OASIS_IMPORT_ORDERS_ORDER_PENDING"] = "order is created";
+$MESS["OASIS_IMPORT_ORDERS_ORDER_ERROR"] = "order creation error";
+$MESS["OASIS_IMPORT_ORDERS_CONNECTION_ERROR"] = "Error getting data";
