@@ -110,6 +110,7 @@ class Cli
                         Main::executeStoreProduct($productId, $product);
                         Main::executePriceProduct($productId, $product, $dataCalcPrice);
                         Main::upProgressBar($module_id, $limit);
+                        unset($dbProducts, $dbProduct, $productId, $properties);
                     } else {
                         $firstProduct = reset($products);
                         $dbProduct = Main::checkProduct($firstProduct->group_id);
@@ -145,12 +146,15 @@ class Cli
                             Main::executeStoreProduct($productOfferId, $product);
                             Main::executePriceProduct($productOfferId, $product, $dataCalcPrice);
                             Main::upProgressBar($module_id, $limit);
+                            unset($product, $dbOffer, $productOfferId, $propertiesOffer);
                         }
 
                         Main::upPropertiesFilterOffers($productId, $firstProduct, $products, $iblockIdCatalog);
                         Main::upStatusFirstProduct($productId, $iblockIdCatalog);
+                        unset($firstProduct, $dbProduct, $productId, $properties);
                     }
                     Main::cliMsg('Done ' . ++$itemGroup . ' from ' . $totalGroup, self::MSG_STATUS, self::MSG_TO_FILE);
+                    unset($products, $product);
                 }
             } else {
                 $nextStep = 0;
