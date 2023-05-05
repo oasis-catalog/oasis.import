@@ -45,8 +45,9 @@ $MESS["OASIS_IMPORT_OPTIONS_TAB_DEALER"] = "Использовать дилле�
 $MESS["OASIS_IMPORT_OPTIONS_TAB_OPTIONS_STOCK"] = "Склады";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_STOCKS"] = "Использовать разные склады";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_STOCKS_ERROR_DESC"] = "<div class='ui-alert ui-alert-icon-warning ui-alert-danger'><span class='ui-alert-message'><strong>Внимание!</strong> Данные не сохранены! <br> Не выбраны склады, выберите склады и сохраните настройки модуля.</span></div>";
-$MESS["OASIS_IMPORT_OPTIONS_TAB_MAIN_STOCK"] = "Главный склад (<strong style='color: #ff0000;'>обязательное</strong>)";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_MAIN_STOCK"] = "Москва (<strong style='color: #ff0000;'>обязательное</strong>)";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_REMOTE_STOCK"] = "Удаленный склад (<strong style='color: #ff0000;'>обязательное</strong>)";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_EUROPE_STOCK"] = "Европа (<strong style='color: #ff0000;'>обязательное</strong>)";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_PROGRESS_TOTAL"] = "Общий статус обработки";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_PROGRESS_STEP"] = "Выполняется %d шаг из %d. Статус текущего шага";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_PROGRESS_DATE"] = "Последний импорт завершен: ";

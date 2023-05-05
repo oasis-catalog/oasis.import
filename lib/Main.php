@@ -90,7 +90,7 @@ class Main
         try {
             $queryRows = Application::getConnection()->query("
         SELECT
-            P.ID, P.TYPE, U.UF_OASIS_ID_PRODUCT
+            P.ID, P.TYPE, U.UF_OASIS_PRODUCT_ID
         FROM
              b_uts_product U
                  JOIN b_catalog_product P ON U.VALUE_ID=P.ID
@@ -99,17 +99,17 @@ class Main
             if ($queryRows) {
                 $products = [];
                 foreach ($queryRows as $row) {
-                    if (!array_key_exists($row['UF_OASIS_ID_PRODUCT'], $products)) {
-                        $products[$row['UF_OASIS_ID_PRODUCT']] = $row['ID'];
+                    if (!array_key_exists($row['UF_OASIS_PRODUCT_ID'], $products)) {
+                        $products[$row['UF_OASIS_PRODUCT_ID']] = $row['ID'];
                     } elseif ($row['TYPE'] == 4) {
-                        $products[$row['UF_OASIS_ID_PRODUCT']] = $row['ID'];
+                        $products[$row['UF_OASIS_PRODUCT_ID']] = $row['ID'];
                     }
                 }
                 unset($row);
 
                 foreach ($stock as $item) {
                     if (array_key_exists($item->id, $products)) {
-                        ProductTable::update($products[$item->id], ['QUANTITY' => $item->stock]);
+                        ProductTable::update($products[$item->id], ['QUANTITY' => $item->stock + $item->{'stock-remote'}]);
                         self::executeStoreProduct($products[$item->id], $item, true);
                     }
                 }
@@ -323,8 +323,7 @@ class Main
             ])->fetch();
 
             if ($dbProduct) {
-                $arFields['QUANTITY'] = is_null($product->total_stock) ? 0 : $product->total_stock;
-                $arFields = array_merge($arFields, self::getAdditionalFields($parent, $product->rating));
+                $arFields = self::getAdditionalFields($parent, $product->rating);
                 ProductTable::update($dbProduct['ID'], $arFields);
             } else {
                 $arFields = [
@@ -389,38 +388,42 @@ class Main
      */
     public static function checkStores()
     {
-        $arStores = StoreTable::getList([
-            'filter' => ['ACTIVE' => 'Y'],
-        ])->fetchAll();
+        $arStores = StoreTable::getList()->fetchAll();
 
         $arFieldsStores = [
             [
-                'TITLE'   => 'Склад',
+                'TITLE'   => 'Москва',
                 'ACTIVE'  => 'Y',
-                'ADDRESS' => 'Адрес склада',
-                'SORT'    => 100,
+                'ADDRESS' => 'Москва',
+                'XML_ID'  => 'OASIS_STOCK_MOSCOW',
+                'SORT'    => 500,
+                'CODE'    => 'OASIS_STOCK_MOSCOW'
             ],
             [
                 'TITLE'   => 'Удаленый склад',
                 'ACTIVE'  => 'Y',
                 'ADDRESS' => 'Удаленый склад',
                 'XML_ID'  => 'OASIS_STOCK_REMOTE',
-                'SORT'    => 500,
+                'SORT'    => 510,
                 'CODE'    => 'OASIS_STOCK_REMOTE'
+            ],
+            [
+                'TITLE'   => 'Европа',
+                'ACTIVE'  => 'Y',
+                'ADDRESS' => 'Европа',
+                'XML_ID'  => 'OASIS_STOCK_EUROPE',
+                'SORT'    => 520,
+                'CODE'    => 'OASIS_STOCK_EUROPE'
             ]
         ];
 
-        if (empty($arStores)) {
-            foreach ($arFieldsStores as $arFieldsStore) {
-                StoreTable::add($arFieldsStore);
-            }
-        } else {
-            $neededStock = array_filter($arStores, function ($e) {
-                return $e['CODE'] == 'OASIS_STOCK_REMOTE';
+        foreach ($arFieldsStores as $arFieldsStore) {
+            $neededStock = array_filter($arStores, function ($e) use ($arFieldsStore) {
+                return $e['CODE'] == $arFieldsStore['CODE'];
             });
 
             if (empty($neededStock)) {
-                StoreTable::add(array_pop($arFieldsStores));
+                StoreTable::add($arFieldsStore);
             }
         }
     }
@@ -435,32 +438,47 @@ class Main
      */
     public static function executeStoreProduct($productId, $data, bool $upStock = false)
     {
-        if ($upStock) {
-            $stockMain = (int)$data->stock;
-            $stockRemote = (int)$data->{'stock-remote'};
-        } else {
-            $stockMain = (int)$data->outlets->{'000000029'};
-            $stockRemote = !empty($data->outlets->{'1-0000052'}) ? (int)$data->outlets->{'1-0000052'} : 0;
-        }
-
-        $stores = [
-            'main' => [
-                'ID'     => (int)Option::get(pathinfo(dirname(__DIR__))['basename'], 'main_stock'),
-                'AMOUNT' => $stockMain,
-            ]
+        $moduleId = pathinfo(dirname(__DIR__))['basename'];
+        $stocks = [
+            'main'   => 0,
+            'remote' => 0,
+            'europe' => 0,
         ];
 
-        try {
-            $multiStocks = Option::get(pathinfo(dirname(__DIR__))['basename'], 'stocks');
+        if ($upStock) {
+            $stocks['main'] = (int)$data->stock;
 
-            if (!empty($multiStocks)) {
+            if ($data->{'is-europe'}) {
+                $stocks['europe'] = (int)$data->{'stock-remote'};
+            } else {
+                $stocks['remote'] = (int)$data->{'stock-remote'};
+            }
+        } else {
+            $stocks['main'] = (int)$data->total_stock;
+        }
+
+        try {
+            $stores = [
+                'main' => [
+                    'ID'     => (int)Option::get($moduleId, 'main_stock'),
+                    'AMOUNT' => $stocks['main'],
+                ]
+            ];
+
+            $multiStocks = Option::get($moduleId, 'stocks');
+
+            if ($upStock && !empty($multiStocks)) {
                 $stores['remote'] = [
-                    'ID'     => (int)Option::get(pathinfo(dirname(__DIR__))['basename'], 'remote_stock'),
-                    'AMOUNT' => $stockRemote,
+                    'ID'     => (int)Option::get($moduleId, 'remote_stock'),
+                    'AMOUNT' => $stocks['remote'],
+                ];
+                $stores['europe'] = [
+                    'ID'     => (int)Option::get($moduleId, 'europe_stock'),
+                    'AMOUNT' => $stocks['europe'],
                 ];
 
-                if (empty($stores['main']['ID']) || empty($stores['remote']['ID'])) {
-                    throw new SystemException('Stock not updated. No main stock ID or no remote stock ID. Select stocks in module settings.');
+                if (empty($stores['main']['ID']) || empty($stores['remote']['ID']) || empty($stores['europe']['ID'])) {
+                    throw new SystemException('Stock not updated. No main stock ID or no remote stock ID or no europe stock ID. Select stocks in module settings.');
                 }
 
                 foreach ($stores as $store) {
@@ -483,7 +501,6 @@ class Main
                         StoreProductTable::add($arField);
                     }
                 }
-
             } else {
                 $rsStoreProduct = StoreProductTable::getList([
                     'filter' => [
@@ -495,7 +512,7 @@ class Main
                 $arField = [
                     'PRODUCT_ID' => (int)$productId,
                     'STORE_ID'   => $stores['main']['ID'],
-                    'AMOUNT'     => $stockMain + $stockRemote,
+                    'AMOUNT'     => array_sum($stocks),
                 ];
 
                 if (!empty($rsStoreProduct)) {
@@ -1498,7 +1515,7 @@ class Main
                 return (int)$dbPropertyEnum['ID'];
             }
 
-        } catch (SystemException | Exception $e) {
+        } catch (SystemException|Exception $e) {
             echo $e->getMessage() . PHP_EOL;
         }
     }
@@ -1853,7 +1870,7 @@ class Main
                 'select' => ['ID'],
                 'filter' => ['UF_OASIS_ID_CATEGORY' => $categoryId]
             ])->fetch();
-        } catch (ObjectPropertyException | ArgumentException | SystemException $e) {
+        } catch (ObjectPropertyException|ArgumentException|SystemException $e) {
             echo $e->getMessage() . PHP_EOL;
         }
     }

@@ -102,12 +102,12 @@ class Cli
                             $properties = Main::getPropertiesArray($product);
                             $properties += Main::getProductImages($product);
                             $productId = Main::addIblockElementProduct($product, $oasisCategories, $properties, $iblockIdCatalog);
+                            Main::executeStoreProduct($productId, $product);
                             Main::cliMsg('Add product id ' . $product->id, self::MSG_STATUS, self::MSG_TO_FILE);
                         }
 
                         Main::upPropertiesFilter($productId, $product, $iblockIdCatalog);
                         Main::executeProduct($productId, $product, $product->group_id, ProductTable::TYPE_PRODUCT);
-                        Main::executeStoreProduct($productId, $product);
                         Main::executePriceProduct($productId, $product, $dataCalcPrice);
                         Main::upProgressBar($module_id, $limit);
                         unset($dbProducts, $dbProduct, $productId, $properties);
@@ -139,11 +139,11 @@ class Cli
                                 $propertiesOffer = Main::getPropertiesArrayOffer($productId, $product, $iblockIdOffers);
                                 $productOfferId = Main::addIblockElementProduct($product, $oasisCategories, $propertiesOffer, $iblockIdOffers, true);
                                 Main::executeMeasureRatioTable($productOfferId);
+                                Main::executeStoreProduct($productOfferId, $product);
                                 Main::cliMsg('Add offer id ' . $product->id, self::MSG_STATUS, self::MSG_TO_FILE);
                             }
 
                             Main::executeProduct($productOfferId, $product, $product->id, ProductTable::TYPE_OFFER);
-                            Main::executeStoreProduct($productOfferId, $product);
                             Main::executePriceProduct($productOfferId, $product, $dataCalcPrice);
                             Main::upProgressBar($module_id, $limit);
                             unset($product, $dbOffer, $productOfferId, $propertiesOffer);

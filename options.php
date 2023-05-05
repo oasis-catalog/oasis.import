@@ -69,6 +69,12 @@ try {
                     '',
                     ['selectbox', ['' => Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_SELECT')] + Main::getActiveStoresForOptions()]
                 ],
+                [
+                    'europe_stock',
+                    Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_EUROPE_STOCK'),
+                    '',
+                    ['selectbox', ['' => Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_SELECT')] + Main::getActiveStoresForOptions()]
+                ],
                 Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CRON_TITLE'),
                 [
                     'cron_type',
@@ -223,7 +229,7 @@ if ($request->isPost() && check_bitrix_sessid()) {
                         LocalRedirect($APPLICATION->GetCurPage() . '?mid=' . $module_id . '&lang=' . LANG . '&errorIblock=1');
                         break;
                     }
-                } elseif ($arOption[0] === 'main_stock' || $arOption[0] === 'remote_stock') {
+                } elseif ($arOption[0] === 'main_stock' || $arOption[0] === 'remote_stock' || $arOption[0] === 'europe_stock') {
                     $optionValueStock = $request->getPost('stocks');
                     $optionValue = $request->getPost($arOption[0]);
 
@@ -323,8 +329,10 @@ if ((!empty($values['errorIblock']) && $values['errorIblock'] == 1) || (!empty($
                 checkbox.addEventListener("change", function () {
                     if (this.checked) {
                         BX.adjust(BX('remote_stock'), {style: {display: "table-row"}});
+                        BX.adjust(BX('europe_stock'), {style: {display: "table-row"}});
                     } else {
                         BX.adjust(BX('remote_stock'), {style: {display: "none"}});
+                        BX.adjust(BX('europe_stock'), {style: {display: "none"}});
                     }
                 })
             });
@@ -416,7 +424,7 @@ if ((!empty($values['errorIblock']) && $values['errorIblock'] == 1) || (!empty($
                         if (!empty($option[3][0]) && $option[3][0] === 'checkboxes') {
                             $customFields = new CustomFields();
                             $customFields->treeCategories($module_id, $option);
-                        } elseif (!empty($option[0]) && $option[0] === 'remote_stock') {
+                        } elseif (!empty($option[0]) && ($option[0] === 'remote_stock' || $option[0] === 'europe_stock')) {
                             $customFields = new CustomFields();
                             $customFields->hiddenSelect($module_id, $option);
                         } else {
