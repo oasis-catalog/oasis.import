@@ -1639,6 +1639,9 @@ class Main
         }
 
         foreach ($product->attributes as $attribute) {
+            $attribute->name = str_replace(['\'', '"'], ['', ''], $attribute->name);
+            $attribute->value = str_replace(['\'', '"'], ['', ''], $attribute->value);
+
             if (isset($attribute->id)) {
                 switch ($attribute->id) {
                     case 65:
