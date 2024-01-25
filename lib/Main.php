@@ -37,6 +37,7 @@ use CIBlockElement;
 use CIBlockSection;
 use CUserTypeEntity;
 use Exception;
+use JetBrains\PhpStorm\NoReturn;
 
 class Main
 {
@@ -776,6 +777,7 @@ class Main
                     'CODE'          => 'COLOR',
                     'NAME'          => 'Цвет',
                     'PROPERTY_TYPE' => 'S',
+                    'MULTIPLE'      => 'Y',
                     'MULTIPLE_CNT'  => 3,
                     'SORT'          => 340,
                     'extend'        => [
@@ -2336,6 +2338,30 @@ class Main
             $progressStepItem = Option::get($module_id, 'progressStepItem');
             Option::set($module_id, 'progressStepItem', ++$progressStepItem);
         }
+    }
+
+    /**
+     * Get ids product by group_id
+     *
+     * @param string $groupId
+     *
+     * @return void
+     * @throws ArgumentNullException
+     * @throws ArgumentOutOfRangeException
+     */
+    #[NoReturn] public static function getIdsByGroupId(string $groupId ): void
+    {
+        $products = Api::getProductsOasis();
+        $result   = [];
+
+        foreach ( $products as $product ) {
+            if ( $product->group_id == $groupId ) {
+                $result[] = $product->id;
+            }
+        }
+
+        print_r( '$args[\'ids\'] = \'' . implode( ',', $result ) . '\';' );
+        exit();
     }
 
     /**
