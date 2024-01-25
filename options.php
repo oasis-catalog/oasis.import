@@ -269,7 +269,7 @@ if ($request->isPost() && check_bitrix_sessid()) {
             if ($request['apply']) {
                 $optionValue = $request->getPost($arOption[0]);
 
-                if (!empty($arOption[3][0]) && $arOption[3][0] === 'checkboxes') {
+                if (!empty($optionValue) && !empty($arOption[3][0]) && $arOption[3][0] === 'checkboxes') {
                     $optionValue = array_keys($optionValue);
                 }
 
