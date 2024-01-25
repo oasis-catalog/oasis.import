@@ -101,7 +101,7 @@ class Cli
                         } else {
                             $properties = Main::getPropertiesArray($product);
                             $properties += Main::getProductImages($product);
-                            $productId = Main::addIblockElementProduct($product, $oasisCategories, $properties, $iblockIdCatalog);
+                            $productId = Main::addIblockElementProduct($product, $oasisCategories, $properties, $iblockIdCatalog, ProductTable::TYPE_PRODUCT);
                             Main::executeStoreProduct($productId, $product);
                             Main::cliMsg('Add product id ' . $product->id, self::MSG_STATUS, self::MSG_TO_FILE);
                         }
@@ -121,7 +121,7 @@ class Cli
                             Main::cliMsg('Up product id ' . $firstProduct->id, self::MSG_STATUS, self::MSG_TO_FILE);
                         } else {
                             $properties = Main::getPropertiesArray($firstProduct);
-                            $productId = Main::addIblockElementProduct($firstProduct, $oasisCategories, $properties, $iblockIdCatalog);
+                            $productId = Main::addIblockElementProduct($firstProduct, $oasisCategories, $properties, $iblockIdCatalog, ProductTable::TYPE_SKU);
                             Main::cliMsg('Add product id ' . $firstProduct->id, self::MSG_STATUS, self::MSG_TO_FILE);
                         }
 
@@ -137,7 +137,7 @@ class Cli
                                 Main::cliMsg('Up offer id ' . $product->id, self::MSG_STATUS, self::MSG_TO_FILE);
                             } else {
                                 $propertiesOffer = Main::getPropertiesArrayOffer($productId, $product, $iblockIdOffers);
-                                $productOfferId = Main::addIblockElementProduct($product, $oasisCategories, $propertiesOffer, $iblockIdOffers, true);
+                                $productOfferId = Main::addIblockElementProduct($product, $oasisCategories, $propertiesOffer, $iblockIdOffers, ProductTable::TYPE_OFFER);
                                 Main::executeMeasureRatioTable($productOfferId);
                                 Main::executeStoreProduct($productOfferId, $product);
                                 Main::cliMsg('Add offer id ' . $product->id, self::MSG_STATUS, self::MSG_TO_FILE);

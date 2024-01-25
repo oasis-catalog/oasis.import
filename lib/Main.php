@@ -161,13 +161,34 @@ class Main
      * @param $oasisCategories
      * @param $properties
      * @param $iblockId
-     * @param bool $offer
+     * @param $type
      * @return false|mixed|void
      */
-    public static function addIblockElementProduct($product, $oasisCategories, $properties, $iblockId, bool $offer = false)
+    public static function addIblockElementProduct($product, $oasisCategories, $properties, $iblockId, $type)
     {
         try {
-            $data = [
+            $data = [];
+
+            if (!empty($properties['MORE_PHOTO'])) {
+                if ($type == ProductTable::TYPE_PRODUCT) {
+                    $firstImg = reset($properties['MORE_PHOTO']);
+                } else {
+                    $firstImg = array_shift($properties['MORE_PHOTO']);
+                    $i = 0;
+                    $newMorePhoto = [];
+
+                    foreach ($properties['MORE_PHOTO'] as $photoItem) {
+                        $newMorePhoto['n' . $i++] = $photoItem;
+                    }
+                    $properties['MORE_PHOTO'] = $newMorePhoto;
+                }
+
+                $data['DETAIL_PICTURE'] = $data['PREVIEW_PICTURE'] = $firstImg['VALUE'];
+
+                unset($newMorePhoto, $i, $firstImg);
+            }
+
+            $data += [
                 'NAME'             => $product->name,
                 'CODE'             => self::getUniqueCodeElement($product->name),
                 'IBLOCK_ID'        => $iblockId,
@@ -177,11 +198,7 @@ class Main
                 'ACTIVE'           => self::getStatusProduct($product),
             ];
 
-            if (array_key_exists('MORE_PHOTO', $properties) && $properties['MORE_PHOTO']) {
-                $data['DETAIL_PICTURE'] = reset($properties['MORE_PHOTO'])['VALUE'];
-            }
-
-            if ($offer === false) {
+            if ($type !== ProductTable::TYPE_OFFER) {
                 $data += self::getIblockSectionProduct($product, $oasisCategories, $iblockId);
             }
 
@@ -189,7 +206,7 @@ class Main
             $productId = $el->Add($data);
 
             if (!empty($el->LAST_ERROR)) {
-                throw new SystemException($offer === false ? 'Ошибка добавления товара: ' : 'Ошибка добавления торгового предложения: ' . $el->LAST_ERROR);
+                throw new SystemException($type === ProductTable::TYPE_OFFER ? 'Ошибка добавления торгового предложения: ' : 'Ошибка добавления товара: ' . $el->LAST_ERROR);
             }
         } catch (SystemException $e) {
             echo $e->getMessage() . PHP_EOL;
