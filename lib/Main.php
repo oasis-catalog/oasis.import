@@ -666,6 +666,145 @@ class Main
     }
 
     /**
+     * Get images product
+     *
+     * @param $product
+     * @param $products
+     * @return string
+     */
+    public static function getUrlFirstImageProductForParentColorId($product, $products): string
+    {
+        $needed = self::searchObject($products, $product->color_group_id);
+
+        if ($needed) {
+            $firstImg = reset($needed->images);
+        } else {
+            $firstImg = reset($product->images);
+        }
+
+        if (!empty($firstImg) && !empty($firstImg->small)) {
+            return $firstImg->small;
+        }
+
+        return '';
+    }
+
+    /**
+     * Get first image product
+     *
+     * @param $image
+     * @param $product
+     * @return bool|int|string
+     */
+    public static function getIDImageForHL($image, $product): bool|int|string
+    {
+        if (empty($image)) {
+            return 0;
+        }
+
+        $HLNameImg = self::getImageNameHL($image, $product);
+        $resizeImage = CFile::GetList([], ['ORIGINAL_NAME' => $HLNameImg])->Fetch();
+
+        if (empty($resizeImage)) {
+            $dbResult = CFile::GetList([], [
+                'ORIGINAL_NAME' => $HLNameImg,
+            ])->Fetch();
+
+            if (empty($dbResult)) {
+                $dataMake = self::getDataMakeFileArray($image, $HLNameImg);
+
+                if ($dataMake) {
+                    $imageID = CFile::SaveFile($dataMake, 'iblock');
+                } else {
+                    return 0;
+                }
+            } else {
+                $imageID = $dbResult['ID'];
+            }
+
+            return self::resizeImageForHL($imageID);
+        } else {
+            if ($resizeImage['HEIGHT'] != '70' || $resizeImage['WIDTH'] != '70') {
+                return self::resizeImageForHL($resizeImage['ID']);
+            } else {
+                return intval($resizeImage['ID']);
+            }
+        }
+    }
+
+    /**
+     * Get image name for HL block
+     *
+     * @param $image
+     * @param $product
+     * @return string
+     */
+    public static function getImageNameHL($image, $product): string
+    {
+        $dataImageName = pathinfo(basename($image));
+
+        if (!empty($product->color_group_id)) {
+            return $product->color_group_id . '_hl.' . $dataImageName['extension'];
+        }
+
+        return $product->id . '_hl.' . $dataImageName['extension'];
+    }
+
+    /**
+     * Fix upload file in MakeFileArray
+     *
+     * @param $image
+     * @param $HLNameImg
+     * @param int $i
+     * @return bool|array|null
+     */
+    static public function getDataMakeFileArray($image, $HLNameImg, int $i = 0): bool|array|null
+    {
+        $result = CFile::MakeFileArray($image);
+
+        if (!empty($result['type']) && $result['type'] === 'unknown') {
+            $i++;
+
+            if ($i < 6) {
+                $result = self::getDataMakeFileArray($image, $HLNameImg, $i);
+            } else {
+                return [];
+            }
+        }
+
+        $result['name'] = $HLNameImg;
+        $result['MODULE_ID'] = CLI::MODULE_ID;
+
+        return $result;
+    }
+
+    /**
+     * Resize image fro HL block
+     *
+     * @param $ID
+     * @return bool|int|string
+     */
+    private static function resizeImageForHL($ID): bool|int|string
+    {
+        $arFile = CFile::MakeFileArray($ID);
+
+        CFile::ResizeImage(
+            $arFile,
+            [
+                'width'  => 70,
+                'height' => 70
+            ],
+            BX_RESIZE_IMAGE_PROPORTIONAL_ALT,
+        );
+
+        $arFile['MODULE_ID'] = CLI::MODULE_ID;
+        $fileId = CFile::SaveFile($arFile, 'iblock');
+        CFile::Delete($ID);
+
+        return $fileId;
+    }
+
+    /**
      * Get status product
      *
      * @param $product
@@ -967,10 +1106,54 @@ class Main
                     ],
                 ],
                 [
+                    'CODE'          => 'COLOR_CLOTHES',
+                    'NAME'          => 'Цвет',
+                    'PROPERTY_TYPE' => 'L',
+                    'SORT'          => 1020,
+                    'extend'        => [
+                        'feature' => [
+                            'IN_BASKET'        => 'Y',
+                            'OFFER_TREE'       => 'Y',
+                            'LIST_PAGE_SHOW'   => 'N',
+                            'DETAIL_PAGE_SHOW' => 'N',
+                        ],
+                    ],
+                ],
+                [
+                    'CODE'                    => 'COLOR_ES_REF',
+                    'NAME'                    => 'Цвет',
+                    'PROPERTY_TYPE'           => 'S',
+                    'COL_COUNT'               => 30,
+                    'MULTIPLE'                => 'N',
+                    'FILTRABLE'               => 'N',
+                    'SORT'                    => 1030,
+                    'USER_TYPE'               => 'directory',
+                    'USER_TYPE_SETTINGS_LIST' => [
+                        'size'       => 1,
+                        'width'      => 0,
+                        'group'      => 'N',
+                        'multiple'   => 'N',
+                        'TABLE_NAME' => 'ex_color_reference'
+                    ],
+                    'extend'                  => [
+                        'feature' => [
+                            'IN_BASKET'        => 'Y',
+                            'OFFER_TREE'       => 'Y',
+                            'LIST_PAGE_SHOW'   => 'N',
+                            'DETAIL_PAGE_SHOW' => 'N',
+                        ],
+                        'section' => [
+                            'smartFilter'     => 'N',
+                            'displayType'     => 'G',
+                            'displayExpanded' => 'Y',
+                        ],
+                    ],
+                ],
+                [
                     'CODE'          => 'SIZES_CLOTHES',
                     'NAME'          => 'Размеры одежды',
                     'PROPERTY_TYPE' => 'L',
-                    'SORT'          => 1020,
+                    'SORT'          => 1040,
                     'extend'        => [
                         'feature' => [
                             'IN_BASKET'        => 'Y',
@@ -984,7 +1167,7 @@ class Main
                     'CODE'          => 'SIZES_FLASH',
                     'NAME'          => 'Объем памяти',
                     'PROPERTY_TYPE' => 'L',
-                    'SORT'          => 1030,
+                    'SORT'          => 1050,
                     'extend'        => [
                         'feature' => [
                             'IN_BASKET'        => 'Y',
@@ -996,20 +1179,6 @@ class Main
                             'smartFilter'     => 'Y',
                             'displayType'     => 'F',
                             'displayExpanded' => 'Y',
-                        ],
-                    ],
-                ],
-                [
-                    'CODE'          => 'COLOR_CLOTHES',
-                    'NAME'          => 'Цвет',
-                    'PROPERTY_TYPE' => 'L',
-                    'SORT'          => 1040,
-                    'extend'        => [
-                        'feature' => [
-                            'IN_BASKET'        => 'Y',
-                            'OFFER_TREE'       => 'Y',
-                            'LIST_PAGE_SHOW'   => 'N',
-                            'DETAIL_PAGE_SHOW' => 'N',
                         ],
                     ],
                 ],
@@ -1375,6 +1544,137 @@ class Main
                     ]
                 ],
                 'values' => $colorValues
+            ],
+            'ex_color_reference'    => [
+                'name'   => 'ExColorReference',
+                'fields' => [
+                    [
+                        'FIELD_NAME'        => 'UF_NAME',
+                        'USER_TYPE_ID'      => 'string',
+                        'XML_ID'            => 'UF_COLOR_NAME',
+                        'IS_SEARCHABLE'     => 'Y',
+                        'EDIT_FORM_LABEL'   => [
+                            'ru' => 'Название',
+                            'en' => 'Name',
+                        ],
+                        'LIST_COLUMN_LABEL' => [
+                            'ru' => 'Название',
+                            'en' => 'Name',
+                        ],
+                        'LIST_FILTER_LABEL' => [
+                            'ru' => 'Название',
+                            'en' => 'Name',
+                        ]
+                    ],
+                    [
+                        'FIELD_NAME'        => 'UF_FILE',
+                        'USER_TYPE_ID'      => 'file',
+                        'XML_ID'            => 'UF_COLOR_FILE',
+                        'IS_SEARCHABLE'     => 'Y',
+                        'EDIT_FORM_LABEL'   => [
+                            'ru' => 'Файл',
+                            'en' => 'File',
+                        ],
+                        'LIST_COLUMN_LABEL' => [
+                            'ru' => 'Файл',
+                            'en' => 'File',
+                        ],
+                        'LIST_FILTER_LABEL' => [
+                            'ru' => 'Файл',
+                            'en' => 'File',
+                        ]
+                    ],
+                    [
+                        'FIELD_NAME'        => 'UF_LINK',
+                        'USER_TYPE_ID'      => 'string',
+                        'XML_ID'            => 'UF_COLOR_LINK',
+                        'IS_SEARCHABLE'     => 'Y',
+                        'EDIT_FORM_LABEL'   => [
+                            'ru' => 'Ссылка',
+                            'en' => 'Link',
+                        ],
+                        'LIST_COLUMN_LABEL' => [
+                            'ru' => 'Ссылка',
+                            'en' => 'Link',
+                        ],
+                        'LIST_FILTER_LABEL' => [
+                            'ru' => 'Ссылка',
+                            'en' => 'Link',
+                        ]
+                    ],
+                    [
+                        'FIELD_NAME'        => 'UF_SORT',
+                        'USER_TYPE_ID'      => 'double',
+                        'XML_ID'            => 'UF_COLOR_SORT',
+                        'EDIT_FORM_LABEL'   => [
+                            'ru' => 'Сортировка',
+                            'en' => 'Sort',
+                        ],
+                        'LIST_COLUMN_LABEL' => [
+                            'ru' => 'Сортировка',
+                            'en' => 'Sort',
+                        ],
+                        'LIST_FILTER_LABEL' => [
+                            'ru' => 'Сортировка',
+                            'en' => 'Sort',
+                        ]
+                    ],
+                    [
+                        'FIELD_NAME'        => 'UF_DEF',
+                        'USER_TYPE_ID'      => 'boolean',
+                        'XML_ID'            => 'UF_COLOR_DEF',
+                        'EDIT_FORM_LABEL'   => [
+                            'ru' => 'По умолчанию',
+                            'en' => 'Default',
+                        ],
+                        'LIST_COLUMN_LABEL' => [
+                            'ru' => 'По умолчанию',
+                            'en' => 'Default',
+                        ],
+                        'LIST_FILTER_LABEL' => [
+                            'ru' => 'По умолчанию',
+                            'en' => 'Default',
+                        ]
+                    ],
+                    [
+                        'FIELD_NAME'        => 'UF_XML_ID',
+                        'USER_TYPE_ID'      => 'string',
+                        'XML_ID'            => 'UF_XML_ID',
+                        'MANDATORY'         => 'Y',
+                        'EDIT_FORM_LABEL'   => [
+                            'ru' => 'XML ID',
+                            'en' => 'XML ID',
+                        ],
+                        'LIST_COLUMN_LABEL' => [
+                            'ru' => 'XML ID',
+                            'en' => 'XML ID',
+                        ],
+                        'LIST_FILTER_LABEL' => [
+                            'ru' => 'XML ID',
+                            'en' => 'XML ID',
+                        ]
+                    ],
+                    [
+                        'FIELD_NAME'        => 'UF_COLOR_ID',
+                        'USER_TYPE_ID'      => 'string',
+                        'XML_ID'            => 'UF_COLOR_ID',
+                        'MANDATORY'         => 'Y',
+                        'SHOW_IN_LIST'      => 'N',
+                        'EDIT_IN_LIST'      => 'N',
+                        'EDIT_FORM_LABEL'   => [
+                            'ru' => 'ID цвета',
+                            'en' => 'ID color',
+                        ],
+                        'LIST_COLUMN_LABEL' => [
+                            'ru' => 'ID цвета',
+                            'en' => 'ID color',
+                        ],
+                        'LIST_FILTER_LABEL' => [
+                            'ru' => 'ID цвета',
+                            'en' => 'ID color',
+                        ]
+                    ]
+                ],
             ]
         ];
 
@@ -1443,6 +1743,64 @@ class Main
                 }
             }
         }
+    }
+
+    /**
+     * High load block
+     *
+     * @param $arrImg
+     * @param $name
+     * @return array|int|string
+     * @throws ArgumentException
+     * @throws ObjectPropertyException
+     * @throws SystemException
+     * @throws Exception
+     */
+    public static function checkRowHLBlock($arrImg, $name): int|array|string
+    {
+        $result = '';
+        $row = Highloadblock\HighloadBlockTable::getList([
+            'select' => ['ID', 'NAME', 'TABLE_NAME'],
+            'filter' => [
+                '=NAME'       => 'ExColorReference',
+                '=TABLE_NAME' => 'ex_color_reference'
+            ]
+        ])->fetch();
+
+        if (!empty($row)) {
+            $tableId = (int)$row['ID'];
+            $hldata = Highloadblock\HighloadBlockTable::getById($tableId)->fetch();
+            $hlentity = Highloadblock\HighloadBlockTable::compileEntity($hldata);
+            $entityClass = $hlentity->getDataClass();
+
+            $item = [
+                'UF_NAME'     => $name,
+                'UF_FILE'     => [
+                    'name'     => $arrImg['name'],
+                    'type'     => $arrImg['type'],
+                    'tmp_name' => $arrImg['tmp_name']
+                ],
+                'UF_SORT'     => 0,
+                'UF_DEF'      => '0',
+                'UF_XML_ID'   => pathinfo($arrImg['name'])['filename'],
+                'UF_COLOR_ID' => pathinfo($arrImg['name'])['filename']
+            ];
+
+            $rowColor = $entityClass::getList([
+                'select' => ['ID'],
+                'filter' => [
+                    '=UF_XML_ID' => $item['UF_XML_ID']
+                ],
+            ])->fetch();
+
+            if (empty($rowColor)) {
+                $result = $entityClass::add($item)->getId();
+            } else {
+                $result = $rowColor['ID'];
+            }
+        }
+
+        return $result;
     }
 
     /**
@@ -1737,10 +2095,11 @@ class Main
      *
      * @param $productId
      * @param $product
+     * @param $imageHL
      * @param $iblockId
      * @return array
      */
-    public static function getPropertiesArrayOffer($productId, $product, $iblockId): array
+    public static function getPropertiesArrayOffer($productId, $product, $imageHL, $iblockId): array
     {
         $result = [
             'CML2_LINK' => $productId,
@@ -1757,14 +2116,10 @@ class Main
             $result['SIZES_FLASH'] = self::checkPropertyEnum('SIZES_FLASH', $product->size, $iblockId);
         }
 
-        foreach ($product->attributes as $attribute) {
-            if (isset($attribute->id) && $attribute->id === 1000000001) {
-                $result['COLOR_CLOTHES'] = self::checkPropertyEnum('COLOR_CLOTHES', $attribute->value, $iblockId);
-            }
-        }
-        unset($attribute);
-
         $result += self::getProductImages($product);
+
+        $dataName = pathinfo(basename(self::getImageNameHL($imageHL, $product)));
+        $result['COLOR_ES_REF'] = $dataName['filename'];
 
         return $result;
     }
@@ -2362,18 +2717,18 @@ class Main
      * @throws ArgumentNullException
      * @throws ArgumentOutOfRangeException
      */
-    #[NoReturn] public static function getIdsByGroupId(string $groupId ): void
+    #[NoReturn] public static function getIdsByGroupId(string $groupId): void
     {
         $products = Api::getProductsOasis();
-        $result   = [];
+        $result = [];
 
-        foreach ( $products as $product ) {
-            if ( $product->group_id == $groupId ) {
+        foreach ($products as $product) {
+            if ($product->group_id == $groupId) {
                 $result[] = $product->id;
             }
         }
 
-        print_r( '$args[\'ids\'] = \'' . implode( ',', $result ) . '\';' );
+        print_r('$args[\'ids\'] = \'' . implode(',', $result) . '\';');
         exit();
     }
 

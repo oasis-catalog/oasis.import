@@ -8,10 +8,12 @@ use Bitrix\Main\Loader;
 use Bitrix\Main\LoaderException;
 use Bitrix\Main\SystemException;
 use Bitrix\Main\Type\DateTime;
+use CFile;
 use Exception;
 
 class Cli
 {
+    const MODULE_ID = 'oasis.import';
     const MSG_STATUS = true;
     const MSG_TO_FILE = false;
 
@@ -133,6 +135,10 @@ class Cli
                         Main::executePriceProduct($productId, $firstProduct, $dataCalcPrice);
 
                         foreach ($products as $product) {
+                            $firstIMG = Main::getUrlFirstImageProductForParentColorId($product, $products);
+                            $imageId = Main::getIDImageForHL($firstIMG, $product);
+                            Main::checkRowHLBlock(CFile::MakeFileArray($imageId), $product->full_name);
+
                             $dbOffer = Main::checkProduct($product->id, ProductTable::TYPE_OFFER);
 
                             if ($dbOffer) {
@@ -140,7 +146,7 @@ class Cli
                                 Main::upIblockElementProduct($productOfferId, $product, 0);
                                 Main::cliMsg('Up offer id ' . $product->id, self::MSG_STATUS, self::MSG_TO_FILE);
                             } else {
-                                $propertiesOffer = Main::getPropertiesArrayOffer($productId, $product, $iblockIdOffers);
+                                $propertiesOffer = Main::getPropertiesArrayOffer($productId, $product, $firstIMG, $iblockIdOffers);
                                 $productOfferId = Main::addIblockElementProduct($product, $oasisCategories, $propertiesOffer, $iblockIdOffers, ProductTable::TYPE_OFFER);
                                 Main::executeMeasureRatioTable($productOfferId);
                                 Main::executeStoreProduct($productOfferId, $product);
