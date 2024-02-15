@@ -170,19 +170,15 @@ class Main
             $data = [];
 
             if (!empty($properties['MORE_PHOTO'])) {
-                if ($type == ProductTable::TYPE_PRODUCT) {
-                    $firstImg = reset($properties['MORE_PHOTO']);
-                } else {
-                    $firstImg = array_shift($properties['MORE_PHOTO']);
-                    $i = 0;
-                    $newMorePhoto = [];
+                $firstImg = array_shift($properties['MORE_PHOTO']);
+                $i = 0;
+                $newMorePhoto = [];
 
-                    foreach ($properties['MORE_PHOTO'] as $photoItem) {
-                        $newMorePhoto['n' . $i++] = $photoItem;
-                    }
-                    $properties['MORE_PHOTO'] = $newMorePhoto;
+                foreach ($properties['MORE_PHOTO'] as $photoItem) {
+                    $newMorePhoto['n' . $i++] = $photoItem;
                 }
 
+                $properties['MORE_PHOTO'] = $newMorePhoto;
                 $data['DETAIL_PICTURE'] = $data['PREVIEW_PICTURE'] = $firstImg['VALUE'];
 
                 unset($newMorePhoto, $i, $firstImg);
