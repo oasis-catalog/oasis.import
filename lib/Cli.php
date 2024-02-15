@@ -27,6 +27,10 @@ class Cli
         set_time_limit(0);
         ini_set('memory_limit', '2G');
 
+        while (ob_get_level()) {
+            ob_end_flush();
+        }
+
         try {
             $args = [];
             $module_id = pathinfo(dirname(__DIR__))['basename'];
