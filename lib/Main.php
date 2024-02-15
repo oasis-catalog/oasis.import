@@ -246,6 +246,38 @@ class Main
         }
     }
 
+    public static function checkDeleteProductNew($product)
+    {
+        try {
+            $dbProducts = Main::checkProduct($product->id, 0, true);
+
+            if ($dbProducts) {
+                foreach ($dbProducts as $dbProduct) {
+                    $res = CCatalogSKU::getOffersList($dbProduct['ID']);
+
+                    if (!empty($res)) {
+                        $offers = reset($res);
+                        $parentId = 0;
+
+                        foreach ($offers as $offer) {
+                            self::deleteIblockElementProduct(intval($offer['ID']));
+                            $parentId = $offer['PARENT_ID'];
+                        }
+                        self::deleteIblockElementProduct($parentId);
+                    } else {
+                        //TODO проверить валидность получения id в array_key_first
+                        $firtsKey = array_key_first($res);
+                        var_dump($firtsKey);
+                        self::deleteIblockElementProduct(intval($firtsKey));
+
+                    }
+                }
+            }
+        } catch (SystemException $e) {
+            echo $e->getMessage() . PHP_EOL;
+        }
+    }
+
     /**
      * Check and delete product by Oasis product id
      *
@@ -284,7 +316,7 @@ class Main
     {
         try {
             if (!CIBlockElement::Delete($iblockElementId)) {
-                throw new SystemException('Iblock element not deleted.');
+                throw new SystemException('Iblock element not deleted. ID-' . $iblockElementId);
             }
 
             self::cliMsg('Delete iblock element id: ' . $iblockElementId);
