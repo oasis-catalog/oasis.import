@@ -41,6 +41,7 @@ $MESS["OASIS_IMPORT_OPTIONS_TAB_LIMIT_PRODUCT"] = "Лимит товаров";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_CALC"] = "Настройки цен";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_FACTOR"] = "Коэффициент цены";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_INCREASE"] = "Надбавка к цене";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_DELETE_EXCLUDE"] = "Удалить товары исключенных категорий";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_DEALER"] = "Использовать диллерские цены";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_OPTIONS_STOCK"] = "Склады";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_STOCKS"] = "Использовать разные склады";

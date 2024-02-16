@@ -161,6 +161,33 @@ class Api
     }
 
     /**
+     * Get
+     * @throws ArgumentNullException
+     * @throws ArgumentOutOfRangeException
+     */
+    public static function getProductsOasisOnlyFieldCategories(array $IDS = []): array
+    {
+        $args = [
+            'fields' => 'id,categories',
+            'strict' => true,
+        ];
+
+        if (!empty($IDS)) {
+            $args['ids'] = implode(',', $IDS);
+        }
+
+        $products = self::curlQuery('products', $args);
+
+        if (!empty($products)) {
+            foreach ($products as $product) {
+                unset($product->included_branding, $product->full_categories);
+            }
+        }
+
+        return $products;
+    }
+
+    /**
      * Get categories oasis
      *
      * @return array

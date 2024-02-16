@@ -23,6 +23,7 @@ use Bitrix\Main\ArgumentException;
 use Bitrix\Main\ArgumentNullException;
 use Bitrix\Main\ArgumentOutOfRangeException;
 use Bitrix\Main\Config\Option;
+use Bitrix\Main\DB\SqlQueryException;
 use Bitrix\Main\Diag\Debug;
 use Bitrix\Main\Loader;
 use Bitrix\Main\LoaderException;
@@ -89,13 +90,7 @@ class Main
     public static function upQuantity($stock)
     {
         try {
-            $queryRows = Application::getConnection()->query("
-        SELECT
-            P.ID, P.TYPE, U.UF_OASIS_PRODUCT_ID
-        FROM
-             b_uts_product U
-                 JOIN b_catalog_product P ON U.VALUE_ID=P.ID
-        ")->fetchAll();
+            $queryRows = self::getAllOaProducts();
 
             if ($queryRows) {
                 $products = [];
@@ -119,6 +114,25 @@ class Main
         } catch (SystemException $e) {
             echo $e->getMessage() . PHP_EOL;
         }
+    }
+
+    /**
+     * Get all products oasis in DB
+     *
+     * @return array
+     * @throws SqlQueryException
+     */
+    public static function getAllOaProducts(): array
+    {
+        return Application::getConnection()->query("
+        SELECT
+            P.ID, P.TYPE, U.UF_OASIS_PRODUCT_ID
+        FROM
+             b_uts_product U
+                 JOIN b_catalog_product P 
+                     ON U.VALUE_ID=P.ID
+        WHERE U.UF_OASIS_PRODUCT_ID IS NOT NULL
+        ")->fetchAll();
     }
 
     /**
@@ -249,14 +263,14 @@ class Main
     /**
      * Check and delete product by Oasis product id
      *
-     * @param $product
+     * @param $productId
      * @return void
      * @throws LoaderException
      */
-    public static function checkDeleteProduct($product): void
+    public static function checkDeleteProduct($productId): void
     {
         try {
-            $dbProducts = Main::checkProduct($product->id, 0, true);
+            $dbProducts = Main::checkProduct($productId, 0, true);
 
             if ($dbProducts) {
                 foreach ($dbProducts as $dbProduct) {
@@ -2194,7 +2208,9 @@ class Main
         $result = [];
 
         foreach ($productCategories as $productCategory) {
-            $result[] = self::getCategoryId($oasisCategories, $productCategory, $iblockId);
+            if (in_array($productCategory, CLI::$dbCategories)) {
+                $result[] = self::getCategoryId($oasisCategories, $productCategory, $iblockId);
+            }
         }
 
         return $result;

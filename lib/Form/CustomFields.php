@@ -60,7 +60,7 @@ class CustomFields
 
             for ($i = 0; $i < count($categories[$parent_id]); $i++) {
                 if (empty($checkedArr)) {
-                    $checked = $categories[$parent_id][$i]['level'] == 1 ? ' checked' : '';
+                    $checked = ' checked';
                 } else {
                     $checked = array_search($categories[$parent_id][$i]['id'], $checkedArr) !== false ? ' checked' : '';
                 }

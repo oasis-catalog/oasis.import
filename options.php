@@ -83,8 +83,8 @@ try {
                     [
                         'selectbox',
                         [
-                            'bitrix' => Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CRON_BITRIX'),
                             'custom' => Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CRON_CUSTOM'),
+                            'bitrix' => Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CRON_BITRIX'),
                         ]
                     ]
                 ],
@@ -114,6 +114,12 @@ try {
                 Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CATEGORIES'),
                 'Y',
                 ['checkboxes', Main::getOasisCategoriesToTree()]
+            ],
+            [
+                'delete_exclude',
+                Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_DELETE_EXCLUDE'),
+                'N',
+                ['checkbox']
             ],
             [
                 'currency',

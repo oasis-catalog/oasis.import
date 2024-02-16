@@ -13,6 +13,7 @@ use Exception;
 
 class Cli
 {
+    public static array $dbCategories = [];
     const MODULE_ID = 'oasis.import';
     const MSG_STATUS = true;
     const MSG_TO_FILE = false;
@@ -38,6 +39,8 @@ class Cli
             $module_id = pathinfo(dirname(__DIR__))['basename'];
             $iblockIdCatalog = (int)Option::get($module_id, 'iblock_catalog');
             $iblockIdOffers = (int)Option::get($module_id, 'iblock_offers');
+            $deleteExclude = Option::get($module_id, 'delete_exclude');
+            self::$dbCategories = explode(',', Option::get($module_id, 'categories'));
 
             if (empty($iblockIdCatalog) || empty($iblockIdOffers)) {
                 throw new Exception('Infoblocks not selected');
@@ -71,11 +74,36 @@ class Cli
             $group_ids = [];
             $countProducts = 0;
             foreach ($oasisProducts as $product) {
-                //TODO delete products
-                $group_ids[$product->group_id][$product->id] = $product;
-                $countProducts++;
+                if (!empty($deleteExclude)) {
+                    if (empty(array_intersect($product->categories, self::$dbCategories))) {
+                        Main::checkDeleteProduct($product->id);
+                        continue;
+                    }
+                }
+
+                if ($product->is_deleted === false) {
+                    $group_ids[$product->group_id][$product->id] = $product;
+                    $countProducts++;
+                } else {
+                    Main::checkDeleteProduct($product->id);
+                }
             }
             unset($product);
+
+            if (!empty($deleteExclude)) {
+                $allOaProducts = Main::getAllOaProducts();
+
+                if (!empty($allOaProducts)) {
+                    $resProducts = API::getProductsOasisOnlyFieldCategories(array_column($allOaProducts, 'UF_OASIS_PRODUCT_ID'));
+
+                    foreach ($resProducts as $resProduct) {
+                        if (empty(array_intersect($resProduct->categories, self::$dbCategories))) {
+                            Main::checkDeleteProduct($resProduct->id);
+                        }
+                    }
+                }
+                unset($allOaProducts, $resProducts, $resProduct);
+            }
 
             if ($group_ids) {
                 Option::set($module_id, 'progressTotal', $stat['products']);
