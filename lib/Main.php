@@ -246,7 +246,14 @@ class Main
         }
     }
 
-    public static function checkDeleteProductNew($product)
+    /**
+     * Check and delete product by Oasis product id
+     *
+     * @param $product
+     * @return void
+     * @throws LoaderException
+     */
+    public static function checkDeleteProduct($product): void
     {
         try {
             $dbProducts = Main::checkProduct($product->id, 0, true);
@@ -255,7 +262,9 @@ class Main
                 foreach ($dbProducts as $dbProduct) {
                     $res = CCatalogSKU::getOffersList($dbProduct['ID']);
 
-                    if (!empty($res)) {
+                    if (empty($res)) {
+                        self::deleteIblockElementProduct(intval($dbProduct['ID']));
+                    } else {
                         $offers = reset($res);
                         $parentId = 0;
 
@@ -263,42 +272,8 @@ class Main
                             self::deleteIblockElementProduct(intval($offer['ID']));
                             $parentId = $offer['PARENT_ID'];
                         }
+
                         self::deleteIblockElementProduct($parentId);
-                    } else {
-                        //TODO проверить валидность получения id в array_key_first
-                        $firtsKey = array_key_first($res);
-                        var_dump($firtsKey);
-                        self::deleteIblockElementProduct(intval($firtsKey));
-
-                    }
-                }
-            }
-        } catch (SystemException $e) {
-            echo $e->getMessage() . PHP_EOL;
-        }
-    }
-
-    /**
-     * Check and delete product by Oasis product id
-     *
-     * @param $product
-     * @param $iblockId
-     * @throws \Bitrix\Main\LoaderException
-     */
-    public static function checkDeleteProduct($product, $iblockId)
-    {
-        try {
-            $dbProducts = Main::checkProduct($product->id, 0, true);
-
-            if ($dbProducts) {
-                foreach ($dbProducts as $dbProduct) {
-                    if ($product->id == $product->group_id && $dbProduct['TYPE'] == ProductTable::TYPE_SKU) {
-                        $offersExist = CCatalogSKU::getExistOffers($dbProduct['ID'], $iblockId);
-                        if (reset($offersExist) == false) {
-                            self::deleteIblockElementProduct(intval($dbProduct['ID']));
-                        }
-                    } else {
-                        self::deleteIblockElementProduct(intval($dbProduct['ID']));
                     }
                 }
             }
@@ -312,7 +287,7 @@ class Main
      *
      * @param $iblockElementId
      */
-    private static function deleteIblockElementProduct($iblockElementId)
+    private static function deleteIblockElementProduct($iblockElementId): void
     {
         try {
             if (!CIBlockElement::Delete($iblockElementId)) {
