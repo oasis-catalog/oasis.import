@@ -109,6 +109,7 @@ class Cli
                 Option::set($module_id, 'progressTotal', $stat['products']);
                 Option::set($module_id, 'progressStepItem', 0);
                 Option::set($module_id, 'progressStepTotal', !empty($limit) ? $countProducts : 0);
+                $moveFirstImg = Option::get(self::MODULE_ID, 'move_first_img_to_detail') === 'Y';
 
                 $nextStep = ++$step;
                 $totalGroup = count($group_ids);
@@ -134,7 +135,7 @@ class Cli
                             Main::cliMsg('Up product id ' . $product->id, self::MSG_STATUS, self::MSG_TO_FILE);
                         } else {
                             $properties = Main::getPropertiesArray($product);
-                            $properties += Main::getProductImages($product);
+                            $properties += Main::getProductImages($product, $moveFirstImg);
                             $productId = Main::addIblockElementProduct($product, $oasisCategories, $properties, $iblockIdCatalog, ProductTable::TYPE_PRODUCT);
                             Main::executeStoreProduct($productId, $product);
                             Main::cliMsg('Add product id ' . $product->id, self::MSG_STATUS, self::MSG_TO_FILE);
@@ -155,6 +156,7 @@ class Cli
                             Main::cliMsg('Up product id ' . $firstProduct->id, self::MSG_STATUS, self::MSG_TO_FILE);
                         } else {
                             $properties = Main::getPropertiesArray($firstProduct);
+                            $properties += Main::getProductImages($firstProduct, $moveFirstImg);
                             $productId = Main::addIblockElementProduct($firstProduct, $oasisCategories, $properties, $iblockIdCatalog, ProductTable::TYPE_SKU);
                             Main::cliMsg('Add product id ' . $firstProduct->id, self::MSG_STATUS, self::MSG_TO_FILE);
                         }

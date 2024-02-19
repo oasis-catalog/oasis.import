@@ -52,6 +52,8 @@ $MESS["OASIS_IMPORT_OPTIONS_TAB_EUROPE_STOCK"] = "Европа (<strong style='c
 $MESS["OASIS_IMPORT_OPTIONS_TAB_PROGRESS_TOTAL"] = "Общий статус обработки";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_PROGRESS_STEP"] = "Выполняется %d шаг из %d. Статус текущего шага";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_PROGRESS_DATE"] = "Последний импорт завершен: ";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_PHOTO"] = "Фото";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_MOVE_FIRST_IMG_TO_DETAIL"] = "Перенести первую картинку галереи в детальную картинку";
 
 // Orders
 $MESS["OASIS_IMPORT_ORDERS_ID"] = "ID";

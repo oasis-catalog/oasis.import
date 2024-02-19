@@ -183,19 +183,14 @@ class Main
         try {
             $data = [];
 
-            if (!empty($properties['MORE_PHOTO'])) {
-                $firstImg = array_shift($properties['MORE_PHOTO']);
-                $i = 0;
-                $newMorePhoto = [];
+            if (!empty($properties['DETAIL_PICTURE'])) {
+                $data['DETAIL_PICTURE'] = $properties['DETAIL_PICTURE'];
+                unset($properties['DETAIL_PICTURE']);
+            }
 
-                foreach ($properties['MORE_PHOTO'] as $photoItem) {
-                    $newMorePhoto['n' . $i++] = $photoItem;
-                }
-
-                $properties['MORE_PHOTO'] = $newMorePhoto;
-                $data['DETAIL_PICTURE'] = $data['PREVIEW_PICTURE'] = $firstImg['VALUE'];
-
-                unset($newMorePhoto, $i, $firstImg);
+            if (!empty($properties['PREVIEW_PICTURE'])) {
+                $data['PREVIEW_PICTURE'] = $properties['PREVIEW_PICTURE'];
+                unset($properties['PREVIEW_PICTURE']);
             }
 
             $data += [
@@ -666,20 +661,30 @@ class Main
      * Get images product
      *
      * @param $product
+     * @param bool $move
      * @return array
      */
-    public static function getProductImages($product): array
+    public static function getProductImages($product, bool $move = false): array
     {
         $result = [];
         $i = 0;
+        $n = 0;
 
         foreach ($product->images as $image) {
             $value = CFile::MakeFileArray($image->superbig);
 
             if ($value['type'] !== 'text/html') {
-                $result['MORE_PHOTO']['n' . $i++] = [
-                    'VALUE' => $value,
-                ];
+                if ($i == 0) {
+                    $result['DETAIL_PICTURE'] = $result['PREVIEW_PICTURE'] = $value;
+                }
+
+                if ($move === false || $i != 0) {
+                    $result['MORE_PHOTO']['n' . $n++] = [
+                        'VALUE' => $value,
+                    ];
+                }
+
+                $i++;
             }
         }
 
