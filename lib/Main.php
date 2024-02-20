@@ -799,7 +799,7 @@ class Main
         }
 
         $result['name'] = $HLNameImg;
-        $result['MODULE_ID'] = CLI::MODULE_ID;
+        $result['MODULE_ID'] = CLI::$module_id;
 
         return $result;
     }
@@ -823,7 +823,7 @@ class Main
             BX_RESIZE_IMAGE_PROPORTIONAL_ALT,
         );
 
-        $arFile['MODULE_ID'] = CLI::MODULE_ID;
+        $arFile['MODULE_ID'] = CLI::$module_id;
         $fileId = CFile::SaveFile($arFile, 'iblock');
         CFile::Delete($ID);
 
@@ -2721,18 +2721,17 @@ class Main
     /**
      * Update progress bar
      *
-     * @param $module_id
      * @param $limit
      * @throws ArgumentOutOfRangeException
      */
-    public static function upProgressBar($module_id, $limit)
+    public static function upProgressBar($limit)
     {
-        $progressItem = Option::get($module_id, 'progressItem');
-        Option::set($module_id, 'progressItem', ++$progressItem);
+        $progressItem = Option::get(CLI::$module_id, 'progressItem');
+        Option::set(CLI::$module_id, 'progressItem', ++$progressItem);
 
         if (!empty($limit)) {
-            $progressStepItem = Option::get($module_id, 'progressStepItem');
-            Option::set($module_id, 'progressStepItem', ++$progressStepItem);
+            $progressStepItem = Option::get(CLI::$module_id, 'progressStepItem');
+            Option::set(CLI::$module_id, 'progressStepItem', ++$progressStepItem);
         }
     }
 

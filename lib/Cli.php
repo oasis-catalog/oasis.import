@@ -14,7 +14,7 @@ use Exception;
 class Cli
 {
     public static array $dbCategories = [];
-    const MODULE_ID = 'oasis.import';
+    public static string $module_id = '';
     const MSG_STATUS = true;
     const MSG_TO_FILE = false;
 
@@ -36,22 +36,22 @@ class Cli
 
         try {
             $args = [];
-            $module_id = pathinfo(dirname(__DIR__))['basename'];
-            $iblockIdCatalog = (int)Option::get($module_id, 'iblock_catalog');
-            $iblockIdOffers = (int)Option::get($module_id, 'iblock_offers');
-            $deleteExclude = Option::get($module_id, 'delete_exclude');
-            self::$dbCategories = explode(',', Option::get($module_id, 'categories'));
+            self::$module_id = pathinfo(dirname(__DIR__))['basename'];
+            $iblockIdCatalog = (int)Option::get(self::$module_id, 'iblock_catalog');
+            $iblockIdOffers = (int)Option::get(self::$module_id, 'iblock_offers');
+            $deleteExclude = Option::get(self::$module_id, 'delete_exclude');
+            self::$dbCategories = explode(',', Option::get(self::$module_id, 'categories'));
 
             if (empty($iblockIdCatalog) || empty($iblockIdOffers)) {
                 throw new Exception('Infoblocks not selected');
             }
 
-            $step = (int)Option::get($module_id, 'step');
-            $limit = (int)Option::get($module_id, 'limit');
+            $step = (int)Option::get(self::$module_id, 'step');
+            $limit = (int)Option::get(self::$module_id, 'limit');
             $dataCalcPrice = [
-                'factor'   => str_replace(',', '.', Option::get($module_id, 'factor')),
-                'increase' => str_replace(',', '.', Option::get($module_id, 'increase')),
-                'dealer'   => Option::get($module_id, 'dealer'),
+                'factor'   => str_replace(',', '.', Option::get(self::$module_id, 'factor')),
+                'increase' => str_replace(',', '.', Option::get(self::$module_id, 'increase')),
+                'dealer'   => Option::get(self::$module_id, 'dealer'),
             ];
             $dataCalcPrice = array_diff($dataCalcPrice, ['', 0]);
 
@@ -59,7 +59,7 @@ class Cli
                 $args['limit'] = $limit;
                 $args['offset'] = $step * $limit;
             } else {
-                Option::set($module_id, 'progressItem', 0);
+                Option::set(self::$module_id, 'progressItem', 0);
             }
 
             Main::deleteLogFile();
@@ -106,10 +106,10 @@ class Cli
             }
 
             if ($group_ids) {
-                Option::set($module_id, 'progressTotal', $stat['products']);
-                Option::set($module_id, 'progressStepItem', 0);
-                Option::set($module_id, 'progressStepTotal', !empty($limit) ? $countProducts : 0);
-                $moveFirstImg = Option::get(self::MODULE_ID, 'move_first_img_to_detail') === 'Y';
+                Option::set(self::$module_id, 'progressTotal', $stat['products']);
+                Option::set(self::$module_id, 'progressStepItem', 0);
+                Option::set(self::$module_id, 'progressStepTotal', !empty($limit) ? $countProducts : 0);
+                $moveFirstImg = Option::get(self::$module_id, 'move_first_img_to_detail') === 'Y';
 
                 $nextStep = ++$step;
                 $totalGroup = count($group_ids);
@@ -144,7 +144,7 @@ class Cli
                         Main::upPropertiesFilter($productId, $product, $iblockIdCatalog);
                         Main::executeProduct($productId, $product, $product->group_id, ProductTable::TYPE_PRODUCT);
                         Main::executePriceProduct($productId, $product, $dataCalcPrice);
-                        Main::upProgressBar($module_id, $limit);
+                        Main::upProgressBar($limit);
                         unset($dbProducts, $dbProduct, $productId, $properties);
                     } else {
                         $firstProduct = reset($products);
@@ -185,7 +185,7 @@ class Cli
 
                             Main::executeProduct($productOfferId, $product, $product->id, ProductTable::TYPE_OFFER);
                             Main::executePriceProduct($productOfferId, $product, $dataCalcPrice);
-                            Main::upProgressBar($module_id, $limit);
+                            Main::upProgressBar($limit);
                             unset($product, $dbOffer, $productOfferId, $propertiesOffer);
                         }
 
@@ -198,18 +198,18 @@ class Cli
                 }
             } else {
                 $nextStep = 0;
-                Option::set($module_id, 'progressItem', 0);
+                Option::set(self::$module_id, 'progressItem', 0);
             }
 
             if (!empty($limit)) {
-                Option::set($module_id, 'step', $nextStep);
-                Option::set($module_id, 'progressStepItem', 0);
+                Option::set(self::$module_id, 'step', $nextStep);
+                Option::set(self::$module_id, 'progressStepItem', 0);
             } else {
-                Option::set($module_id, 'progressItem', $stat['products']);
+                Option::set(self::$module_id, 'progressItem', $stat['products']);
             }
 
             $objDateTime = new DateTime();
-            Option::set($module_id, 'progressDate', $objDateTime->toString());
+            Option::set(self::$module_id, 'progressDate', $objDateTime->toString());
         } catch (SystemException $e) {
             echo $e->getMessage() . PHP_EOL;
             exit();
