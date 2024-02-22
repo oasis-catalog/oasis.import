@@ -39,7 +39,7 @@ class Cli
             self::$module_id = pathinfo(dirname(__DIR__))['basename'];
             $iblockIdCatalog = (int)Option::get(self::$module_id, 'iblock_catalog');
             $iblockIdOffers = (int)Option::get(self::$module_id, 'iblock_offers');
-            $deleteExclude = Option::get(self::$module_id, 'delete_exclude');
+            $deleteExclude = Option::get(self::$module_id, 'delete_exclude') === 'Y';
             self::$dbCategories = explode(',', Option::get(self::$module_id, 'categories'));
 
             if (empty($iblockIdCatalog) || empty($iblockIdOffers)) {
@@ -74,7 +74,7 @@ class Cli
             $group_ids = [];
             $countProducts = 0;
             foreach ($oasisProducts as $product) {
-                if (!empty($deleteExclude)) {
+                if ($deleteExclude) {
                     if (empty(array_intersect($product->categories, self::$dbCategories))) {
                         Main::checkDeleteProduct($product->id);
                         continue;
@@ -90,7 +90,7 @@ class Cli
             }
             unset($product);
 
-            if (!empty($deleteExclude)) {
+            if ($deleteExclude) {
                 $allOaProducts = Main::getAllOaProducts();
 
                 if (!empty($allOaProducts)) {
