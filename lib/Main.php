@@ -2201,6 +2201,34 @@ class Main
     }
 
     /**
+     * Get selected categories oasis
+     *
+     * @return array
+     */
+    public static function getSelectedCategories(): array
+    {
+        $result = [];
+
+        try {
+            $dbCategories = Option::get(CLI::$module_id, 'categories');
+
+            if (empty($dbCategories) || $dbCategories === 'Y') {
+                $categories = Api::getCategoriesOasis('id');
+
+                foreach ($categories as $category) {
+                    $result[] = $category->id;
+                }
+            } else {
+                $result = explode(',', $dbCategories);
+            }
+        } catch (SystemException $e) {
+            echo $e->getMessage() . PHP_EOL;
+        }
+
+        return $result;
+    }
+
+    /**
      * Get array categories | add categories
      *
      * @param $oasisCategories

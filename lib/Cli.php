@@ -40,7 +40,7 @@ class Cli
             $iblockIdCatalog = (int)Option::get(self::$module_id, 'iblock_catalog');
             $iblockIdOffers = (int)Option::get(self::$module_id, 'iblock_offers');
             $deleteExclude = Option::get(self::$module_id, 'delete_exclude') === 'Y';
-            self::$dbCategories = explode(',', Option::get(self::$module_id, 'categories'));
+            self::$dbCategories = Main::getSelectedCategories();
 
             if (empty($iblockIdCatalog) || empty($iblockIdOffers)) {
                 throw new Exception('Infoblocks not selected');
