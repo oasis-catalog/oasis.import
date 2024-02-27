@@ -53,7 +53,8 @@ $MESS["OASIS_IMPORT_OPTIONS_TAB_PROGRESS_TOTAL"] = "Общий статус об
 $MESS["OASIS_IMPORT_OPTIONS_TAB_PROGRESS_STEP"] = "Выполняется %d шаг из %d. Статус текущего шага";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_PROGRESS_DATE"] = "Последний импорт завершен: ";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_PHOTO"] = "Фото";
-$MESS["OASIS_IMPORT_OPTIONS_TAB_MOVE_FIRST_IMG_TO_DETAIL"] = "Перенести первую картинку галереи в детальную картинку";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_MOVE_FIRST_IMG_TO_DETAIL"] = "Переносить первую картинку галереи в детальную картинку";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_UP_PHOTO"] = "Обновлять фото товаров";
 
 // Orders
 $MESS["OASIS_IMPORT_ORDERS_ID"] = "ID";

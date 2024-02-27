@@ -54,6 +54,7 @@ $MESS["OASIS_IMPORT_OPTIONS_TAB_PROGRESS_STEP"] = "Step %d out of %d in progress
 $MESS["OASIS_IMPORT_OPTIONS_TAB_PROGRESS_DATE"] = "Last import completed: ";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_PHOTO"] = "Photo";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_MOVE_FIRST_IMG_TO_DETAIL"] = "Move the first gallery image to a detail image";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_UP_PHOTO"] = "Update product photos";
 
 // Orders
 $MESS["OASIS_IMPORT_ORDERS_ID"] = "ID";

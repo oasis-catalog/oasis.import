@@ -13,10 +13,8 @@ class Api
      *
      * @param $queueId
      * @return array
-     * @throws \Bitrix\Main\ArgumentNullException
-     * @throws \Bitrix\Main\ArgumentOutOfRangeException
      */
-    public static function getOrder($queueId)
+    public static function getOrder($queueId): array
     {
         return self::curlQuery('reserves/by-queue/' . $queueId);
     }
@@ -26,10 +24,8 @@ class Api
      *
      * @param $data
      * @return array|mixed
-     * @throws \Bitrix\Main\ArgumentNullException
-     * @throws \Bitrix\Main\ArgumentOutOfRangeException
      */
-    public static function sendOrder($data)
+    public static function sendOrder($data): mixed
     {
         $apiKey = Option::get(pathinfo(dirname(__DIR__))['basename'], 'api_key');
 
@@ -62,8 +58,6 @@ class Api
      * Get stock oasis products
      *
      * @return array
-     * @throws ArgumentNullException
-     * @throws ArgumentOutOfRangeException
      */
     public static function getOasisStock(): array
     {
@@ -116,8 +110,6 @@ class Api
      *
      * @param array $args
      * @return array
-     * @throws ArgumentNullException
-     * @throws ArgumentOutOfRangeException
      */
     public static function getProductsOasis(array $args = []): array
     {
@@ -162,8 +154,8 @@ class Api
 
     /**
      * Get
-     * @throws ArgumentNullException
-     * @throws ArgumentOutOfRangeException
+     * @param array $IDS
+     * @return array
      */
     public static function getProductsOasisOnlyFieldCategories(array $IDS = []): array
     {
@@ -190,21 +182,18 @@ class Api
     /**
      * Get categories oasis
      *
+     * @param string $fields
      * @return array
-     * @throws ArgumentNullException
-     * @throws ArgumentOutOfRangeException
      */
-    public static function getCategoriesOasis(): array
+    public static function getCategoriesOasis(string $fields = ''): array
     {
-        return self::curlQuery('categories', ['fields' => 'id,parent_id,root,level,slug,name,path']);
+        return self::curlQuery('categories', ['fields' => $fields ?? 'id,parent_id,root,level,slug,name,path']);
     }
 
     /**
      * Get currencies oasis
      *
      * @return array
-     * @throws ArgumentNullException
-     * @throws ArgumentOutOfRangeException
      */
     public static function getCurrenciesOasis(): array
     {
@@ -218,8 +207,6 @@ class Api
      * @param array $args
      *
      * @return array
-     * @throws ArgumentNullException
-     * @throws ArgumentOutOfRangeException
      */
     public static function curlQuery($type, array $args = []): array
     {
@@ -229,15 +216,12 @@ class Api
             return [];
         }
 
-        $args_pref = [
-            'key'    => $apiKey,
-            'format' => 'json',
-        ];
-        $args = array_merge($args_pref, $args);
+        $args = array_merge(['format' => 'json'], $args);
 
         $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, 'https://api.oasiscatalog.com/v4/' . $type . '?' . http_build_query($args));
+        curl_setopt($ch, CURLOPT_USERPWD, $apiKey);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_URL, 'https://api.oasiscatalog.com/v4/' . $type . '?' . http_build_query($args));
         $result = json_decode(curl_exec($ch));
         $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);

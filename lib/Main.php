@@ -229,7 +229,7 @@ class Main
      * @param $iblockId
      * @param array $oasisCategories
      */
-    public static function upIblockElementProduct($iblockElementId, $product, $iblockId, array $oasisCategories = [])
+    public static function upIblockElementProduct($iblockElementId, $product, $iblockId, array $oasisCategories = []): void
     {
         try {
             $data = [
@@ -241,6 +241,24 @@ class Main
 
             if ($oasisCategories) {
                 $data += self::getIblockSectionProduct($product, $oasisCategories, $iblockId);
+            }
+
+            $upPhoto = Option::get(CLI::$module_id, 'up_photo') === 'Y';
+
+            if ($upPhoto) {
+                $moveFirstImg = Option::get(CLI::$module_id, 'move_first_img_to_detail') === 'Y';
+
+                if (self::checkDataImages($iblockElementId, $product, $moveFirstImg) === false) {
+                    self::deleteImgInProduct($iblockElementId);
+
+                    $dataImages = Main::getProductImages($product, $moveFirstImg);
+
+                    CIBlockElement::SetPropertyValuesEx($iblockElementId, false, ['MORE_PHOTO' => $dataImages['MORE_PHOTO']]);
+
+                    $data['DETAIL_PICTURE'] = $dataImages['DETAIL_PICTURE'];
+                    $data['PREVIEW_PICTURE'] = $dataImages['PREVIEW_PICTURE'];
+                    unset($dataImages);
+                }
             }
 
             $el = new CIBlockElement;
@@ -689,6 +707,95 @@ class Main
         }
 
         return $result;
+    }
+
+    /**
+     * Checking product images for relevance
+     *
+     * Usage:
+     *
+     * Check is good - true
+     *
+     * Check is bad - false
+     *
+     * @param $productId
+     * @param $product
+     * @param $moveFirstImg
+     * @return bool
+     */
+    public static function checkDataImages($productId, $product, $moveFirstImg): bool
+    {
+        $res = CIBlockElement::GetList([], ['ID' => $productId]);
+
+        while ($ob = $res->GetNextElement()) {
+            $props = $ob->GetProperties();
+            $dbImageIDS = [];
+
+            if ($moveFirstImg && !empty($ob->fields['DETAIL_PICTURE'])) {
+                $dbImageIDS[] = $ob->fields['DETAIL_PICTURE'];
+            }
+
+            if (!empty($props['MORE_PHOTO']['VALUE'])) {
+                $dbImageIDS = array_merge($dbImageIDS, $props['MORE_PHOTO']['VALUE']);
+            }
+
+            if (count($product->images) !== count($dbImageIDS)) {
+                return false;
+            }
+
+            $dbResFiles = CFile::GetList([], ['@ID' => implode(',', $dbImageIDS)]);
+            $dbFiles = [];
+
+            while ($dbResFile = $dbResFiles->Fetch()) {
+                $dbFiles[] = $dbResFile;
+            }
+            unset($dbResFiles, $dbResFile);
+
+            foreach ($product->images as $image) {
+                if (empty($image->superbig)) {
+                    return false;
+                }
+
+                $keyNeeded = array_search(basename($image->superbig), array_column($dbFiles, 'ORIGINAL_NAME'));
+
+                if ($keyNeeded === false || $image->updated_at > strtotime($dbFiles[$keyNeeded]['TIMESTAMP_X'])) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Delete images in product
+     *
+     * @param $ID
+     * @return void
+     */
+    private static function deleteImgInProduct($ID): void
+    {
+        $res = CIBlockElement::GetList([], [
+            'ID' => $ID
+        ]);
+
+        while ($ob = $res->GetNextElement()) {
+            if (!empty($ob->fields['DETAIL_PICTURE'])) {
+                CFile::Delete($ob->fields['DETAIL_PICTURE']);
+            }
+
+            if (!empty($ob->fields['PREVIEW_PICTURE'])) {
+                CFile::Delete($ob->fields['PREVIEW_PICTURE']);
+            }
+
+            $props = $ob->GetProperties();
+
+            if (!empty($props['MORE_PHOTO']['VALUE'])) {
+                foreach ($props['MORE_PHOTO']['VALUE'] as $oldImg) {
+                    CFile::Delete($oldImg);
+                }
+            }
+        }
     }
 
     /**

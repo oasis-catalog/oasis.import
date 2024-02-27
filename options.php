@@ -216,6 +216,12 @@ try {
                 'N',
                 ['checkbox']
             ],
+            [
+                'up_photo',
+                Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_UP_PHOTO'),
+                'N',
+                ['checkbox']
+            ],
         ]);
 
         $aTabs[] = [
