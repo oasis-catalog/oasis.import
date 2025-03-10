@@ -8,7 +8,7 @@ class Config {
 	public const MODULE_ID = 'oasis.import';
 	public const CATALOG_ROOT_NAME = 'Корень инфоблока';
 
-	public bool $debug = true;
+	public bool $debug = false;
 	public bool $debug_log = false;
 	public string $root_path;
 
@@ -49,8 +49,15 @@ class Config {
 	private bool $init_rel = false;
 
 
-	public function __construct() {
+	public function __construct($opt = []) {
 		$this->root_path = Application::getDocumentRoot();
+
+		if(isset($opt['debug']) || isset($opt['debug_log'])){
+			$this->debug = true;
+		}
+		if(isset($opt['debug_log'])){
+			$this->debug_log = true;
+		}
 	}
 
 	public function init() {
@@ -178,7 +185,7 @@ class Config {
 			$str = '['.date('Y-m-d H:i:s').'] '.$str;
 
 			if ($this->debug_log) {
-				file_put_contents($this->root_path . '/upload/module-oasis/oasis.log', $str . "\n", FILE_APPEND);
+				file_put_contents($this->root_path . '/upload/module-oasis/oasis_'.date('Y-m-d').'.log', $str . "\n", FILE_APPEND);
 			} else {
 				echo $str . PHP_EOL;
 			}

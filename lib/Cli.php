@@ -19,18 +19,20 @@ class Cli
 	public static OasisConsfig $cf;
 
 
-	public static function RunCron($cron_key, $cron_up)
+	public static function RunCron($cron_key, $cron_up, $opt = [])
 	{
-		$cf = new OasisConsfig();
+		$cf = new OasisConsfig($opt);
 
 		$cf->lock(function() use ($cf, $cron_key, $cron_up){
 			$cf->init();
 
 			if (!$cf->checkCronKey($cron_key)) {
+                $cf->log('Error! Invalid --key');
 				die('Error! Invalid --key');
 			}
 
 			if (!$cron_up && !$cf->checkPermissionImport()) {
+                $cf->log('Import once day');
 				die('Import once day');
 			}
 

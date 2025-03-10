@@ -1,5 +1,5 @@
 jQuery(function ($) {
-	let tree = new OasisHelper.Tree('#oa-tree', {
+	let tree = new OaHelper.Tree('#oa-tree', {
 		onBtnRelation (cat_id, cat_rel_id){
 			ModalRelation(cat_rel_id).then(item => tree.setRelationItem(cat_id, item));
 		}
@@ -83,7 +83,7 @@ jQuery(function ($) {
 			}, tree_content => {
 				popup.setContent(tree_content);
 
-				tree = new OasisHelper.RadioTree(popup.getContentContainer().querySelector('.oa-tree'), {
+				tree = new OaHelper.RadioTree(popup.getContentContainer().querySelector('.oa-tree'), {
 					onChange: item => {
 						popup.buttons[0].buttonNode.classList.toggle('ui-btn-disabled', !item);
 					},

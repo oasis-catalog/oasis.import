@@ -2,7 +2,6 @@
 
 use Bitrix\Main\Config\Option;
 use Oasis\Import\Cli;
-use Oasis\Import\Config as OasisConsfig;
 
 
 $_SERVER['DOCUMENT_ROOT'] = realpath(dirname(__FILE__) . '/../../..');
@@ -27,7 +26,7 @@ try {
 
 	$params = [
 		'short' => 'k:u',
-		'long'  => ['key:', 'up'],
+		'long'  => ['key:', 'up', 'debug', 'debug_log'],
 	];
 
 	$errors = '';
@@ -62,7 +61,10 @@ Errors: ' . $errors . PHP_EOL);
 	}
 
 	if (CModule::IncludeModule(OASIS_MODULE_ID)) {
-		Cli::RunCron($cron_key, $cron_up);
+		Cli::RunCron($cron_key, $cron_up, [
+			'debug' => isset($cliOptions['debug']),
+			'debug_log' => isset($cliOptions['debug_log'])
+		]);
 	}
 } catch (Exception $e) {
 	echo $e->getMessage() . PHP_EOL;
