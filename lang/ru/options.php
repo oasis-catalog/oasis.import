@@ -61,6 +61,8 @@ $MESS["OASIS_IMPORT_OPTIONS_TAB_PROGRESS_DATE"] = "Последний импор
 $MESS["OASIS_IMPORT_OPTIONS_TAB_PHOTO"] = "Фото";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_MOVE_FIRST_IMG_TO_DETAIL"] = "Переносить первую картинку галереи в детальную картинку";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_UP_PHOTO"] = "Обновлять фото товаров";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_CDN_PHOTO"] = "Использовать сервер Oasis для изображений";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_CDN_PHOTO_NOTE"] = "Отображать фото товаров без загрузки, экономит место на хостинге";
 
 // Orders
 $MESS["OASIS_IMPORT_ORDERS_ID"] = "ID";

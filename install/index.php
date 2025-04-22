@@ -128,6 +128,22 @@ class oasis_import extends CModule
 			'Oasis\Import\Oorder',
 		);
 
+		EventManager::getInstance()->registerEventHandler(
+			'main',
+			'OnGetFileSRC',
+			$this->MODULE_ID,
+			'Oasis\Import\Cli',
+			'OnGetFileSRC'
+		);
+
+		EventManager::getInstance()->registerEventHandler(
+			'main',
+			'OnEpilog',
+			$this->MODULE_ID,
+			'Oasis\Import\Cli',
+			'OnEpilog'
+		);
+
 		return false;
 	}
 
@@ -199,6 +215,22 @@ class oasis_import extends CModule
 			'OnBeforeEndBufferContent',
 			$this->MODULE_ID,
 			'Oasis\Import\Oorder',
+		);
+
+		EventManager::getInstance()->unRegisterEventHandler(
+			'main',
+			'OnGetFileSRC',
+			$this->MODULE_ID,
+			'Oasis\Import\Cli',
+			'OnGetFileSRC'
+		);
+
+		EventManager::getInstance()->unRegisterEventHandler(
+			'main',
+			'OnEpilog',
+			$this->MODULE_ID,
+			'Oasis\Import\Cli',
+			'OnEpilog'
 		);
 
 		return false;

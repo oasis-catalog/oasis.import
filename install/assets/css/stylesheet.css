@@ -227,7 +227,6 @@ Tree categories
 	display: block;
 }
 
-
 .oa-category-rel {
 	background: #f0f0f0;
 	border: 1px solid;
@@ -236,7 +235,6 @@ Tree categories
 	box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.3), inset 0 2px 2px -1px rgba(180, 188, 191, 0.7);
 	display: inline-flex;
 	height: 25px;
-	padding: 0 5px;
 	margin: 0;
 	min-width: 120px;
 	vertical-align: middle;

@@ -246,28 +246,23 @@ class Main
             if (!self::$cf->not_up_product_cat && $oasisCategories) { // $oasisCategories - важен для offer $iblockId = 0
 				$data += self::getIblockSectionProduct($product, $oasisCategories, $iblockId);
 			}
+			
+			$dataImages = null;
+		    if (self::$cf->up_photo || self::checkDataImages($iblockElementId, $product, $moveFirstImg) === false){
+				self::deleteImgInProduct($iblockElementId);
 
-		    if (self::$cf->up_photo){
-				$moveFirstImg = Option::get(CLI::$module_id, 'move_first_img_to_detail') === 'Y';
+				$dataImages = Main::getProductImages($product);
+				CIBlockElement::SetPropertyValuesEx($iblockElementId, false, ['MORE_PHOTO' => $dataImages['MORE_PHOTO']]);
 
-				if (self::checkDataImages($iblockElementId, $product, $moveFirstImg) === false) {
-					self::deleteImgInProduct($iblockElementId);
-
-					$dataImages = Main::getProductImages($product, $moveFirstImg);
-
-					CIBlockElement::SetPropertyValuesEx($iblockElementId, false, ['MORE_PHOTO' => $dataImages['MORE_PHOTO']]);
-
-					$data['DETAIL_PICTURE'] = $dataImages['DETAIL_PICTURE'];
-					$data['PREVIEW_PICTURE'] = $dataImages['PREVIEW_PICTURE'];
-					unset($dataImages);
-				}
+				$data['DETAIL_PICTURE'] = $dataImages['DETAIL_PICTURE'];
+				$data['PREVIEW_PICTURE'] = $dataImages['PREVIEW_PICTURE'];
 			}
 
 			$el = new CIBlockElement;
 			$el->Update($iblockElementId, $data);
-
+		
 			if (!empty($el->LAST_ERROR)) {
-				throw new SystemException($oasisCategories ? 'Ошибка обновления товара: ' : 'Ошибка обновления торгового предложения: ' . $el->LAST_ERROR);
+				throw new SystemException(($oasisCategories ? 'Ошибка обновления товара: ' : 'Ошибка обновления торгового предложения: ') . $el->LAST_ERROR);
 			}
 		} catch (SystemException $e) {
 			echo $e->getMessage() . PHP_EOL;
@@ -681,10 +676,9 @@ class Main
 	 * Get images product
 	 *
 	 * @param $product
-	 * @param bool $move
 	 * @return array
 	 */
-	public static function getProductImages($product, bool $move = false): array
+	public static function getProductImages($product): array
 	{
 		$result = [];
 		$i = 0;
@@ -698,7 +692,7 @@ class Main
 					$result['DETAIL_PICTURE'] = $result['PREVIEW_PICTURE'] = $value;
 				}
 
-				if ($move === false || $i != 0) {
+				if (self::$cf->move_first_img_to_detail === false || $i != 0) {
 					$result['MORE_PHOTO']['n' . $n++] = [
 						'VALUE' => $value,
 					];
@@ -829,9 +823,9 @@ class Main
 	 *
 	 * @param $image
 	 * @param $product
-	 * @return bool|int|string
+	 * @return int
 	 */
-	public static function getIDImageForHL($image, $product): bool|int|string
+	public static function getIDImageForHL($image, $product): int
 	{
 		if (empty($image)) {
 			return 0;
@@ -841,29 +835,15 @@ class Main
 		$resizeImage = CFile::GetList([], ['ORIGINAL_NAME' => $HLNameImg])->Fetch();
 
 		if (empty($resizeImage)) {
-			$dbResult = CFile::GetList([], [
-				'ORIGINAL_NAME' => $HLNameImg,
-			])->Fetch();
+			$dataMake = self::getDataMakeFileArray($image, $HLNameImg);
 
-			if (empty($dbResult)) {
-				$dataMake = self::getDataMakeFileArray($image, $HLNameImg);
-
-				if ($dataMake) {
-					$imageID = CFile::SaveFile($dataMake, 'iblock');
-				} else {
-					return 0;
-				}
+			if ($dataMake) {
+				return CFile::SaveFile($dataMake, 'iblock');
 			} else {
-				$imageID = $dbResult['ID'];
+				return 0;
 			}
-
-			return self::resizeImageForHL($imageID);
 		} else {
-			if ($resizeImage['HEIGHT'] != '70' || $resizeImage['WIDTH'] != '70') {
-				return self::resizeImageForHL($resizeImage['ID']);
-			} else {
-				return intval($resizeImage['ID']);
-			}
+			return intval($resizeImage['ID']);
 		}
 	}
 
@@ -899,7 +879,6 @@ class Main
 
 		if (!empty($result['type']) && $result['type'] === 'unknown') {
 			$i++;
-
 			if ($i < 6) {
 				$result = self::getDataMakeFileArray($image, $HLNameImg, $i);
 			} else {
@@ -907,24 +886,8 @@ class Main
 			}
 		}
 
-		$result['name'] = $HLNameImg;
-		$result['MODULE_ID'] = CLI::$module_id;
-
-		return $result;
-	}
-
-	/**
-	 * Resize image fro HL block
-	 *
-	 * @param $ID
-	 * @return bool|int|string
-	 */
-	private static function resizeImageForHL($ID): bool|int|string
-	{
-		$arFile = CFile::MakeFileArray($ID);
-
 		CFile::ResizeImage(
-			$arFile,
+			$result,
 			[
 				'width'  => 70,
 				'height' => 70
@@ -932,11 +895,10 @@ class Main
 			BX_RESIZE_IMAGE_PROPORTIONAL_ALT,
 		);
 
-		$arFile['MODULE_ID'] = CLI::$module_id;
-		$fileId = CFile::SaveFile($arFile, 'iblock');
-		CFile::Delete($ID);
+		$result['name'] = $HLNameImg;
+		$result['MODULE_ID'] = OasisConsfig::MODULE_ID;
 
-		return $fileId;
+		return $result;
 	}
 
 	/**
@@ -1931,7 +1893,14 @@ class Main
 			if (empty($rowColor)) {
 				$result = $entityClass::add($item)->getId();
 			} else {
-				$result = $rowColor['ID'];
+				// override
+				if(true){
+					$result = $rowColor['ID'];
+				}
+				else{
+					$entityClass::delete($rowColor['ID']); 
+					$result = $entityClass::add($item)->getId();
+				}
 			}
 		}
 
@@ -2319,7 +2288,7 @@ class Main
 		$result = [];
 
 		try {
-			$dbCategories = Option::get(CLI::$module_id, 'categories');
+			$dbCategories = Option::get(OasisConsfig::MODULE_ID, 'categories');
 
 			if (empty($dbCategories) || $dbCategories === 'Y') {
 				$categories = Api::getCategoriesOasis('id');
@@ -2876,23 +2845,6 @@ class Main
 		$string = preg_replace('/[\s]+/us', ' ', $string);
 
 		return strtolower(strtr($string, $arr_trans));
-	}
-
-	/**
-	 * Update progress bar
-	 *
-	 * @param $limit
-	 * @throws ArgumentOutOfRangeException
-	 */
-	public static function upProgressBar($limit)
-	{
-		$progressItem = Option::get(CLI::$module_id, 'progressItem');
-		Option::set(CLI::$module_id, 'progressItem', ++$progressItem);
-
-		if (!empty($limit)) {
-			$progressStepItem = Option::get(CLI::$module_id, 'progressStepItem');
-			Option::set(CLI::$module_id, 'progressStepItem', ++$progressStepItem);
-		}
 	}
 
 	/**

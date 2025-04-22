@@ -17,8 +17,9 @@ $module_id = 'oasis.import';
 Loc::loadMessages(__FILE__);
 Loader::includeModule($module_id);
 
-$cf = new OasisConsfig();
-$cf->init();
+$cf = OasisConsfig::instance([
+	'init' => true
+]);
 
 $request = HttpApplication::getInstance()->getContext()->getRequest();
 
@@ -28,6 +29,7 @@ if ($request->getRequestMethod() == 'GET' && $request['action'] == 'getTreeRelat
 	echo CustomFields::AjaxTreeRadioCats(Main::getCategoriesToTree(), $cf);
 	die();
 }
+
 
 
 $aTabs = [
@@ -252,6 +254,12 @@ if (!empty($currencies)) {
 			'N',
 			['checkbox']
 		],
+		[
+			'is_cdn_photo',
+			[Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CDN_PHOTO'), Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CDN_PHOTO_NOTE')],
+			'N',
+			['checkbox']
+		],
 	]);
 
 	$aTabs[] = [
@@ -384,30 +392,7 @@ if ((!empty($values['errorIblock']) && $values['errorIblock'] == 1) || (!empty($
 						Asset::getInstance()->addJs('/bitrix/js/' . $module_id . '/tree.js');
 						Asset::getInstance()->addJs('/bitrix/js/' . $module_id . '/options.js');
 
-						$progressTotal = (int)Option::get($module_id, 'progressTotal');
-						$progressItem = (int)Option::get($module_id, 'progressItem');
-						$progressStepTotal = (int)Option::get($module_id, 'progressStepTotal');
-						$progressStepItem = (int)Option::get($module_id, 'progressStepItem');
-						$progressDate = Option::get($module_id, 'progressDate');
-						$limit = (int)Option::get($module_id, 'limit');
-
-						if (!empty($limit)) {
-							$step = (int)Option::get($module_id, 'step');
-							$stepTotal = !empty($progressTotal) ? ceil($progressTotal / $limit) : 0;
-						}
-
-						if (!empty($progressTotal) || !empty($progressItem)) {
-							$percentTotal = round(($progressItem / $progressTotal) * 100);
-						} else {
-							$percentTotal = 0;
-						}
-
-						if (!empty($progressStepTotal) || !empty($progressStepItem)) {
-							$percentStep = round(($progressStepItem / $progressStepTotal) * 100);
-						} else {
-							$percentStep = 0;
-						}
-
+						$optBar = $cf->getOptBar();
 						?>
 						<div class="progress-notice">
 							<div class="progress-row">
@@ -417,30 +402,28 @@ if ((!empty($values['errorIblock']) && $values['errorIblock'] == 1) || (!empty($
 								<div class="progress-container">
 									<div class="ui-progressbar">
 										<div class="ui-progressbar-track">
-											<div class="ui-progressbar-bar"
-												 style="width:<?php echo $percentTotal; ?>%;"></div>
+											<div class="ui-progressbar-bar" style="width:<?php echo $optBar['p_total']; ?>%;"></div>
 										</div>
-										<div class="ui-progressbar-text-after"><?php echo $percentTotal; ?>%</div>
+										<div class="ui-progressbar-text-after"><?php echo $optBar['p_total']; ?>%</div>
 									</div>
 								</div>
 							</div>
-							<?php if (!empty($limit)) { ?>
+							<?php if (!empty($cf->limit)) { ?>
 								<div class="progress-row">
 									<div class="progress-label">
-										<h3><?php echo sprintf(Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_PROGRESS_STEP'), ++$step, $stepTotal); ?><?php echo $progressBar['date'] ?? ''; ?></h3>
+										<h3><?php echo sprintf(Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_PROGRESS_STEP'), ($optBar['step'] + 1), $optBar['steps']); ?></h3>
 									</div>
 									<div class="progress-container">
 										<div class="ui-progressbar">
 											<div class="ui-progressbar-track">
-												<div class="ui-progressbar-bar"
-													 style="width:<?php echo $percentStep; ?>%;"></div>
+												<div class="ui-progressbar-bar" style="width:<?php echo $optBar['p_step']; ?>%;"></div>
 											</div>
-											<div class="ui-progressbar-text-after"><?php echo $percentStep; ?>%</div>
+											<div class="ui-progressbar-text-after"><?php echo $optBar['p_step']; ?>%</div>
 										</div>
 									</div>
 								</div>
 							<?php } ?>
-							<p><?php echo Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_PROGRESS_DATE'); ?><?php echo $progressDate ?? ''; ?></p>
+							<p><?php echo Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_PROGRESS_DATE'); ?><?php echo $optBar['date'] ?? ''; ?></p>
 						</div>
 						<?php
 					}

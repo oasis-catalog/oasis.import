@@ -38,6 +38,7 @@ try {
 		$errors = 'key required';
 	}
 
+	$cron_up = false;
 	if (isset($cliOptions['up']) || isset($cliOptions['u'])) {
 		$cron_up = true;
 	}

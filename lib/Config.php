@@ -32,12 +32,7 @@ class Config {
 	public int $limit;
 
 	public ?\DateTime $import_date;
-	public string $progressDate;
-	public int $progressTotal;
-	public int $progressItem;
-	public int $progressStepTotal;
-	public int $progressStepItem;
-	public int $step;
+	public array $progress;
 
 	public float $factor;
 	public float $increase;
@@ -45,22 +40,47 @@ class Config {
 
 	public bool $move_first_img_to_detail;
 	public bool $up_photo;
+	public bool $is_cdn_photo;
 
-	private bool $init_rel = false;
+	private bool $is_init = false;
+	private bool $is_init_rel = false;
 
+	private static $instance;
+
+	public static function instance($opt = []) {
+		if (!isset(self::$instance)) {
+			self::$instance = new self($opt);
+		} else {
+			if(!empty($opt['init'])){
+				self::$instance->init();
+			}
+			if(!empty($opt['init_rel'])){
+				self::$instance->initRelation();
+			}
+		}
+
+		return self::$instance;
+	}
 
 	public function __construct($opt = []) {
 		$this->root_path = Application::getDocumentRoot();
 
-		if(isset($opt['debug']) || isset($opt['debug_log'])){
-			$this->debug = true;
+		$this->debug = !empty($opt['debug']);
+		$this->debug_log = !empty($opt['debug_log']);
+
+		if(!empty($opt['init'])){
+			$this->init();
 		}
-		if(isset($opt['debug_log'])){
-			$this->debug_log = true;
+		if(!empty($opt['init_rel'])){
+			$this->initRelation();
 		}
 	}
 
 	public function init() {
+		if($this->is_init) {
+			return;
+		}
+
 		$opt = Option::getForModule($this::MODULE_ID);
 
 		$this->cron_type =			$opt['cron_type'] ?? '';
@@ -106,12 +126,16 @@ class Config {
 		} 
 		$this->import_date =		$dt;
 
-		$this->progressDate =		$opt['progressDate'] ?? '';
-		$this->progressTotal =		$opt['progressTotal'] ? intval($opt['progressTotal']) : 0;
-		$this->progressItem =		$opt['progressItem'] ? intval($opt['progressItem']) : 0;
-		$this->progressStepTotal =	$opt['progressStepTotal'] ? intval($opt['progressStepTotal']) : 0;
-		$this->progressStepItem =	$opt['progressStepItem'] ? intval($opt['progressStepItem']) : 0;
-		$this->step =				$opt['step'] ? intval($opt['step']) : 0;
+
+		$this->progress = [
+			'item' =>		$opt['progress_item'] ?? 0,			// count updated products
+			'total' =>		$opt['progress_total'] ?? 0,		// count all products
+			'step' =>		$opt['progress_step'] ?? 0,			// step (for limit)
+			'step_item' =>	$opt['progress_step_item'] ?? 0,	// count updated products for step
+			'step_total' =>	$opt['progress_step_total'] ?? 0,	// count step total products
+			'date' =>		$opt['progress_date'] ?? '',		// date end import
+			'date_step' =>	$opt['progress_date_step'] ?? ''	// date end import for step
+		];
 
 		$this->factor =				$opt['factor'] ? floatval(str_replace(',', '.', $opt['factor'])) : 0;
 		$this->increase =			$opt['increase'] ? floatval(str_replace(',', '.', $opt['increase'])) : 0;
@@ -119,10 +143,13 @@ class Config {
 
 		$this->move_first_img_to_detail =	$opt['move_first_img_to_detail'] === 'Y';
 		$this->up_photo	=					$opt['up_photo'] === 'Y';
+		$this->is_cdn_photo =				$opt['is_cdn_photo'] === 'Y';
+
+		$this->is_init = true;
 	}
 
 	public function initRelation() {
-		if($this->init_rel){
+		if($this->is_init_rel){
 			return;
 		}
 
@@ -133,7 +160,7 @@ class Config {
 			$this->category_rel_label = $this->getRelLabel($this->category_rel);
 		}
 
-		$this->init_rel = true;
+		$this->is_init_rel = true;
 	}
 
 	private function getRelLabel(int $rel_id) {
@@ -148,6 +175,90 @@ class Config {
 		}
 		return implode(' / ', $result);
  	}
+
+ 	public function progressStart(int $total, int $step_total) {
+		$this->progress['total'] = $total;
+		$this->progress['step_total'] = $step_total;
+		$this->progress['step_item'] = 0;
+		$this->updateSettingProgress();
+	}
+
+	public function progressUp() {
+		$this->progress['step_item']++;
+		$this->updateSettingProgress();
+	}
+
+	public function progressEnd() {
+		$dt = (new \DateTime())->format('d.m.Y H:i:s');
+		$this->progress['date_step'] = $dt;
+
+		if($this->limit > 0){
+			$this->progress['item'] += $this->progress['step_item'];
+
+			if(($this->limit * ($this->progress['step'] + 1)) > $this->progress['total']){
+				$this->progress['step'] = 0;
+				$this->progress['item'] = 0;
+				$this->progress['date'] = $dt;
+			}
+			else{
+				$this->progress['step']++;
+			}
+		}
+		else{
+			$this->progress['date'] = $dt;
+			$this->progress['item'] = 0;
+		}
+		$this->progress['step_item'] = 0;
+		$this->progress['step_total'] = 0;
+
+		$this->updateSettingProgress();
+	}
+
+	public function progressClear() {
+		$this->progress['total'] = 0;
+		$this->progress['step'] = 0;
+		$this->progress['item'] = 0;
+		$this->progress['step_item'] = 0;
+		$this->progress['step_total'] = 0;
+
+		$this->updateSettingProgress();
+	}
+
+	private function updateSettingProgress () {
+		$p = $this->progress;
+		Option::set(self::MODULE_ID, 'progress_item',		$p['item']);
+		Option::set(self::MODULE_ID, 'progress_total',		$p['total']);
+		Option::set(self::MODULE_ID, 'progress_step',		$p['step']);
+		Option::set(self::MODULE_ID, 'progress_step_item',	$p['step_item']);
+		Option::set(self::MODULE_ID, 'progress_step_total',	$p['step_total']);
+		Option::set(self::MODULE_ID, 'progress_date', 		$p['date']);
+		Option::set(self::MODULE_ID, 'progress_date_step',	$p['date_step']);
+	}
+
+	public function getOptBar() {
+		$opt = $this->progress;
+		$p_total = 0;
+		$p_step = 0;
+
+		if (!empty($opt['step_item']) && !empty($opt['step_total'])) {
+			$p_step = round(($opt['step_item'] / $opt['step_total']) * 100, 2, PHP_ROUND_HALF_DOWN );
+			$p_step = min($p_step, 100);
+		}
+
+		if (!(empty($opt['item']) && empty($opt['step_item'])) && !empty($opt['total'])) {
+			$p_total = round((($opt['item'] + $opt['step_item']) / $opt['total']) * 100, 2, PHP_ROUND_HALF_DOWN );
+			$p_total = min($p_total, 100);
+		}
+
+		return [
+			'p_total' =>	$p_total,
+			'p_step' =>		$p_step,
+			'step' =>		$opt['step'] ?? 0,
+			'steps' =>		($this->limit > 0 && !empty($opt['total'])) ? (ceil($opt['total'] / $this->limit)) : 0,
+			'date' =>		$opt['date_step'] ?? ''
+		];
+	}
+
 
 	public function checkCronKey(string $cron_key): bool {
 		return $cron_key === md5($this->api_key);
@@ -181,8 +292,8 @@ class Config {
 	}
 
 	public function log($str) {
-		if ($this->debug) {
-			$str = '['.date('Y-m-d H:i:s').'] '.$str;
+		if ($this->debug || $this->debug_log) {
+			$str = date('H:i:s').' '.$str;
 
 			if ($this->debug_log) {
 				file_put_contents($this->root_path . '/upload/module-oasis/oasis_'.date('Y-m-d').'.log', $str . "\n", FILE_APPEND);

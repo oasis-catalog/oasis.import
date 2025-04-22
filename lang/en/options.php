@@ -61,6 +61,8 @@ $MESS["OASIS_IMPORT_OPTIONS_TAB_PROGRESS_DATE"] = "Last import completed: ";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_PHOTO"] = "Photo";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_MOVE_FIRST_IMG_TO_DETAIL"] = "Move the first gallery image to a detail image";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_UP_PHOTO"] = "Update product photos";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_CDN_PHOTO"] = "Use Oasis image server";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_CDN_PHOTO_NOTE"] = "Display product photos without uploading, saves space on hosting";
 
 // Orders
 $MESS["OASIS_IMPORT_ORDERS_ID"] = "ID";
