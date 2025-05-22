@@ -62,7 +62,11 @@ $MESS["OASIS_IMPORT_OPTIONS_TAB_PHOTO"] = "Photo";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_MOVE_FIRST_IMG_TO_DETAIL"] = "Move the first gallery image to a detail image";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_UP_PHOTO"] = "Update product photos";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_CDN_PHOTO"] = "Use Oasis image server";
-$MESS["OASIS_IMPORT_OPTIONS_TAB_CDN_PHOTO_NOTE"] = "Display product photos without uploading, saves space on hosting";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_CDN_PHOTO_NOTE"] = "Display product photos without uploading, saves space on hosting. May not work correctly with some themes and plugins";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_EXTRA"] = "Additionally";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_BRANDS"] = "Enable brands on imported products";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_FAST_IMPORT"] = "Quick import of products";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_FAST_IMPORT_NOTE"] = "Import without photos. After a full upload of all products, the option is turned off";
 
 // Orders
 $MESS["OASIS_IMPORT_ORDERS_ID"] = "ID";

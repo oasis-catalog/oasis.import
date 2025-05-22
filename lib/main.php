@@ -25,6 +25,7 @@ use Bitrix\Main\ArgumentOutOfRangeException;
 use Bitrix\Main\Config\Option;
 use Bitrix\Main\DB\SqlQueryException;
 use Bitrix\Main\Diag\Debug;
+use Bitrix\Main\Entity;
 use Bitrix\Main\Loader;
 use Bitrix\Main\LoaderException;
 use Bitrix\Main\Localization\Loc;
@@ -46,6 +47,25 @@ class Main
 {
 	public static OasisConsfig $cf;
 
+	/**
+	 * Load and prepare brands
+	 *
+	 * @return void
+	 */
+	public static function getBrands(): array
+	{
+		$list = Api::getBrands() ?? [];
+		$brands = [];
+		foreach ($list as $brand){
+			$brands[$brand->id] = [
+				'name' => $brand->name,
+				'slug' => $brand->slug,
+				'logotype' => $brand->logotype,
+				'XML_ID' => null
+			];
+		}
+		return $brands;
+	}
 
 	/**
 	 * Get order id oasis
@@ -247,8 +267,7 @@ class Main
 				$data += self::getIblockSectionProduct($product, $oasisCategories, $iblockId);
 			}
 			
-			$dataImages = null;
-		    if (self::$cf->up_photo || self::checkDataImages($iblockElementId, $product, $moveFirstImg) === false){
+		    if (self::$cf->up_photo || self::checkDataImages($iblockElementId, $product) === false){
 				self::deleteImgInProduct($iblockElementId);
 
 				$dataImages = Main::getProductImages($product);
@@ -263,6 +282,39 @@ class Main
 		
 			if (!empty($el->LAST_ERROR)) {
 				throw new SystemException(($oasisCategories ? 'Ошибка обновления товара: ' : 'Ошибка обновления торгового предложения: ') . $el->LAST_ERROR);
+			}
+		} catch (SystemException $e) {
+			echo $e->getMessage() . PHP_EOL;
+			die();
+		}
+	}
+
+	/**
+	 * Update Iblock Element Product
+	 *
+	 * @param $iblockElementId
+	 * @param $product
+	 * @param $iblockId
+	 * @param array $oasisCategories
+	 */
+	public static function iblockElementProductAddImage($iblockElementId, $product, $is_up = false): void
+	{
+		try {
+		    if ($is_up || self::checkDataImages($iblockElementId, $product) === false){
+				self::deleteImgInProduct($iblockElementId);
+
+				$dataImages = Main::getProductImages($product);
+				CIBlockElement::SetPropertyValuesEx($iblockElementId, false, ['MORE_PHOTO' => $dataImages['MORE_PHOTO']]);
+
+				$data['DETAIL_PICTURE'] = $dataImages['DETAIL_PICTURE'];
+				$data['PREVIEW_PICTURE'] = $dataImages['PREVIEW_PICTURE'];
+
+				$el = new CIBlockElement;
+				$el->Update($iblockElementId, $data);
+
+				if (!empty($el->LAST_ERROR)) {
+					throw new SystemException(($oasisCategories ? 'Ошибка обновления товара: ' : 'Ошибка обновления торгового предложения: ') . $el->LAST_ERROR);
+				}
 			}
 		} catch (SystemException $e) {
 			echo $e->getMessage() . PHP_EOL;
@@ -716,10 +768,9 @@ class Main
 	 *
 	 * @param $productId
 	 * @param $product
-	 * @param $moveFirstImg
 	 * @return bool
 	 */
-	public static function checkDataImages($productId, $product, $moveFirstImg): bool
+	public static function checkDataImages($productId, $product): bool
 	{
 		$res = CIBlockElement::GetList([], ['ID' => $productId]);
 
@@ -727,7 +778,7 @@ class Main
 			$props = $ob->GetProperties();
 			$dbImageIDS = [];
 
-			if ($moveFirstImg && !empty($ob->fields['DETAIL_PICTURE'])) {
+			if (self::$cf->move_first_img_to_detail && !empty($ob->fields['DETAIL_PICTURE'])) {
 				$dbImageIDS[] = $ob->fields['DETAIL_PICTURE'];
 			}
 
@@ -2047,13 +2098,77 @@ class Main
 				$result['MATERIAL'] = $attribute->value;
 			}
 		}
-		unset($attribute);
 
 		if (!is_null($product->brand)) {
 			$result['MANUFACTURER'] = $product->brand;
 		}
 
+		if(self::$cf->is_brands && !empty($product->brand_id)){
+			$brand = CLI::$brands[$product->brand_id] ?? null;
+			if($brand){
+				if(!isset($brand['XML_ID'])){
+					$entityClass = self::getHlEntityClass('BrandReference', 'eshop_brand_reference');
+					if ($entityClass) {
+						$hl_item = $entityClass::getList([
+							'select' => ['ID'],
+							'filter' => [
+								'=UF_XML_ID' => $brand['slug']
+							],
+						])->fetch();
+
+						if (empty($hl_item)) {
+							CLI::$handlerCDN_disable = true;
+							$logotype = CFile::MakeFileArray($brand['logotype']);
+							CLI::$handlerCDN_disable = false;
+
+							if ($logotype['type'] !== 'text/html') {
+								$entityClass::add([
+									'UF_NAME'   => $brand['name'],
+									'UF_FILE'   => [
+										'name'     => $logotype['name'],
+										'type'     => $logotype['type'],
+										'tmp_name' => $logotype['tmp_name']
+									],
+									'UF_SORT'   => 500,
+									'UF_XML_ID' => $brand['slug']
+								]);
+							}
+						}
+						CLI::$brands[$product->brand_id]['XML_ID'] = $brand['XML_ID'] = $brand['slug'];
+					}
+				}
+				if(!empty($brand['XML_ID'])){
+	 				$result['BRAND_REF'] = $brand['XML_ID'];
+				}
+			}
+		}
+
 		return $result;
+	}
+
+	/**
+	 * Highloadblock Entity Class
+	 * 
+	 * @param $name
+	 * @param $table_name
+	 * @param $select
+	 * @return DataManager | null
+	 */
+	public static function getHlEntityClass(string $name, string $table_name, array $select = ['ID'])
+	{
+		$row = Highloadblock\HighloadBlockTable::getList([
+			'select' => $select,
+			'filter' => [
+				'=NAME'       => $name,
+				'=TABLE_NAME' => $table_name
+			]
+		])->fetch();
+		if (!empty($row)) {
+			$hldata = Highloadblock\HighloadBlockTable::getById((int)$row['ID'])->fetch();
+			$hlentity = Highloadblock\HighloadBlockTable::compileEntity($hldata);
+			return $hlentity->getDataClass();
+		}
+		return null;
 	}
 
 	/**
@@ -2220,7 +2335,9 @@ class Main
 			$result['SIZES_FLASH'] = self::checkPropertyEnum('SIZES_FLASH', $product->size, $iblockId);
 		}
 
-		$result += self::getProductImages($product);
+		if(!self::$cf->is_fast_import){
+			$result += self::getProductImages($product);
+		}
 
 		$dataName = pathinfo(basename(self::getImageNameHL($imageHL, $product)));
 		$result['COLOR_ES_REF'] = $dataName['filename'];

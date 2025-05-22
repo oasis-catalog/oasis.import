@@ -26,7 +26,7 @@ try {
 
 	$params = [
 		'short' => 'k:u',
-		'long'  => ['key:', 'up', 'debug', 'debug_log'],
+		'long'  => ['key:', 'oid:', 'up', 'up_image', 'add_image', 'debug', 'debug_log'],
 	];
 
 	$errors = '';
@@ -38,17 +38,16 @@ try {
 		$errors = 'key required';
 	}
 
-	$cron_up = false;
-	if (isset($cliOptions['up']) || isset($cliOptions['u'])) {
-		$cron_up = true;
-	}
-
 	if ($errors) {
 		die('
 usage:  php ' . __DIR__ . '/cron.php [-k|--key=secret] [-u|--up]
 Options:
 -k  --key      substitute your secret key from the Oasis module
 -u  --up       specify this key to use the update
+--add_image    add image if empty
+--up_image     update only image
+--debug        show log
+--debug_log    wrire log to file
 Example import products:
 php ' . __DIR__ . '/cron.php --key=secret
 Example update stock (quantity) products:
@@ -61,8 +60,31 @@ Errors: ' . $errors . PHP_EOL);
 		die('Error! Minimum PHP version 7.4, your PHP version ' . PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION);
 	}
 
+	if(isset($cliOptions['up']) || isset($cliOptions['u'])){
+		$cron_opt = [
+			'task' => 'up'
+		];
+	}
+	else if(isset($cliOptions['up_image'])){
+		$cron_opt = [
+			'task' => 'up_image',
+			'oid' => $cliOptions['oid'] ?? ''
+		];
+	}
+	else if(isset($cliOptions['add_image'])){
+		$cron_opt = [
+			'task' => 'add_image',
+			'oid' => $cliOptions['oid'] ?? ''
+		];
+	}
+	else {
+		$cron_opt = [
+			'task' => 'import'
+		];
+	}
+
 	if (CModule::IncludeModule(OASIS_MODULE_ID)) {
-		Cli::RunCron($cron_key, $cron_up, [
+		Cli::RunCron($cron_key, $cron_opt, [
 			'debug' => isset($cliOptions['debug']),
 			'debug_log' => isset($cliOptions['debug_log'])
 		]);

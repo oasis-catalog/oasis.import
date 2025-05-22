@@ -15,6 +15,8 @@ class Cli
 {
 	public static array $dbCategories = [];
 	public static array $src_img_temp = [];
+	public static array $brands = [];
+	public static bool  $handlerCDN_disable = false;
 
 	public static OasisConsfig $cf;
 
@@ -46,33 +48,49 @@ class Cli
 	}	
 
 
-	public static function RunCron($cron_key, $cron_up, $opt = [])
+	public static function RunCron($cron_key, $cron_opt = [], $opt = [])
 	{
 		$cf = OasisConsfig::instance($opt);
 
-		$cf->lock(function() use ($cf, $cron_key, $cron_up){
+		if($cron_opt['task'] == 'add_image' || $cron_opt['task'] == 'up_image'){
 			$cf->init();
-
 			if (!$cf->checkCronKey($cron_key)) {
 				$cf->log('Error! Invalid --key');
 				die('Error! Invalid --key');
 			}
+			self::AddImage([
+				'oid' => $cron_opt['oid'] ?? '',
+				'is_up' => $cron_opt['task'] == 'up_image'
+			]);
+		}
+		else {
+			$cf->lock(function() use ($cf, $cron_key, $cron_opt){
+				$cf->init();
 
-			if (!$cron_up && !$cf->checkPermissionImport()) {
-				$cf->log('Import once day');
-				die('Import once day');
-			}
+				if (!$cf->checkCronKey($cron_key)) {
+					$cf->log('Error! Invalid --key');
+					die('Error! Invalid --key');
+				}
 
-			self::$cf = $cf;
-			Main::$cf = $cf;
-			if ($cron_up) {
-				self::UpStock();
-			} else {
-				self::Import();
-			}
-		}, function(){
-			die('Already running');
-		});
+				switch ($cron_opt['task']) {
+					case 'import':
+						$cf->initRelation();
+
+						if(!$cf->checkPermissionImport()) {
+							$cf->log('Import once day');
+							die('Import once day');
+						}
+						self::Import();
+						break;
+
+					case 'up':
+						self::UpStock();
+						break;
+				}
+			}, function(){
+				die('Already running');
+			});
+		}
 	}
 
 	public static function ImportAgent()
@@ -87,8 +105,6 @@ class Cli
 					echo 'Import once day';
 				}
 
-				self::$cf = $cf;
-				Main::$cf = $cf;
 				self::Import();
 			}, function(){
 				echo 'Already running';
@@ -107,8 +123,6 @@ class Cli
 			$cf->lock(function() use ($cf){
 				$cf->init();
 
-				self::$cf = $cf;
-				Main::$cf = $cf;
 				self::UpStock();
 			}, function(){
 				echo 'Already running';
@@ -137,6 +151,10 @@ class Cli
 			}
 
 			self::InitHandlerCDN();
+			if(self::$cf->is_brands){
+				self::$brands = Main::getBrands();
+			}
+
 			self::$dbCategories = Main::getSelectedCategories();
 
 			$dataCalcPrice = [
@@ -200,7 +218,6 @@ class Cli
 
 			self::$cf->progressStart($stat['products'], $countProducts);
 
-			$nextStep = ++$step;
 			$totalGroup = count($group_ids);
 			$itemGroup = 0;
 
@@ -210,6 +227,7 @@ class Cli
 					$dbProducts = Main::checkProduct($product->group_id, 0, true);
 
 					if ($dbProducts) {
+						$dbProduct = null;
 						if (count($dbProducts) > 1) {
 							foreach ($dbProducts as $dbProductsItem) {
 								if ($dbProductsItem['TYPE'] == ProductTable::TYPE_OFFER) {
@@ -224,7 +242,9 @@ class Cli
 						self::$cf->log('Up product id ' . $product->id);
 					} else {
 						$properties = Main::getPropertiesArray($product);
-						$properties += Main::getProductImages($product);
+						if(!self::$cf->is_fast_import){
+							$properties += Main::getProductImages($product);
+						}
 						$productId = Main::addIblockElementProduct($product, $oasisCategories, $properties, self::$cf->iblock_catalog, ProductTable::TYPE_PRODUCT);
 						Main::executeStoreProduct($productId, $product);
 						self::$cf->log('Add product id ' . $product->id);
@@ -245,7 +265,9 @@ class Cli
 						self::$cf->log('Up product id ' . $firstProduct->id);
 					} else {
 						$properties = Main::getPropertiesArray($firstProduct);
-						$properties += Main::getProductImages($firstProduct);
+						if(!self::$cf->is_fast_import){
+							$properties += Main::getProductImages($firstProduct);
+						}
 						$productId = Main::addIblockElementProduct($firstProduct, $oasisCategories, $properties, self::$cf->iblock_catalog, ProductTable::TYPE_SKU);
 						self::$cf->log('Add product id ' . $firstProduct->id);
 					}
@@ -302,7 +324,10 @@ class Cli
 		}
 
 		AddEventHandler('main','OnMakeFileArray', function ($url, &$temp_path){
-			if (!is_array($url) && (stripos($url,'http://') === 0 || stripos($url,'https://') === 0)) {
+			if (!self::$handlerCDN_disable
+				&& !is_array($url)
+				&& (stripos($url,'http://') === 0 || stripos($url,'https://') === 0)
+			) {
 				$image = file_get_contents($url, false, stream_context_create([
 					 'http' => [
 						'method' => 'GET',
@@ -333,7 +358,9 @@ class Cli
 		});
 
 		AddEventHandler('main','OnFileSave', function (&$arFile, $strFileName, $strSavePath, $bForceMD5 = false, $bSkipExt = false, $dirAdd = ''){
-		   if(isset(self::$src_img_temp[$arFile['tmp_name']])) {
+			if(!self::$handlerCDN_disable
+				&& isset(self::$src_img_temp[$arFile['tmp_name']])
+			) {
 				$arFileTmp = self::$src_img_temp[$arFile['tmp_name']];
 
 				$arFile['FILE_NAME'] = $arFileTmp['URL'];
@@ -370,6 +397,90 @@ class Cli
 			Main::upQuantity($stock);
 		} catch (SystemException $e) {
 			echo $e->getMessage() . PHP_EOL;
+		}
+	}
+
+	public static function AddImage($opt = []) {
+		Loader::includeModule('iblock');
+		Loader::includeModule('catalog');
+
+		set_time_limit(0);
+		ini_set('memory_limit', '2G');
+
+		while (ob_get_level()) {
+			ob_end_flush();
+		}
+
+		try {
+			if (empty(self::$cf->iblock_catalog) || empty(self::$cf->iblock_offers)) {
+				throw new Exception('Infoblocks not selected');
+			}
+
+			self::InitHandlerCDN();
+
+			$args = [];
+			if(!empty($opt['oid'])){
+				$args['ids'] =  is_array($opt['oid']) ? implode(',', $opt['oid']) : $opt['oid'];
+			}
+
+			$oasisProducts = Api::getProductsOasis($args);
+
+			$group_ids = [];
+			foreach ($oasisProducts as $product) {
+				if ($product->is_deleted === false) {
+					$group_ids[$product->group_id][$product->id] = $product;
+				}
+			}
+
+			$totalGroup = count($group_ids);
+			$itemGroup = 0;
+			$is_up = !empty($opt['is_up']);
+
+			foreach ($group_ids as $products) {
+				if (count($products) === 1) {
+
+					$product = reset($products);
+					$dbProducts = Main::checkProduct($product->group_id, 0, true);
+
+					if ($dbProducts) {
+						$dbProduct = null;
+						if (count($dbProducts) > 1) {
+							foreach ($dbProducts as $dbProductsItem) {
+								if ($dbProductsItem['TYPE'] == ProductTable::TYPE_OFFER) {
+									$dbProduct = $dbProductsItem;
+								}
+							}
+						}
+
+						$dbProduct = $dbProduct ?? reset($dbProducts);
+						$productId = (int)$dbProduct['ID'];
+						Main::iblockElementProductAddImage($productId, $product, $is_up);
+						self::$cf->log('Up product image id ' . $product->id);
+					}
+				} else {
+					$firstProduct = reset($products);
+					$dbProduct = Main::checkProduct($firstProduct->group_id);
+
+					if ($dbProduct) {
+						$productId = (int)$dbProduct['ID'];
+						Main::IblockElementProductAddImage($productId, $firstProduct, $is_up);
+						self::$cf->log('Up product image id ' . $firstProduct->id);
+					}
+					foreach ($products as $product) {
+						$dbOffer = Main::checkProduct($product->id, ProductTable::TYPE_OFFER);
+
+						if ($dbOffer) {
+							$productOfferId = (int)$dbOffer['ID'];
+							Main::IblockElementProductAddImage($productOfferId, $product, $is_up);
+							self::$cf->log('Up offer image id ' . $product->id);
+						}
+					}
+				}
+				self::$cf->log('Done ' . ++$itemGroup . ' from ' . $totalGroup);
+			}
+		} catch (SystemException $e) {
+			echo $e->getMessage() . PHP_EOL;
+			exit();
 		}
 	}
 }

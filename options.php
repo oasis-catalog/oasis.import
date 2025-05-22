@@ -260,6 +260,19 @@ if (!empty($currencies)) {
 			'N',
 			['checkbox']
 		],
+		Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_EXTRA'),
+		[
+			'is_brands',
+			Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_BRANDS'),
+			'N',
+			['checkbox']
+		],
+		[
+			'is_fast_import',
+			[Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_FAST_IMPORT'), Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_FAST_IMPORT_NOTE')],
+			'N',
+			['checkbox']
+		],
 	]);
 
 	$aTabs[] = [

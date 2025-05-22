@@ -2,6 +2,9 @@
 namespace Oasis\Import;
 use Bitrix\Main\Config\Option;
 use Bitrix\Main\Application;
+use Oasis\Import\Cli;
+use Oasis\Import\Main;
+use Oasis\Import\Api;
 
 
 class Config {
@@ -41,6 +44,8 @@ class Config {
 	public bool $move_first_img_to_detail;
 	public bool $up_photo;
 	public bool $is_cdn_photo;
+	public bool $is_brands;
+	public bool $is_fast_import;
 
 	private bool $is_init = false;
 	private bool $is_init_rel = false;
@@ -67,6 +72,10 @@ class Config {
 
 		$this->debug = !empty($opt['debug']);
 		$this->debug_log = !empty($opt['debug_log']);
+
+		Cli::$cf = $this;
+		Main::$cf = $this;
+		Api::$cf = $this;
 
 		if(!empty($opt['init'])){
 			$this->init();
@@ -137,13 +146,14 @@ class Config {
 			'date_step' =>	$opt['progress_date_step'] ?? ''	// date end import for step
 		];
 
-		$this->factor =				$opt['factor'] ? floatval(str_replace(',', '.', $opt['factor'])) : 0;
-		$this->increase =			$opt['increase'] ? floatval(str_replace(',', '.', $opt['increase'])) : 0;
-		$this->dealer =				$opt['dealer'] === 'Y';
-
+		$this->factor =						$opt['factor'] ? floatval(str_replace(',', '.', $opt['factor'])) : 0;
+		$this->increase =					$opt['increase'] ? floatval(str_replace(',', '.', $opt['increase'])) : 0;
+		$this->dealer =						$opt['dealer'] === 'Y';
 		$this->move_first_img_to_detail =	$opt['move_first_img_to_detail'] === 'Y';
 		$this->up_photo	=					$opt['up_photo'] === 'Y';
 		$this->is_cdn_photo =				$opt['is_cdn_photo'] === 'Y';
+		$this->is_brands =					$opt['is_brands'] === 'Y';
+		$this->is_fast_import =				$opt['is_fast_import'] === 'Y';
 
 		$this->is_init = true;
 	}
@@ -192,6 +202,7 @@ class Config {
 		$dt = (new \DateTime())->format('d.m.Y H:i:s');
 		$this->progress['date_step'] = $dt;
 
+		$is_stop_fast_import = false;
 		if($this->limit > 0){
 			$this->progress['item'] += $this->progress['step_item'];
 
@@ -199,17 +210,25 @@ class Config {
 				$this->progress['step'] = 0;
 				$this->progress['item'] = 0;
 				$this->progress['date'] = $dt;
+				$is_stop_fast_import = true;
 			}
 			else{
 				$this->progress['step']++;
 			}
 		}
 		else{
-			$this->progress['date'] = $dt;
 			$this->progress['item'] = 0;
+			$this->progress['date'] = $dt;
+			$is_stop_fast_import = true;
 		}
+
 		$this->progress['step_item'] = 0;
 		$this->progress['step_total'] = 0;
+
+		if($this->is_fast_import && $is_stop_fast_import){
+			$this->is_fast_import = false;
+			Option::set(self::MODULE_ID, 'is_fast_import', 'N');
+		}
 
 		$this->updateSettingProgress();
 	}

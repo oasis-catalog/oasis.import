@@ -9,6 +9,8 @@ use Oasis\Import\Config as OasisConsfig;
 
 class Api
 {
+	public static OasisConsfig $cf;
+
 	/**
 	 * Get order data Oasiscatalog
 	 *
@@ -63,6 +65,16 @@ class Api
 	public static function getOasisStock(): array
 	{
 		return self::curlQuery('stock', ['fields' => 'id,stock,stock-remote,is-europe']);
+	}
+
+	/**
+	 * Get brands
+	 *
+	 * @return array
+	 */
+	public static function getBrands(): array
+	{
+		return self::curlQuery('brands', [], 'v3');
 	}
 
 	/**
@@ -205,11 +217,9 @@ class Api
 	 *
 	 * @return array
 	 */
-	public static function curlQuery($type, array $args = []): array
+	public static function curlQuery($type, array $args = [], string $version = 'v4'): array
 	{
-		$apiKey = Option::get(pathinfo(dirname(__DIR__))['basename'], 'api_key');
-
-		if (empty($apiKey)) {
+		if (empty(self::$cf->api_key)){
 			return [];
 		}
 
@@ -217,9 +227,9 @@ class Api
 
 		$ch = curl_init();
 		curl_setopt_array($ch, [
-			CURLOPT_USERPWD => $apiKey,
+			CURLOPT_USERPWD => self::$cf->api_key,
 			CURLOPT_RETURNTRANSFER => true,
-			CURLOPT_URL => 'https://api.oasiscatalog.com/v4/' . $type . '?' . http_build_query($args)
+			CURLOPT_URL => 'https://api.oasiscatalog.com/'.$version.'/' . $type . '?' . http_build_query($args)
 		]);
 		$result = json_decode(curl_exec($ch), false);
 		$http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
