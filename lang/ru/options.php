@@ -66,7 +66,7 @@ $MESS["OASIS_IMPORT_OPTIONS_TAB_CDN_PHOTO_NOTE"] = "Отображать фот�
 $MESS["OASIS_IMPORT_OPTIONS_TAB_EXTRA"] = "Дополнительно";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_BRANDS"] = "Включить бренды импортируемых товаров";
 $MESS["OASIS_IMPORT_OPTIONS_TAB_FAST_IMPORT"] = "Быстрый импорт товаров";
-$MESS["OASIS_IMPORT_OPTIONS_TAB_FAST_IMPORT_NOTE"] = "Импорт без фотографий. После полновый загрузки всех товаров, опция отключается";
+$MESS["OASIS_IMPORT_OPTIONS_TAB_FAST_IMPORT_NOTE"] = "Импорт без фотографий. После полной загрузки всех товаров, опция отключается";
 
 // Orders
 $MESS["OASIS_IMPORT_ORDERS_ID"] = "ID";
