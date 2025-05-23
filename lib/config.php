@@ -1,7 +1,8 @@
 <?php
 namespace Oasis\Import;
-use Bitrix\Main\Config\Option;
 use Bitrix\Main\Application;
+use Bitrix\Main\Config\Option;
+use Bitrix\Main\Loader;
 use Oasis\Import\Cli;
 use Oasis\Import\Main;
 use Oasis\Import\Api;
@@ -34,7 +35,6 @@ class Config {
 
 	public int $limit;
 
-	public ?\DateTime $import_date;
 	public array $progress;
 
 	public float $factor;
@@ -129,13 +129,6 @@ class Config {
 		$this->import_anytime = 	$opt['import_anytime'] === 'Y';
 		$this->limit =				$opt['limit'] ? intval($opt['limit']) : 0;
 
-		$dt = null;
-		if(!empty($opt['import_date'])){
-			$dt = \DateTime::createFromFormat('d.m.Y H:i:s', $opt['import_date']);
-		} 
-		$this->import_date =		$dt;
-
-
 		$this->progress = [
 			'item' =>		$opt['progress_item'] ?? 0,			// count updated products
 			'total' =>		$opt['progress_total'] ?? 0,		// count all products
@@ -162,6 +155,8 @@ class Config {
 		if($this->is_init_rel){
 			return;
 		}
+
+		Loader::includeModule('iblock');
 
 		foreach($this->categories_rel as $cat_id => $rel){
 			$this->categories_rel[$cat_id]['rel_label'] = $this->getRelLabel($rel['id']);
@@ -202,32 +197,33 @@ class Config {
 		$dt = (new \DateTime())->format('d.m.Y H:i:s');
 		$this->progress['date_step'] = $dt;
 
-		$is_stop_fast_import = false;
+		$is_full_import = false;
 		if($this->limit > 0){
 			$this->progress['item'] += $this->progress['step_item'];
 
 			if(($this->limit * ($this->progress['step'] + 1)) > $this->progress['total']){
 				$this->progress['step'] = 0;
-				$this->progress['item'] = 0;
-				$this->progress['date'] = $dt;
-				$is_stop_fast_import = true;
+				$is_full_import = true;
 			}
 			else{
 				$this->progress['step']++;
 			}
 		}
-		else{
-			$this->progress['item'] = 0;
-			$this->progress['date'] = $dt;
-			$is_stop_fast_import = true;
+		else {
+			$is_full_import = true;
 		}
 
 		$this->progress['step_item'] = 0;
 		$this->progress['step_total'] = 0;
 
-		if($this->is_fast_import && $is_stop_fast_import){
-			$this->is_fast_import = false;
-			Option::set(self::MODULE_ID, 'is_fast_import', 'N');
+		if($is_full_import) {
+			$this->progress['item'] = 0;
+			$this->progress['date'] = $dt;
+
+			if($this->is_fast_import) {
+				$this->is_fast_import = false;
+				Option::set(self::MODULE_ID, 'is_fast_import', 'N');
+			}
 		}
 
 		$this->updateSettingProgress();
@@ -239,6 +235,8 @@ class Config {
 		$this->progress['item'] = 0;
 		$this->progress['step_item'] = 0;
 		$this->progress['step_total'] = 0;
+		$this->progress['date'] = '';
+		$this->progress['date_step'] = '';
 
 		$this->updateSettingProgress();
 	}
@@ -302,9 +300,10 @@ class Config {
 	}
 
 	public function checkPermissionImport(): bool {
-		if(!$this->import_anytime && 
-			$this->import_date &&
-			$this->import_date->format("Y-m-d") == (new \DateTime())->format("Y-m-d")){
+		if(!$this->import_anytime 
+			&& $this->progress['date']
+			&& \DateTime::createFromFormat('d.m.Y H:i:s', $this->progress['date'])->format("Y-m-d") == (new \DateTime())->format("Y-m-d")
+		) {
 				return false;
 		}
 		return true;

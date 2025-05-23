@@ -74,8 +74,6 @@ class Cli
 
 				switch ($cron_opt['task']) {
 					case 'import':
-						$cf->initRelation();
-
 						if(!$cf->checkPermissionImport()) {
 							$cf->log('Import once day');
 							die('Import once day');

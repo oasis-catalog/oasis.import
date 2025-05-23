@@ -25,12 +25,9 @@ $request = HttpApplication::getInstance()->getContext()->getRequest();
 
 
 if ($request->getRequestMethod() == 'GET' && $request['action'] == 'getTreeRelation') {
-	Main::$cf = $cf;
 	echo CustomFields::AjaxTreeRadioCats(Main::getCategoriesToTree(), $cf);
 	die();
 }
-
-
 
 $aTabs = [
 	[
@@ -347,9 +344,11 @@ if ($request->isPost() && check_bitrix_sessid()) {
 				}
 
 				Option::set($module_id, $arOption[0], is_array($optionValue) ? implode(',', $optionValue) : $optionValue);
+				$cf->progressClear();
 			} elseif ($request['default']) {
 				Option::set($module_id, $arOption[0], $arOption[2]);
 				Option::set($module_id, 'categories_rel', '');
+				$cf->progressClear();
 			}
 		}
 	}
