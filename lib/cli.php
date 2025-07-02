@@ -7,23 +7,23 @@ use Bitrix\Main\Config\Option;
 use Bitrix\Main\Loader;
 use Bitrix\Main\LoaderException;
 use Bitrix\Main\SystemException;
-use Oasis\Import\Config as OasisConsfig;
+use Oasis\Import\Config as OasisConfig;
 use CFile;
 use Exception;
 
 class Cli
 {
-	public static array $dbCategories = [];
 	public static array $src_img_temp = [];
 	public static array $brands = [];
+	public static array $catSelected = [];
 	public static bool  $handlerCDN_disable = false;
 
-	public static OasisConsfig $cf;
+	public static OasisConfig $cf;
 
 
 	public static function OnGetFileSRC($arFile)
 	{
-		$cf = OasisConsfig::instance([
+		$cf = OasisConfig::instance([
 			'init' => true
 		]);
 		if($cf->is_cdn_photo){
@@ -37,12 +37,12 @@ class Cli
 	public static function OnEpilog()
 	{
 		if (defined('ADMIN_SECTION') && ADMIN_SECTION === true) {
-			$cf = OasisConsfig::instance([
+			$cf = OasisConfig::instance([
 				'init' => true
 			]);
 			if($cf->is_cdn_photo){
 				global $APPLICATION;
-				$APPLICATION->AddHeadScript('/bitrix/js/' . OasisConsfig::MODULE_ID . '/admin.js');
+				$APPLICATION->AddHeadScript('/bitrix/js/' . OasisConfig::MODULE_ID . '/admin.js');
 			}
 		}
 	}	
@@ -50,7 +50,7 @@ class Cli
 
 	public static function RunCron($cron_key, $cron_opt = [], $opt = [])
 	{
-		$cf = OasisConsfig::instance($opt);
+		$cf = OasisConfig::instance($opt);
 
 		if($cron_opt['task'] == 'add_image' || $cron_opt['task'] == 'up_image'){
 			$cf->init();
@@ -94,7 +94,7 @@ class Cli
 	public static function ImportAgent()
 	{
 		try {
-			$cf = new OasisConsfig();
+			$cf = new OasisConfig();
 
 			$cf->lock(function() use ($cf){
 				$cf->init();
@@ -116,7 +116,7 @@ class Cli
 	public static function UpStockAgent()
 	{
 		try {
-			$cf = new OasisConsfig();
+			$cf = new OasisConfig();
 
 			$cf->lock(function() use ($cf){
 				$cf->init();
@@ -153,7 +153,6 @@ class Cli
 				self::$brands = Main::getBrands();
 			}
 
-			self::$dbCategories = Main::getSelectedCategories();
 
 			$dataCalcPrice = [
 				'factor'   => self::$cf->factor,
@@ -176,15 +175,16 @@ class Cli
 			Main::checkUserFields(self::$cf->iblock_catalog);
 			Main::checkProperties(self::$cf->iblock_catalog, self::$cf->iblock_offers);
 
-			$oasisProducts = Api::getProductsOasis($args);
-			$oasisCategories = Api::getCategoriesOasis();
-			$stat = Api::getStatProducts();
+			$oasisProducts		= Api::getProductsOasis($args);
+			$oasisCategories	= Api::getCategoriesOasis();
+			self::$catSelected	= Main::getSelectedCategories($oasisCategories);
+			$stat				= Api::getStatProducts();
 
 			$group_ids = [];
 			$countProducts = 0;
 			foreach ($oasisProducts as $product) {
 				if (self::$cf->delete_exclude) {
-					if (empty(array_intersect($product->categories, self::$dbCategories))) {
+					if (empty(array_intersect($product->categories, self::$catSelected))) {
 						Main::checkDeleteProduct($product->id);
 						continue;
 					}
@@ -206,7 +206,7 @@ class Cli
 					$resProducts = API::getProductsOasisOnlyFieldCategories(array_column($allOaProducts, 'UF_OASIS_PRODUCT_ID'));
 
 					foreach ($resProducts as $resProduct) {
-						if (empty(array_intersect($resProduct->categories, self::$dbCategories))) {
+						if (empty(array_intersect($resProduct->categories, self::$catSelected))) {
 							Main::checkDeleteProduct($resProduct->id);
 						}
 					}

@@ -5,11 +5,11 @@ namespace Oasis\Import;
 use Bitrix\Main\ArgumentNullException;
 use Bitrix\Main\ArgumentOutOfRangeException;
 use Bitrix\Main\Config\Option;
-use Oasis\Import\Config as OasisConsfig;
+use Oasis\Import\Config as OasisConfig;
 
 class Api
 {
-	public static OasisConsfig $cf;
+	public static OasisConfig $cf;
 
 	/**
 	 * Get order data Oasiscatalog
@@ -87,16 +87,16 @@ class Api
 	public static function getStatProducts(): array
 	{
 		$data = [
-			'not_on_order' => (int)Option::get(OasisConsfig::MODULE_ID, 'not_on_order'),
-			'price_from'   => (float)Option::get(OasisConsfig::MODULE_ID, 'price_from'),
-			'price_to'     => (float)Option::get(OasisConsfig::MODULE_ID, 'price_to'),
-			'rating'       => Option::get(OasisConsfig::MODULE_ID, 'rating') ? (int)Option::get(OasisConsfig::MODULE_ID, 'rating') : '0,1,2,3,4,5',
-			'moscow'       => (int)Option::get(OasisConsfig::MODULE_ID, 'warehouse_moscow'),
-			'europe'       => (int)Option::get(OasisConsfig::MODULE_ID, 'warehouse_europe'),
-			'remote'       => (int)Option::get(OasisConsfig::MODULE_ID, 'remote_warehouse'),
+			'not_on_order' => (int)Option::get(OasisConfig::MODULE_ID, 'not_on_order'),
+			'price_from'   => (float)Option::get(OasisConfig::MODULE_ID, 'price_from'),
+			'price_to'     => (float)Option::get(OasisConfig::MODULE_ID, 'price_to'),
+			'rating'       => Option::get(OasisConfig::MODULE_ID, 'rating') ? (int)Option::get(OasisConfig::MODULE_ID, 'rating') : '0,1,2,3,4,5',
+			'moscow'       => (int)Option::get(OasisConfig::MODULE_ID, 'warehouse_moscow'),
+			'europe'       => (int)Option::get(OasisConfig::MODULE_ID, 'warehouse_europe'),
+			'remote'       => (int)Option::get(OasisConfig::MODULE_ID, 'remote_warehouse'),
 		];
 
-		$categories = Option::get(OasisConsfig::MODULE_ID, 'categories');
+		$categories = Option::get(OasisConfig::MODULE_ID, 'categories');
 
 		if (!$categories) {
 			$categories = implode(',', array_keys(Main::getOasisMainCategories()));
@@ -128,18 +128,18 @@ class Api
 			$args['fieldset'] = 'full';
 
 			$data = [
-				'currency'         => Option::get(OasisConsfig::MODULE_ID, 'currency') ?? 'rub',
-				'no_vat'           => (bool)Option::get(OasisConsfig::MODULE_ID, 'no_vat') ?? 0,
-				'not_on_order'     => (bool)Option::get(OasisConsfig::MODULE_ID, 'not_on_order'),
-				'price_from'       => (float)Option::get(OasisConsfig::MODULE_ID, 'price_from'),
-				'price_to'         => (float)Option::get(OasisConsfig::MODULE_ID, 'price_to'),
-				'rating'           => (bool)Option::get(OasisConsfig::MODULE_ID, 'rating'),
-				'warehouse_moscow' => (bool)Option::get(OasisConsfig::MODULE_ID, 'warehouse_moscow'),
-				'warehouse_europe' => (bool)Option::get(OasisConsfig::MODULE_ID, 'warehouse_europe'),
-				'remote_warehouse' => (bool)Option::get(OasisConsfig::MODULE_ID, 'remote_warehouse'),
+				'currency'         => Option::get(OasisConfig::MODULE_ID, 'currency') ?? 'rub',
+				'no_vat'           => (bool)Option::get(OasisConfig::MODULE_ID, 'no_vat') ?? 0,
+				'not_on_order'     => (bool)Option::get(OasisConfig::MODULE_ID, 'not_on_order'),
+				'price_from'       => (float)Option::get(OasisConfig::MODULE_ID, 'price_from'),
+				'price_to'         => (float)Option::get(OasisConfig::MODULE_ID, 'price_to'),
+				'rating'           => (bool)Option::get(OasisConfig::MODULE_ID, 'rating'),
+				'warehouse_moscow' => (bool)Option::get(OasisConfig::MODULE_ID, 'warehouse_moscow'),
+				'warehouse_europe' => (bool)Option::get(OasisConfig::MODULE_ID, 'warehouse_europe'),
+				'remote_warehouse' => (bool)Option::get(OasisConfig::MODULE_ID, 'remote_warehouse'),
 			];
 
-			$categories = Option::get(OasisConsfig::MODULE_ID, 'categories');
+			$categories = Option::get(OasisConfig::MODULE_ID, 'categories');
 
 			if (!$categories) {
 				$categories = implode(',', array_keys(Main::getOasisMainCategories()));

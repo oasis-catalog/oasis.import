@@ -40,12 +40,12 @@ use CIBlockSection;
 use CUserTypeEntity;
 use Exception;
 use JetBrains\PhpStorm\NoReturn;
-use Oasis\Import\Config as OasisConsfig;
+use Oasis\Import\Config as OasisConfig;
 
 
 class Main
 {
-	public static OasisConsfig $cf;
+	public static OasisConfig $cf;
 
 	/**
 	 * Load and prepare brands
@@ -947,7 +947,7 @@ class Main
 		);
 
 		$result['name'] = $HLNameImg;
-		$result['MODULE_ID'] = OasisConsfig::MODULE_ID;
+		$result['MODULE_ID'] = OasisConfig::MODULE_ID;
 
 		return $result;
 	}
@@ -979,7 +979,12 @@ class Main
 	 */
 	public static function getIblockSectionProduct($product, $oasisCategories, $iblockId): array
 	{
-		$categories = self::getCategories($oasisCategories, $product->categories, $iblockId);
+		$categories = [];
+		foreach ($product->categories as $categoryId) {
+			if (in_array($categoryId, CLI::$catSelected)) {
+				$categories[] = self::getCategoryId($oasisCategories, $categoryId, $iblockId);
+			}
+		}
 
 		if (count($categories) > 1) {
 			$result['IBLOCK_SECTION'] = $categories;
@@ -2398,50 +2403,54 @@ class Main
 	/**
 	 * Get selected categories oasis
 	 *
+	 * @param array $oasisCategories
 	 * @return array
 	 */
-	public static function getSelectedCategories(): array
+	public static function getSelectedCategories($oasisCategories): array
 	{
-		$result = [];
+		if (empty(self::$cf->categories)) {
+			return array_map(fn($cat) => $cat->id, $oasisCategories);
+		}
+		else {
+			$result = [];
+			foreach (self::$cf->categories as $cat_id) {
+				$result[] = $cat_id;
 
-		try {
-			$dbCategories = Option::get(OasisConsfig::MODULE_ID, 'categories');
-
-			if (empty($dbCategories) || $dbCategories === 'Y') {
-				$categories = Api::getCategoriesOasis('id');
-
-				foreach ($categories as $category) {
-					$result[] = $category->id;
+				// все родительские
+				$_cat_id = $cat_id;
+				while (true) {
+					foreach ($oasisCategories as $cat) {
+						if ($cat->id == $_cat_id && !empty($cat->parent_id)) {
+							$result[] = $cat->parent_id;
+							$_cat_id = $cat->parent_id;
+							continue 2;
+						}
+					}
+					break;
 				}
-			} else {
-				$result = explode(',', $dbCategories);
+
+				// все дочерние
+				$parants = [$cat_id];
+				while (true) {
+					if ($parants) {
+						$_parants = [];
+						foreach ($parants as $parent_id) {
+							foreach ($oasisCategories as $cat) {
+								if ($cat->parent_id == $parent_id) {
+									$result[] = $cat->id;
+									$_parants[] = $cat->id;
+								}
+							}
+						}
+						$parants = $_parants;
+					}
+					else {
+						break;
+					}
+				}
 			}
-		} catch (SystemException $e) {
-			echo $e->getMessage() . PHP_EOL;
+			return array_values(array_unique($result));
 		}
-
-		return $result;
-	}
-
-	/**
-	 * Get array categories | add categories
-	 *
-	 * @param $oasisCategories
-	 * @param $productCategories
-	 * @param $iblockId
-	 * @return array
-	 */
-	public static function getCategories($oasisCategories, $productCategories, $iblockId): array
-	{
-		$result = [];
-
-		foreach ($productCategories as $productCategory) {
-			if (in_array($productCategory, CLI::$dbCategories)) {
-				$result[] = self::getCategoryId($oasisCategories, $productCategory, $iblockId);
-			}
-		}
-
-		return $result;
 	}
 
 	/**
@@ -2859,6 +2868,45 @@ class Main
 		}
 
 		return array_shift($neededObject);
+	}
+
+	public static function simplifyOptionCategories($values = []): array
+	{
+		if ($values) {
+			$categories = Api::getCategoriesOasis();
+			$arr_cat	= [];
+			foreach ($categories as $item) {
+				$l = $item->level;
+				if (empty($arr_cat[$l])) {
+					$arr_cat[$l] = [];
+				}
+				if (empty($arr_cat[$l][$item->id])) {
+					$arr_cat[$l][$item->id] = [];
+				}
+				if ($item->parent_id) {
+					if (empty($arr_cat[$l][$item->parent_id])) {
+						$arr_cat[$l][$item->parent_id] = [];
+					}
+					$arr_cat[$l][$item->parent_id][] = $item->id;
+				}
+			}
+			ksort($arr_cat);
+			while (true) {
+				foreach (array_reverse($arr_cat) as $arr) {
+					foreach ($arr as $id => $childs) {
+						if (count($childs) > 0 && count(array_diff($childs, $values)) == 0){
+							$values = array_diff($values, $childs);
+							$values[] = $id;
+							continue 3;
+						}
+					}
+				}
+				break;
+			}
+
+			$values = array_values(array_unique($values));
+		}
+		return $values ?? [];
 	}
 
 	/**

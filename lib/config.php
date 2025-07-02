@@ -198,7 +198,7 @@ class Config {
 		$this->progress['date_step'] = $dt;
 
 		$is_full_import = false;
-		if($this->limit > 0){
+		if ($this->limit > 0) {
 			$this->progress['item'] += $this->progress['step_item'];
 
 			if(($this->limit * ($this->progress['step'] + 1)) > $this->progress['total']){
@@ -336,15 +336,5 @@ class Config {
 			return $this->category_rel;
 		}
 		return null;
-	}
-
-	public function getEasyCategories() {
-		// if($this->categories_easy){
-		// 	return $this->categories_easy;
-		// }
-
-		// $categories = Api::getCategoriesOasis();
-
-		// //categories_easy
 	}
 }

@@ -9,7 +9,7 @@ use Bitrix\Main\Page\Asset;
 use Oasis\Import\Main;
 use Oasis\Import\CustomFields;
 use Oasis\Import\Oorder;
-use Oasis\Import\Config as OasisConsfig;
+use Oasis\Import\Config as OasisConfig;
 
 
 $module_id = 'oasis.import';
@@ -17,7 +17,7 @@ $module_id = 'oasis.import';
 Loc::loadMessages(__FILE__);
 Loader::includeModule($module_id);
 
-$cf = OasisConsfig::instance([
+$cf = OasisConfig::instance([
 	'init' => true
 ]);
 
@@ -327,30 +327,35 @@ if ($request->isPost() && check_bitrix_sessid()) {
 			if (!is_array($arOption) || $arOption['note']) {
 				continue;
 			}
+			$key = $arOption[0];
 
 			if ($request['apply']) {
-				$optionValue = $request->getPost($arOption[0]);
+				$optionValue = $request->getPost($key);
 
-				if ($arOption[0] == 'limit') {
+				if ($key == 'limit') {
 					if ($optionValue && intval($optionValue) >= 0) {
 						$optionValue = abs($optionValue);
 					} else {
 						$optionValue = '';
 					}
 				}
-				else if ($arOption[0] == 'categories') {
+				elseif ($key == 'categories') {
 					$categories_rel = $request->getPost('categories_rel') ?? [];
 					Option::set($module_id, 'categories_rel', implode(',', $categories_rel));
+
+					$optionValue = implode(',', Main::simplifyOptionCategories($optionValue ?? []));
+				}
+				else {
+					$optionValue = is_array($optionValue) ? implode(',', $optionValue) : $optionValue;
 				}
 
-				Option::set($module_id, $arOption[0], is_array($optionValue) ? implode(',', $optionValue) : $optionValue);
-				$cf->progressClear();
+				Option::set($module_id, $key, $optionValue);
 			} elseif ($request['default']) {
-				Option::set($module_id, $arOption[0], $arOption[2]);
+				Option::set($module_id, $key, $arOption[2]);
 				Option::set($module_id, 'categories_rel', '');
-				$cf->progressClear();
 			}
 		}
+		$cf->progressClear();
 	}
 
 	LocalRedirect($APPLICATION->GetCurPage() . '?mid=' . $module_id . '&lang=' . LANG);
