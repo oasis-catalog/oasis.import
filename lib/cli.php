@@ -3,10 +3,13 @@
 namespace Oasis\Import;
 
 use Bitrix\Catalog\ProductTable;
+use Bitrix\Currency\CurrencyManager;
+use Bitrix\Main\Application;
 use Bitrix\Main\Config\Option;
 use Bitrix\Main\Loader;
 use Bitrix\Main\LoaderException;
 use Bitrix\Main\SystemException;
+use Bitrix\Sale\BasketItem;
 use Oasis\Import\Config as OasisConfig;
 use CFile;
 use Exception;
@@ -15,7 +18,6 @@ class Cli
 {
 	public static array $src_img_temp = [];
 	public static array $brands = [];
-	public static array $catSelected = [];
 	public static bool  $handlerCDN_disable = false;
 
 	public static OasisConfig $cf;
@@ -27,7 +29,7 @@ class Cli
 			'init' => true
 		]);
 		if($cf->is_cdn_photo){
-			if(stripos($arFile['FILE_NAME'],'https://')===0 || stripos($arFile['FILE_NAME'],'http://')===0) {
+			if(stripos($arFile['FILE_NAME'],'https://') === 0 || stripos($arFile['FILE_NAME'],'http://') === 0) {
 				return $arFile['FILE_NAME'];
 			}
 		}
@@ -36,23 +38,174 @@ class Cli
 
 	public static function OnEpilog()
 	{
-		if (defined('ADMIN_SECTION') && ADMIN_SECTION === true) {
-			$cf = OasisConfig::instance([
-				'init' => true
-			]);
-			if($cf->is_cdn_photo){
-				global $APPLICATION;
-				$APPLICATION->AddHeadScript('/bitrix/js/' . OasisConfig::MODULE_ID . '/admin.js');
+		global $APPLICATION;
+		$cf = OasisConfig::instance([
+			'init' => true
+		]);
+		if (defined('ADMIN_SECTION') && ADMIN_SECTION === true && $cf->is_cdn_photo) {
+			$APPLICATION->AddHeadScript('/bitrix/js/' . OasisConfig::MODULE_ID . '/admin.js');
+		}
+		elseif ((!defined('ADMIN_SECTION') || ADMIN_SECTION === false) && $cf->is_branding) {
+			$locale = null;
+			switch (LANGUAGE_ID)
+			{
+				case 'en':
+					$locale = 'en-US'; break;
+				case 'ua':
+					$locale = 'ru-UA'; break;
+				case 'tk':
+					$locale = 'tr-TR'; break;
+				case 'ru':
+				default:
+					$locale = 'ru-RU'; break;
+			}
+
+			$APPLICATION->AddHeadScript('//unpkg.com/@oasis-catalog/branding-widget@1.3.0/client/index.iife.js');
+			$APPLICATION->SetAdditionalCSS('//unpkg.com/@oasis-catalog/branding-widget@1.3.0/client/style.css');
+			$APPLICATION->AddHeadString('<script>
+										if (!window.OaHelper) window.OaHelper = {};
+										window.OaHelper.branding = "' . $cf->branding_box . '";
+										window.OaHelper.currency = "' . CurrencyManager::getBaseCurrency() . '";
+										window.OaHelper.locale = "' . $locale . '";
+										</script>');
+			$APPLICATION->AddHeadScript('/bitrix/js/' . OasisConfig::MODULE_ID . '/widget.js');
+		}
+	}
+
+	public static function OnSaleBasketItemSaved(\Bitrix\Main\Event $event)
+	{
+		global $USER_FIELD_MANAGER;
+
+		$request = Application::getInstance()->getContext()->getRequest();
+		if ($request->get('action') == 'BUY' && !empty($branding = $request->get('branding'))) {
+			$basketItem = $event->getParameter('ENTITY');
+			if ($basketItem instanceof BasketItem) {
+				$old_branding = $USER_FIELD_MANAGER->GetUserFieldValue('BASKET_ITEM', 'UF_OASIS_BRANDING', $basketItem->getId());
+
+				if (empty($old_branding)) {
+					OasisConfig::instance([
+						'init' => true
+					]);
+
+					$USER_FIELD_MANAGER->Delete('BASKET_ITEM', $basketItem->getId());
+
+					$result = Main::getBrandingInfo($branding, $basketItem->getQuantity());
+
+					if ($result) {
+						$USER_FIELD_MANAGER->Update('BASKET_ITEM', $basketItem->getId(), [
+							'UF_OASIS_BRANDING'      => json_encode($branding),
+							'UF_OASIS_BRANDING_COST' => $result['cost'],
+							'UF_OASIS_BRANDING_AT'   => date('Y-m-d'),
+						]);
+						$property = $basketItem->getPropertyCollection()->createItem();
+						$property->setFields([
+							'NAME' => 'Нанесение',
+							'CODE' => 'OASIS_BRANDING',
+							'VALUE' => $result['label'],
+							'SORT' => 100,
+						]);
+					}
+				}
 			}
 		}
-	}	
+		elseif ($request->get('basketAction') == 'recalculateAjax') {
+			$basketItem = $event->getParameter('ENTITY');
+			if ($basketItem instanceof BasketItem) {
+				$USER_FIELD_MANAGER->Update('BASKET_ITEM', $basketItem->getId(), [
+					'UF_OASIS_BRANDING_AT'   => null,
+					'UF_OASIS_BRANDING_COST' => null,
+				]);
+			}
+		}
+	}
+
+	public static function OnSaleBasketBeforeSaved(\Bitrix\Main\Event $event)
+	{
+		global $USER_FIELD_MANAGER;
+		OasisConfig::instance([
+			'init' => true
+		]);
+		
+		$basket = $event->getParameter('ENTITY');
+
+		$price = 0;
+		foreach ($basket->getBasketItems() as $basketItem) {
+			if ($basketItem instanceof BasketItem && $basketItem->getField('NAME') !== 'Услуги нанесения') {
+				$fields     = $USER_FIELD_MANAGER->GetUserFields('BASKET_ITEM', $basketItem->getId());
+				$branding   = $fields['UF_OASIS_BRANDING']['VALUE'] ?? '';
+				$updated_at = $fields['UF_OASIS_BRANDING_AT']['VALUE'] ?? null;
+				$cost       = $fields['UF_OASIS_BRANDING_COST']['VALUE'] ?? 0;
+
+				if ($updated_at === date('Y-m-d')) {
+					$price += $cost;
+				}
+				else {
+					try {
+						$branding = json_decode($branding, true);
+					}
+					catch (Exception $e) {
+						$branding = null;
+					}
+					if (!empty($branding)) {
+						$result = Main::getBrandingInfo($branding, $basketItem->getQuantity());
+						$USER_FIELD_MANAGER->Update('BASKET_ITEM', $basketItem->getId(), [
+							'UF_OASIS_BRANDING_COST' => $result['cost'],
+							'UF_OASIS_BRANDING_AT'   => date('Y-m-d'),
+						]);
+
+						$price += $result['cost'];
+					}
+				}
+			}
+		}
+
+		if ($price > 0) {
+			$basketItem = self::getBrandingBasketItem($basket);
+			if (empty($basketItem)) {
+				$basketItem = $basket->createItem('oasis.import', 0);
+			}
+			$basketItem->setFields([
+				'NAME'                   => 'Услуги нанесения',
+				'PRICE'                  => $price,
+				'QUANTITY'               => 1,
+				'CURRENCY'               => CurrencyManager::getBaseCurrency(),
+				'LID'                    => \Bitrix\Main\Context::getCurrent()->getSite(),
+				'PRODUCT_PROVIDER_CLASS' => false,
+				'CUSTOM_PRICE'           => 'Y',
+			]);
+		}
+		else {
+			$basketItem = self::getBrandingBasketItem($basket);
+			if (!empty($basketItem)) {
+				$basketItem->delete();
+			}
+		}
+	}
+
+	private static function getBrandingBasketItem($basket)
+	{
+		foreach ($basket->getBasketItems() as $basketItem) {
+			if ($basketItem instanceof BasketItem && $basketItem->getField('NAME') === 'Услуги нанесения') {
+				return $basketItem;
+			}
+		}
+		return null;
+	}
+
 
 
 	public static function RunCron($cron_key, $cron_opt = [], $opt = [])
 	{
+		set_time_limit(0);
+		ini_set('memory_limit', '2G');
+
+		while (ob_get_level()) {
+			ob_end_flush();
+		}
+
 		$cf = OasisConfig::instance($opt);
 
-		if($cron_opt['task'] == 'add_image' || $cron_opt['task'] == 'up_image'){
+		if (in_array($cron_opt['task'], ['add_image', 'up_image'])) {
 			$cf->init();
 			if (!$cf->checkCronKey($cron_key)) {
 				$cf->log('Error! Invalid --key');
@@ -78,7 +231,7 @@ class Cli
 							$cf->log('Import once day');
 							die('Import once day');
 						}
-						self::Import();
+						self::Import($cron_opt);
 						break;
 
 					case 'up':
@@ -94,7 +247,7 @@ class Cli
 	public static function ImportAgent()
 	{
 		try {
-			$cf = new OasisConfig();
+			$cf = OasisConfig::instance();
 
 			$cf->lock(function() use ($cf){
 				$cf->init();
@@ -116,7 +269,7 @@ class Cli
 	public static function UpStockAgent()
 	{
 		try {
-			$cf = new OasisConfig();
+			$cf = OasisConfig::instance();
 
 			$cf->lock(function() use ($cf){
 				$cf->init();
@@ -131,189 +284,180 @@ class Cli
 		return "\\Oasis\\Import\\Cli::UpStockAgent();";
 	}
 
-	public static function Import()
+	public static function Import($opt = [])
 	{
 		Loader::includeModule('iblock');
 		Loader::includeModule('catalog');
-
-		set_time_limit(0);
-		ini_set('memory_limit', '2G');
-
-		while (ob_get_level()) {
-			ob_end_flush();
-		}
 
 		try {
 			if (empty(self::$cf->iblock_catalog) || empty(self::$cf->iblock_offers)) {
 				throw new Exception('Infoblocks not selected');
 			}
+			self::$cf->log('Начало обновления товаров');
 
 			self::InitHandlerCDN();
-			if(self::$cf->is_brands){
+			if (self::$cf->is_brands) {
 				self::$brands = Main::getBrands();
 			}
+			Main::checkStores();
+			Main::checkUserFields();
+			Main::checkProperties();
+			Main::prepareCategories();
 
-
-			$dataCalcPrice = [
-				'factor'   => self::$cf->factor,
-				'increase' => self::$cf->increase,
-				'dealer'   => self::$cf->dealer,
-			];
-			$dataCalcPrice = array_diff($dataCalcPrice, ['', 0]);
-
-			$args = [];
-			$limit = self::$cf->limit;
-			$step = self::$cf->progress['step'];
-
-			if ($limit > 0) {
-				$args['limit'] = $limit;
-				$args['offset'] = $step * $limit;
+			if (self::$cf->delete_exclude) {
+				self::$cf->log('Delete exclude');
+				Main::deleteProductsUnselectedCat();
+				self::$cf->log('Delete exclude end');
 			}
 
-			self::$cf->deleteLogFile();
-			Main::checkStores();
-			Main::checkUserFields(self::$cf->iblock_catalog);
-			Main::checkProperties(self::$cf->iblock_catalog, self::$cf->iblock_offers);
+			$args = [];
+			if (!empty($opt['oid'])) {
+				$args['ids'] = is_array($opt['oid']) ? implode(',', $opt['oid']) : $opt['oid'];
+			}
+			elseif (!empty($opt['sku'])) {
+				$args['articles'] = is_array($opt['sku']) ? implode(',', $opt['sku']) : $opt['sku'];
+			}
+			else {
+				$args['category'] = implode(',', self::$cf->categories ?: array_keys(Main::getOasisMainCategories()));
 
-			$oasisProducts		= Api::getProductsOasis($args);
-			$oasisCategories	= Api::getCategoriesOasis();
-			self::$catSelected	= Main::getSelectedCategories($oasisCategories);
-			$stat				= Api::getStatProducts();
-
-			$group_ids = [];
-			$countProducts = 0;
-			foreach ($oasisProducts as $product) {
-				if (self::$cf->delete_exclude) {
-					if (empty(array_intersect($product->categories, self::$catSelected))) {
-						Main::checkDeleteProduct($product->id);
-						continue;
-					}
+				if (self::$cf->limit > 0) {
+					$args['limit']  = self::$cf->limit;
+					$args['offset'] = self::$cf->limit * self::$cf->progress['step'];
 				}
+			}
 
-				if ($product->is_deleted === false) {
-					$group_ids[$product->group_id][$product->id] = $product;
-					$countProducts++;
+			$stat      = Api::getStatProducts();
+			$groups    = [];
+			$totalStep = 0;
+
+			foreach (Api::getProductsOasis($args) as $product) {
+				if (empty($product->is_deleted)) {
+					$groups[$product->group_id][$product->id] = $product;
+					$totalStep++;
 				} else {
 					Main::checkDeleteProduct($product->id);
 				}
 			}
-			unset($product);
 
-			if (self::$cf->delete_exclude) {
-				$allOaProducts = Main::getAllOaProducts();
+			self::$cf->progressStart($stat['products'], $totalStep);
 
-				if (!empty($allOaProducts)) {
-					$resProducts = API::getProductsOasisOnlyFieldCategories(array_column($allOaProducts, 'UF_OASIS_PRODUCT_ID'));
-
-					foreach ($resProducts as $resProduct) {
-						if (empty(array_intersect($resProduct->categories, self::$catSelected))) {
-							Main::checkDeleteProduct($resProduct->id);
-						}
-					}
-				}
-				unset($allOaProducts, $resProducts, $resProduct);
-			}
-
-			self::$cf->progressStart($stat['products'], $countProducts);
-
-			$totalGroup = count($group_ids);
+			$totalGroup = count($groups);
 			$itemGroup = 0;
 
-			foreach ($group_ids as $products) {
+			foreach ($groups as $group_id => $products) {
 				if (count($products) === 1) {
-					$product = reset($products);
-					$dbProducts = Main::checkProduct($product->group_id, 0, true);
-
-					if ($dbProducts) {
+					$product	= reset($products);
+					$dbProducts = Main::checkProducts($product->id);
+					if (count($dbProducts) > 1) {
+						Main::checkDeleteProduct($product->id);
 						$dbProduct = null;
-						if (count($dbProducts) > 1) {
-							foreach ($dbProducts as $dbProductsItem) {
-								if ($dbProductsItem['TYPE'] == ProductTable::TYPE_OFFER) {
-									$dbProduct = $dbProductsItem;
-								}
-							}
-						}
+					} else {
+						$dbProduct = reset($dbProducts);
+					}
+					$is_need_up = true;
 
-						$dbProduct = $dbProduct ?? reset($dbProducts);
-						$productId = (int)$dbProduct['ID'];
-						Main::upIblockElementProduct($productId, $product, self::$cf->iblock_catalog, $oasisCategories);
-						self::$cf->log('Up product id ' . $product->id);
+					if ($dbProduct) {
+						$productId	= (int)$dbProduct['ID'];
+						$is_need_up	= Main::getNeedUp($product, $dbProduct);
+						Main::upIblockElementProduct($dbProduct, $product, $is_need_up);
 					} else {
 						$properties = Main::getPropertiesArray($product);
 						if(!self::$cf->is_fast_import){
 							$properties += Main::getProductImages($product);
 						}
-						$productId = Main::addIblockElementProduct($product, $oasisCategories, $properties, self::$cf->iblock_catalog, ProductTable::TYPE_PRODUCT);
+						$productId = Main::addIblockElementProduct($product, $properties, ProductTable::TYPE_PRODUCT);
 						Main::executeStoreProduct($productId, $product);
-						self::$cf->log('Add product id ' . $product->id);
 					}
 
-					Main::upPropertiesFilter($productId, $product, self::$cf->iblock_catalog);
-					Main::executeProduct($productId, $product, $product->group_id, ProductTable::TYPE_PRODUCT);
-					Main::executePriceProduct($productId, $product, $dataCalcPrice);
+					if ($is_need_up) {
+						Main::upPropertiesFilter($productId, $product);
+						Main::executeProduct($productId, $product, $group_id, ProductTable::TYPE_PRODUCT);
+					}
+					Main::executePriceProduct($productId, $product);
+
+					self::ProcessLog($product->id, empty($dbProducts), $is_need_up);
 					self::$cf->progressUp();
-					unset($dbProducts, $dbProduct, $productId, $properties);
 				} else {
 					$firstProduct = reset($products);
-					$dbProduct = Main::checkProduct($firstProduct->group_id);
+					$dbProduct    = Main::checkProduct($firstProduct->id, ProductTable::TYPE_SKU);
+					$is_need_up   = true;
 
 					if ($dbProduct) {
 						$productId = (int)$dbProduct['ID'];
-						Main::upIblockElementProduct($productId, $firstProduct, self::$cf->iblock_catalog, $oasisCategories);
-						self::$cf->log('Up product id ' . $firstProduct->id);
+						$is_need_up = Main::getNeedUp($firstProduct, $dbProduct);
+						Main::upIblockElementProduct($dbProduct, $firstProduct, $is_need_up, ProductTable::TYPE_SKU);
 					} else {
+						Main::checkDeleteGroup($group_id);
 						$properties = Main::getPropertiesArray($firstProduct);
 						if(!self::$cf->is_fast_import){
 							$properties += Main::getProductImages($firstProduct);
 						}
-						$productId = Main::addIblockElementProduct($firstProduct, $oasisCategories, $properties, self::$cf->iblock_catalog, ProductTable::TYPE_SKU);
-						self::$cf->log('Add product id ' . $firstProduct->id);
+						$productId = Main::addIblockElementProduct($firstProduct, $properties, ProductTable::TYPE_SKU);
 					}
 
-					Main::executeProduct($productId, $firstProduct, $firstProduct->group_id, ProductTable::TYPE_SKU, true);
-					Main::executePriceProduct($productId, $firstProduct, $dataCalcPrice);
+					if ($is_need_up) {
+						Main::executeProduct($productId, $firstProduct, $group_id, ProductTable::TYPE_SKU);
+					}
+					Main::executePriceProduct($productId, $firstProduct);
 
 					foreach ($products as $product) {
-						$firstIMG = Main::getUrlFirstImageProductForParentColorId($product, $products);
-						$imageId = Main::getIDImageForHL($firstIMG, $product);
-						Main::checkRowHLBlock(CFile::MakeFileArray($imageId), $product->full_name);
-
 						$dbOffer = Main::checkProduct($product->id, ProductTable::TYPE_OFFER);
+						$is_need_offer_up = true;
 
 						if ($dbOffer) {
 							$productOfferId = (int)$dbOffer['ID'];
-							Main::upIblockElementProduct($productOfferId, $product, 0);
-							self::$cf->log('Up offer id ' . $product->id);
+							$is_need_offer_up = Main::getNeedUp($product, $dbOffer);
+							Main::upIblockElementProduct($dbOffer, $product, $is_need_offer_up, ProductTable::TYPE_OFFER);
 						} else {
-							$propertiesOffer = Main::getPropertiesArrayOffer($productId, $product, $firstIMG, self::$cf->iblock_offers);
-							$productOfferId = Main::addIblockElementProduct($product, $oasisCategories, $propertiesOffer, self::$cf->iblock_offers, ProductTable::TYPE_OFFER);
+							$propertiesOffer = Main::getPropertiesArrayOffer($productId, $product, $products);
+							$productOfferId = Main::addIblockElementProduct($product, $propertiesOffer, ProductTable::TYPE_OFFER);
 							Main::executeMeasureRatioTable($productOfferId);
 							Main::executeStoreProduct($productOfferId, $product);
-						   self::$cf->log('Add offer id ' . $product->id);
 						}
 
-						Main::executeProduct($productOfferId, $product, $product->id, ProductTable::TYPE_OFFER);
-						Main::executePriceProduct($productOfferId, $product, $dataCalcPrice);
+						if ($is_need_offer_up) {
+							Main::executeProduct($productOfferId, $product, $group_id, ProductTable::TYPE_OFFER);
+						}
+						Main::executePriceProduct($productOfferId, $product);
+
+						self::ProcessLog($product->id, empty($dbOffer), $is_need_offer_up, true);
 						self::$cf->progressUp();
-						unset($product, $dbOffer, $productOfferId, $propertiesOffer);
 					}
 
-					Main::upPropertiesFilterOffers($productId, $firstProduct, $products, self::$cf->iblock_catalog);
-					Main::upStatusFirstProduct($productId, self::$cf->iblock_catalog);
-					unset($firstProduct, $dbProduct, $productId, $properties);
+					Main::upPropertiesFilterOffers($productId, $firstProduct, $products);
+					Main::upStatusSku($productId, $dbProduct, $products);
+					self::ProcessLog($firstProduct->id, empty($dbProduct), $is_need_up);
 				}
-				self::$cf->log('Done ' . ++$itemGroup . ' from ' . $totalGroup);
-				unset($products, $product);
-
 				self::ClearTempCDNFile();
+				self::$cf->log('Done ' . ++$itemGroup . ' from ' . $totalGroup);
 			}
 
 			self::$cf->progressEnd();
+			self::$cf->log('Окончание обновления товаров');
 		} catch (SystemException $e) {
 			echo $e->getMessage() . PHP_EOL;
 			exit();
 		}
 	}
+
+	private static function ProcessLog($id, $is_new, $is_up, $is_offer = false)
+	{
+		if ($is_offer) {
+			if ($is_new) {
+				self::$cf->log(' add offer id ' . $id);
+			} else {
+				self::$cf->log(($is_up ? ' up offer id ' : ' actual offer id ') . $id);
+			}
+		}
+		else {
+			if ($is_new) {
+				self::$cf->log('Add product id ' . $id);
+			} else {
+				self::$cf->log(($is_up ? 'Up product id ' : 'Actual product id ') . $id);
+			}
+		}
+	}
+
 
 	public static function InitHandlerCDN()
 	{
@@ -386,13 +530,31 @@ class Cli
 		Loader::includeModule('iblock');
 		Loader::includeModule('catalog');
 
-		set_time_limit(0);
-		ini_set('memory_limit', '2G');
-
 		try {
 			Main::checkStores();
-			$stock = Api::getOasisStock();
-			Main::upQuantity($stock);
+			$oasisProducts = [];
+			foreach (Main::getAllOaProducts() as $row) {
+				if ($row['TYPE'] == ProductTable::TYPE_OFFER || empty($oasisProducts[$row['UF_OASIS_PRODUCT_ID']])) {
+					$oasisProducts[$row['UF_OASIS_PRODUCT_ID']] = $row['ID'];
+				}
+			}
+
+			$stock = [];
+			foreach (Api::getStockOasis() as $item) {
+				$stock[$item->id] = $item;
+			}
+
+			foreach ($oasisProducts as $product_id => $bx_id) {
+				$stock_item = $stock[$product_id] ?? null;
+				if ($stock_item) {
+					ProductTable::update($bx_id, ['QUANTITY' => $stock_item->stock + $stock_item->{'stock-remote'}]);
+					Main::executeStoreProduct($bx_id, $stock_item, true);
+				}
+				else {
+					Main::checkDeleteProduct($product_id);
+					self::$cf->log('Удаление OAId=' . $product_id . ' BID='. $bx_id);
+				}
+			}
 		} catch (SystemException $e) {
 			echo $e->getMessage() . PHP_EOL;
 		}
@@ -401,13 +563,6 @@ class Cli
 	public static function AddImage($opt = []) {
 		Loader::includeModule('iblock');
 		Loader::includeModule('catalog');
-
-		set_time_limit(0);
-		ini_set('memory_limit', '2G');
-
-		while (ob_get_level()) {
-			ob_end_flush();
-		}
 
 		try {
 			if (empty(self::$cf->iblock_catalog) || empty(self::$cf->iblock_offers)) {
@@ -421,43 +576,36 @@ class Cli
 				$args['ids'] =  is_array($opt['oid']) ? implode(',', $opt['oid']) : $opt['oid'];
 			}
 
-			$oasisProducts = Api::getProductsOasis($args);
-
-			$group_ids = [];
-			foreach ($oasisProducts as $product) {
-				if ($product->is_deleted === false) {
-					$group_ids[$product->group_id][$product->id] = $product;
+			$groups = [];
+			foreach (Api::getProductsOasis($args) as $product) {
+				if (empty($product->is_deleted)) {
+					$groups[$product->group_id][$product->id] = $product;
 				}
 			}
 
-			$totalGroup = count($group_ids);
+			$totalGroup = count($groups);
 			$itemGroup = 0;
 			$is_up = !empty($opt['is_up']);
 
-			foreach ($group_ids as $products) {
+			foreach ($groups as $products) {
 				if (count($products) === 1) {
-
-					$product = reset($products);
-					$dbProducts = Main::checkProduct($product->group_id, 0, true);
-
-					if ($dbProducts) {
+					$product	= reset($products);
+					$dbProducts = Main::checkProducts($product->id);
+					if (count($dbProducts) > 1) {
+						Main::checkDeleteProduct($product->id);
 						$dbProduct = null;
-						if (count($dbProducts) > 1) {
-							foreach ($dbProducts as $dbProductsItem) {
-								if ($dbProductsItem['TYPE'] == ProductTable::TYPE_OFFER) {
-									$dbProduct = $dbProductsItem;
-								}
-							}
-						}
+					} else {
+						$dbProduct = reset($dbProducts);
+					}
 
-						$dbProduct = $dbProduct ?? reset($dbProducts);
+					if ($dbProduct) {
 						$productId = (int)$dbProduct['ID'];
 						Main::iblockElementProductAddImage($productId, $product, $is_up);
 						self::$cf->log('Up product image id ' . $product->id);
 					}
 				} else {
 					$firstProduct = reset($products);
-					$dbProduct = Main::checkProduct($firstProduct->group_id);
+					$dbProduct    = Main::checkProduct($firstProduct->id, ProductTable::TYPE_SKU);
 
 					if ($dbProduct) {
 						$productId = (int)$dbProduct['ID'];
@@ -466,7 +614,6 @@ class Cli
 					}
 					foreach ($products as $product) {
 						$dbOffer = Main::checkProduct($product->id, ProductTable::TYPE_OFFER);
-
 						if ($dbOffer) {
 							$productOfferId = (int)$dbOffer['ID'];
 							Main::IblockElementProductAddImage($productOfferId, $product, $is_up);

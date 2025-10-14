@@ -16,7 +16,7 @@ use Bitrix\Iblock\PropertyEnumerationTable;
 use Bitrix\Iblock\PropertyIndex\Manager;
 use Bitrix\Iblock\PropertyTable;
 use Bitrix\Iblock\SectionPropertyTable;
-use Bitrix\Highloadblock;
+use Bitrix\Highloadblock\HighloadBlockTable;
 use Bitrix\Iblock\SectionTable;
 use Bitrix\Main\Application;
 use Bitrix\Main\ArgumentException;
@@ -45,11 +45,24 @@ use Oasis\Import\Config as OasisConfig;
 
 class Main
 {
+	public const ATTR_COLOR_ID    = 1000000001; // Цвет товара
+	public const ATTR_MATERIAL_ID = 1000000002; // Материал товара
+	public const ATTR_BARCODE_ID  = 1000000011; // Штрихкод
+	public const ATTR_FLASH_ID    = 219;        // Объем памяти
+	public const ATTR_MARKING_ID  = 254;        // Обязательная маркировка
+	public const ATTR_REMOTE_ID   = 310;        // Минимальная сумма для удалённого склада
+	public const ATTR_SIZE_NAME   = 'Размер';
+
+
 	public static OasisConfig $cf;
+	public static array $catSelected;
+
+	private static array $oasisCategories;
+	private static $hl_edc_color;
+	private static $catalog_group_id;
 
 	/**
 	 * Load and prepare brands
-	 *
 	 * @return void
 	 */
 	public static function getBrands(): array
@@ -69,7 +82,6 @@ class Main
 
 	/**
 	 * Get order id oasis
-	 *
 	 * @param int $orderId
 	 * @return array|false
 	 */
@@ -88,7 +100,6 @@ class Main
 
 	/**
 	 * Insert order data in b_oasis_import_orders
-	 *
 	 * @param int $orderId
 	 * @param int $queueId
 	 */
@@ -106,43 +117,89 @@ class Main
 	}
 
 	/**
-	 * Up quantity products
-	 *
-	 * @param $stock
-	 * @throws Exception
+	 * Get branding info
+	 * @param array $data
+	 * @param int $quantity
+	 * @return array
 	 */
-	public static function upQuantity($stock)
+	public static function getBrandingInfo(array $data, int $quantity)
 	{
-		try {
-			$queryRows = self::getAllOaProducts();
+		$labels = [];
+		$cost = 0;
+		[
+			'branding'  => $branding,
+			'productId' => $productId,
+		] = self::prepareBrandingData($data, $quantity);
 
-			if ($queryRows) {
-				$products = [];
-				foreach ($queryRows as $row) {
-					if (!array_key_exists($row['UF_OASIS_PRODUCT_ID'], $products)) {
-						$products[$row['UF_OASIS_PRODUCT_ID']] = $row['ID'];
-					} elseif ($row['TYPE'] == 4) {
-						$products[$row['UF_OASIS_PRODUCT_ID']] = $row['ID'];
+		$brandingInfo = Api::brandingCalc($branding, ['timeout' => 10]);
+		if (empty($brandingInfo->error) && !empty($brandingInfo->branding)) {
+
+			$info = Api::getBrandingCoef($productId);
+			if ($info) {
+				foreach ($data as $data_item) {
+					foreach ($info['methods'] as $method) {
+						foreach ($method->types as $type) {
+							if ($data_item['typeId'] == $type->id) {
+								$labels[] = $type->name;
+								break 2;
+							}
+						}
 					}
 				}
-				unset($row);
-
-				foreach ($stock as $item) {
-					if (array_key_exists($item->id, $products)) {
-						ProductTable::update($products[$item->id], ['QUANTITY' => $item->stock + $item->{'stock-remote'}]);
-						self::executeStoreProduct($products[$item->id], $item, true);
-					}
-				}
-				unset($item);
 			}
-		} catch (SystemException $e) {
-			echo $e->getMessage() . PHP_EOL;
+			$cost = self::getBrandingPrice($brandingInfo);
 		}
+		else {
+			return null;
+		}
+		return [
+			'label' => implode(', ', $labels),
+			'cost'  => $cost,
+		];
+	}
+
+	/**
+	 * Get array for Api request
+	 * @return array data
+	 * @return int quantity
+	 * @return array
+	 */
+	private static function prepareBrandingData(array $data, int $quantity)
+	{
+		$productId = null;
+		$brandings = [];
+		$item = [
+			'quantity' => $quantity
+		];
+
+		foreach ($data as $data_item) {
+			if (empty($productId)) {
+				$item['productId'] = $productId = $data_item['productId'];
+				$item['branding'] = [];
+			}
+
+			$item['branding'][] = count($brandings);
+			$brandings[] = array_intersect_key($data_item, array_flip(['placeId', 'typeId', 'width', 'height']));
+		}
+
+		return [
+			'branding'  => ['items' => [$item], 'branding' => $brandings],
+			'productId' => $productId
+		];
+	}
+
+	/**
+	 * Get price for branding data
+	 * @return brandingInfo
+	 * @return int
+	 */
+	private static function getBrandingPrice($brandingInfo)
+	{
+		return $brandingInfo->branding[0]->{0}->price->client->total ?? 0;
 	}
 
 	/**
 	 * Get all products oasis in DB
-	 *
 	 * @return array
 	 * @throws SqlQueryException
 	 */
@@ -162,50 +219,59 @@ class Main
 	/**
 	 * @param $productId
 	 * @param int $type
-	 * @param bool $fetchAll
 	 * @return array|false
-	 * @throws ArgumentException
-	 * @throws LoaderException
-	 * @throws ObjectPropertyException
-	 * @throws SystemException
 	 */
-	public static function checkProduct($productId, int $type = 0, bool $fetchAll = false)
+	public static function checkProduct($productId, ?int $type = null)
 	{
-		Loader::includeModule('catalog');
+		return reset(self::checkProducts($productId, $type));
+	}
 
+	/**
+	 * @param $productId
+	 * @param int $type
+	 * @return array
+	 */
+	public static function checkProducts($productId, ?int $type = null)
+	{
 		$arFields = [
+			'select' => ['ID', 'TYPE', 'UF_OASIS_UPDATE_AT'],
 			'filter' => [
-				'UF_OASIS_ID_PRODUCT' => $productId,
+				'UF_OASIS_PRODUCT_ID' => $productId,
 			],
 		];
-
 		if ($type) {
 			$arFields['filter']['TYPE'] = $type;
 		}
 
-		$result = ProductTable::getList($arFields);
+		$result   = ProductTable::getList($arFields);
+		$products = [];
+		while ($item = $result->fetch()) {
+			$result_item = ElementTable::getList([
+				'select' => ['ID', 'ACTIVE'],
+				'filter' => [
+					'ID'        => $item['ID'],
+					'IBLOCK_ID' => $type == ProductTable::TYPE_OFFER ? self::$cf->iblock_offers : self::$cf->iblock_catalog,
+				],
+			])->fetch();
 
-		if ($fetchAll) {
-			return $result->fetchAll();
-		} else {
-			return $result->fetch();
+			$item['ACTIVE'] = $result_item['ACTIVE'];
+			$products[] = $item;
 		}
+		return $products;
 	}
 
 	/**
 	 * Add Iblock Element Product
-	 *
 	 * @param $product
-	 * @param $oasisCategories
 	 * @param $properties
-	 * @param $iblockId
 	 * @param $type
 	 * @return false|mixed|void
 	 */
-	public static function addIblockElementProduct($product, $oasisCategories, $properties, $iblockId, $type)
+	public static function addIblockElementProduct($product, $properties, $type)
 	{
 		try {
-			$data = [];
+			$iblockId = $type == ProductTable::TYPE_OFFER ? self::$cf->iblock_offers : self::$cf->iblock_catalog;
+			$data     = [];
 
 			if (!empty($properties['DETAIL_PICTURE'])) {
 				$data['DETAIL_PICTURE'] = $properties['DETAIL_PICTURE'];
@@ -228,14 +294,16 @@ class Main
 			];
 
 			if ($type !== ProductTable::TYPE_OFFER) {
-				$data += self::getIblockSectionProduct($product, $oasisCategories, $iblockId);
+				$data += self::getIblockSectionProduct($product);
 			}
 
 			$el = new CIBlockElement;
 			$productId = $el->Add($data);
 
 			if (!empty($el->LAST_ERROR)) {
-				throw new SystemException($type === ProductTable::TYPE_OFFER ? 'Ошибка добавления торгового предложения: ' : 'Ошибка добавления товара: ' . $el->LAST_ERROR);
+				$_err = ($type === ProductTable::TYPE_OFFER ? 'Ошибка добавления торгового предложения: ' : 'Ошибка добавления товара: ') . $el->LAST_ERROR;
+				self::$cf->log($_err);
+				throw new SystemException($_err);
 			}
 		} catch (SystemException $e) {
 			echo $e->getMessage() . PHP_EOL;
@@ -247,241 +315,247 @@ class Main
 
 	/**
 	 * Update Iblock Element Product
-	 *
-	 * @param $iblockElementId
+	 * @param $dbProduct
 	 * @param $product
-	 * @param $iblockId
-	 * @param array $oasisCategories
+	 * @param $is_need_up
+	 * @param $type
 	 */
-	public static function upIblockElementProduct($iblockElementId, $product, $iblockId, array $oasisCategories = []): void
+	public static function upIblockElementProduct($dbProduct, $product, $is_need_up, ?int $type = null): void
 	{
-		try {
-			$data = [
+		$iblockElementId = (int)$dbProduct['ID'];
+		$active          = self::getStatusProduct($product);
+
+		$data = [];
+		if ($is_need_up) {
+			$data += [
 				'NAME'             => $product->name,
 				'DETAIL_TEXT'      => '<p>' . htmlentities($product->description, ENT_QUOTES, 'UTF-8') . '</p>' . self::getProductDetailText($product),
 				'DETAIL_TEXT_TYPE' => 'html',
-				'ACTIVE'           => self::getStatusProduct($product),
+				'ACTIVE'           => $active,
 			];
-
-            if (!self::$cf->not_up_product_cat && $oasisCategories) { // $oasisCategories - важен для offer $iblockId = 0
-				$data += self::getIblockSectionProduct($product, $oasisCategories, $iblockId);
+		}
+		else {
+			if ($type !== ProductTable::TYPE_SKU && $dbProduct['ACTIVE'] !== $active) {
+				$data += [
+					'ACTIVE' => $active
+				];
 			}
-			
-		    if (self::$cf->up_photo || self::checkDataImages($iblockElementId, $product) === false){
-				self::deleteImgInProduct($iblockElementId);
+		}
+		if ($type !== ProductTable::TYPE_OFFER && !self::$cf->not_up_product_cat) {
+			$data += self::getIblockSectionProduct($product);
+		}
+		
+		if (self::$cf->up_photo || !self::checkDataImages($iblockElementId, $product)) {
+			self::deleteImages($iblockElementId);
 
-				$dataImages = Main::getProductImages($product);
-				CIBlockElement::SetPropertyValuesEx($iblockElementId, false, ['MORE_PHOTO' => $dataImages['MORE_PHOTO']]);
+			$dataImages = self::getProductImages($product);
+			CIBlockElement::SetPropertyValuesEx($iblockElementId, false, ['MORE_PHOTO' => $dataImages['MORE_PHOTO']]);
 
-				$data['DETAIL_PICTURE'] = $dataImages['DETAIL_PICTURE'];
-				$data['PREVIEW_PICTURE'] = $dataImages['PREVIEW_PICTURE'];
-			}
+			$data['DETAIL_PICTURE'] = $dataImages['DETAIL_PICTURE'];
+			$data['PREVIEW_PICTURE'] = $dataImages['PREVIEW_PICTURE'];
+		}
 
+		if (!empty($data)) {
 			$el = new CIBlockElement;
 			$el->Update($iblockElementId, $data);
-		
 			if (!empty($el->LAST_ERROR)) {
-				throw new SystemException(($oasisCategories ? 'Ошибка обновления товара: ' : 'Ошибка обновления торгового предложения: ') . $el->LAST_ERROR);
+				$_err = ($type === ProductTable::TYPE_OFFER ? 'Ошибка обновления торгового предложения: ' : 'Ошибка обновления товара: ') . $el->LAST_ERROR;
+				self::$cf->log($_err);
+				throw new SystemException($_err);
 			}
-		} catch (SystemException $e) {
-			echo $e->getMessage() . PHP_EOL;
-			die();
 		}
 	}
 
 	/**
 	 * Update Iblock Element Product
-	 *
 	 * @param $iblockElementId
 	 * @param $product
-	 * @param $iblockId
-	 * @param array $oasisCategories
+	 * @param $is_up
 	 */
 	public static function iblockElementProductAddImage($iblockElementId, $product, $is_up = false): void
 	{
-		try {
-		    if ($is_up || self::checkDataImages($iblockElementId, $product) === false){
-				self::deleteImgInProduct($iblockElementId);
+		if ($is_up || !self::checkDataImages($iblockElementId, $product)) {
+			self::deleteImages($iblockElementId);
 
-				$dataImages = Main::getProductImages($product);
-				CIBlockElement::SetPropertyValuesEx($iblockElementId, false, ['MORE_PHOTO' => $dataImages['MORE_PHOTO']]);
+			$dataImages = self::getProductImages($product);
+			CIBlockElement::SetPropertyValuesEx($iblockElementId, false, ['MORE_PHOTO' => $dataImages['MORE_PHOTO']]);
 
-				$data['DETAIL_PICTURE'] = $dataImages['DETAIL_PICTURE'];
-				$data['PREVIEW_PICTURE'] = $dataImages['PREVIEW_PICTURE'];
-
-				$el = new CIBlockElement;
-				$el->Update($iblockElementId, $data);
-
-				if (!empty($el->LAST_ERROR)) {
-					throw new SystemException(($oasisCategories ? 'Ошибка обновления товара: ' : 'Ошибка обновления торгового предложения: ') . $el->LAST_ERROR);
-				}
-			}
-		} catch (SystemException $e) {
-			echo $e->getMessage() . PHP_EOL;
-			die();
+			$el = new CIBlockElement;
+			$el->Update($iblockElementId, [
+				'DETAIL_PICTURE'  => $dataImages['DETAIL_PICTURE'],
+				'PREVIEW_PICTURE' => $dataImages['PREVIEW_PICTURE'],
+			]);
 		}
 	}
 
 	/**
-	 * Check and delete product by Oasis product id
-	 *
-	 * @param $productId
-	 * @return void
-	 * @throws LoaderException
+	 * Check need update product
+	 * @param $groupId
+	 * @param $product
+	 * @return bool
 	 */
-	public static function checkDeleteProduct($productId): void
+	public static function getNeedUp($product, $dbProduct)
 	{
-		try {
-			$dbProducts = Main::checkProduct($productId, 0, true);
+		return ($product->updated_at ?? '1') > ($dbProduct['UF_OASIS_UPDATE_AT'] ?? '');
+	}
 
-			if ($dbProducts) {
-				foreach ($dbProducts as $dbProduct) {
-					$res = CCatalogSKU::getOffersList($dbProduct['ID']);
-
-					if (empty($res)) {
-						self::deleteIblockElementProduct(intval($dbProduct['ID']));
-					} else {
-						$offers = reset($res);
-						$parentId = 0;
-
-						foreach ($offers as $offer) {
-							self::deleteIblockElementProduct(intval($offer['ID']));
-							$parentId = $offer['PARENT_ID'];
-						}
-
-						self::deleteIblockElementProduct($parentId);
-					}
-				}
-			}
-		} catch (SystemException $e) {
-			echo $e->getMessage() . PHP_EOL;
+	/**
+	 * Check and delete group Oasis
+	 * @param $groupId
+	 */
+	public static function checkDeleteGroup($groupId)
+	{
+		$dbResult = ProductTable::getList([
+			'select' => ['ID'],
+			'filter' => [
+				'UF_OASIS_GROUP_ID' => $groupId,
+			],
+		]);
+		while ($dbProduct = $dbResult->fetch()) {
+			self::deleteIblockElement($dbProduct['ID']);
 		}
 	}
+
+	/**
+	 * Check and delete product Oasis
+	 * @param $productId
+	 */
+	public static function checkDeleteProduct($productId)
+	{
+		$dbResult = ProductTable::getList([
+			'select' => ['ID', 'TYPE'],
+			'filter' => [
+				'UF_OASIS_PRODUCT_ID' => $productId,
+			],
+		]);
+
+		while ($dbProduct = $dbResult->fetch()) {
+			if ($dbProduct['TYPE'] == ProductTable::TYPE_SKU) {
+				$res_offers = CCatalogSKU::getOffersList($dbProduct['ID']);
+				if (!empty($res_offers)) {
+					foreach (reset($res_offers) as $offer) {
+						self::deleteIblockElement(intval($offer['ID']));
+					}
+				}
+				self::deleteIblockElement($dbProduct['ID']);
+			}
+			else {
+				self::deleteIblockElement($dbProduct['ID']);
+			}
+		}
+	}
+
+	/**
+	 * Delete products unselected categories
+	 */
+	public static function deleteProductsUnselectedCat()
+	{
+		$data = self::getAllOaProducts();
+		if (!empty($data)) {
+			$resProducts = API::getProductsOasisOnlyFieldCategories(array_column($data, 'UF_OASIS_PRODUCT_ID'));
+
+			foreach ($resProducts as $resProduct) {
+				if (empty(array_intersect($resProduct->categories, self::$catSelected))) {
+					self::checkDeleteProduct($resProduct->id);
+				}
+			}
+		}
+	}	
 
 	/**
 	 * Delete iblock element
-	 *
 	 * @param $iblockElementId
 	 */
-	private static function deleteIblockElementProduct($iblockElementId): void
+	private static function deleteIblockElement($iblockElementId): void
 	{
 		try {
+			self::deleteImages($iblockElementId);
 			if (!CIBlockElement::Delete($iblockElementId)) {
 				throw new SystemException('Iblock element not deleted. ID-' . $iblockElementId);
 			}
-
 			self::$cf->log('Delete iblock element id: ' . $iblockElementId);
 		} catch (SystemException $e) {
 			echo $e->getMessage() . PHP_EOL;
 		}
-
 	}
 
 	/**
-	 * Update status first product
-	 *
+	 * Update status iblock element type sku
 	 * @param $productId
-	 * @param $iblockId
+	 * @param $dbProduct
+	 * @param $products
 	 */
-	public static function upStatusFirstProduct($productId, $iblockId)
+	public static function upStatusSku($productId, $dbProduct, $products)
 	{
-		try {
-			$arSKU = CCatalogSKU::getOffersList($productId, $iblockId, ['ACTIVE' => 'Y'], [], []);
-
-			if ($arSKU) {
-				$el = new CIBlockElement;
-				$el->Update($productId, ['ACTIVE' => 'Y']);
-
-				if (!empty($el->LAST_ERROR)) {
-					throw new SystemException($el->LAST_ERROR);
-				}
+		$active = 'N';
+		foreach ($products as $product) {
+			if (($active = self::getStatusProduct($product)) === 'Y') {
+				break;
 			}
-		} catch (SystemException $e) {
-			echo $e->getMessage() . PHP_EOL;
-			die();
+		}
+
+		if (empty($dbProduct) || $dbProduct['ACTIVE'] !== $active) {
+			$el = new CIBlockElement;
+			$el->Update($productId, ['ACTIVE' => $active]);
+
+			if (!empty($el->LAST_ERROR)) {
+				throw new SystemException($el->LAST_ERROR);
+			}
 		}
 	}
 
 	/**
 	 * Execute ProductTable
-	 *
 	 * @param $productId
 	 * @param $product
-	 * @param $utsProductId
+	 * @param $groupId
 	 * @param int $type
-	 * @param bool $parent
-	 * @throws \Exception
 	 */
-	public static function executeProduct($productId, $product, $utsProductId, int $type, bool $parent = false)
+	public static function executeProduct($productId, $product, $groupId, int $type)
 	{
-		try {
-			$dbProduct = ProductTable::getList([
-				'filter' => ['ID' => $productId]
-			])->fetch();
-
-			if ($dbProduct) {
-				$arFields = self::getAdditionalFields($parent, $product->rating);
-				ProductTable::update($dbProduct['ID'], $arFields);
-			} else {
-				$arFields = [
-					'ID'                  => $productId,
-					'QUANTITY'            => is_null($product->total_stock) ? 0 : $product->total_stock,
-					'RECUR_SCHEME_LENGTH' => null,
-					'SELECT_BEST_PRICE'   => 'N',
-					'PURCHASING_CURRENCY' => 'RUB',
-					'LENGTH'              => null,
-					'WIDTH'               => null,
-					'HEIGHT'              => null,
-					'MEASURE'             => 5,
-					'AVAILABLE'           => 'Y',
-					'BUNDLE'              => 'N',
-					'UF_OASIS_ID_PRODUCT' => $utsProductId,
-					'UF_OASIS_PRODUCT_ID' => $product->id,
-					'UF_OASIS_GROUP_ID'   => $product->group_id,
-					'TYPE'                => $type,
-				];
-
-				$arFields = array_merge($arFields, self::getAdditionalFields($parent, $product->rating));
-
-				ProductTable::add($arFields);
-			}
-		} catch (SystemException $e) {
-			echo $e->getMessage() . PHP_EOL;
+		$data = [
+			'UF_OASIS_UPDATE_AT'  => $product->updated_at ?? '',
+		];
+		if ($type == ProductTable::TYPE_SKU) {
+			$data['QUANTITY'] = 0;
+			$data['QUANTITY_TRACE'] = 'N';
+			$data['TYPE'] = ProductTable::TYPE_SKU;
 		}
-	}
-
-	/**
-	 * Get Additional Fields
-	 *
-	 * @param $parent
-	 * @param $rating
-	 * @return array
-	 */
-	public static function getAdditionalFields($parent, $rating): array
-	{
-		$result = [];
-
-		if ($parent) {
-			$result['QUANTITY'] = 0;
-			$result['QUANTITY_TRACE'] = 'N';
-			$result['TYPE'] = ProductTable::TYPE_SKU;
+		if ($type == ProductTable::TYPE_SKU || $product->rating === 5) {
+			$data['CAN_BUY_ZERO'] = 'Y';
+			$data['NEGATIVE_AMOUNT_TRACE'] = 'Y';
 		}
 
-		if ($parent || $rating === 5) {
-			$result['CAN_BUY_ZERO'] = 'Y';
-			$result['NEGATIVE_AMOUNT_TRACE'] = 'Y';
-		}
+		$dbProduct = ProductTable::getList([
+			'select' => ['ID'],
+			'filter' => ['ID' => $productId]
+		])->fetch();
 
-		return $result;
+		if ($dbProduct) {
+			ProductTable::update($dbProduct['ID'], $data);
+		} else {
+			$data += [
+				'ID'                  => $productId,
+				'QUANTITY'            => empty($product->total_stock) ? 0 : $product->total_stock,
+				'RECUR_SCHEME_LENGTH' => null,
+				'SELECT_BEST_PRICE'   => 'N',
+				'PURCHASING_CURRENCY' => 'RUB',
+				'LENGTH'              => null,
+				'WIDTH'               => null,
+				'HEIGHT'              => null,
+				'MEASURE'             => 5,
+				'AVAILABLE'           => 'Y',
+				'BUNDLE'              => 'N',
+				'UF_OASIS_GROUP_ID'   => $groupId,
+				'UF_OASIS_PRODUCT_ID' => $product->id,
+				'TYPE'                => $type,
+			];
+			ProductTable::add($data);
+		}
 	}
 
 	/**
 	 * Checking stores and adding in the absence
-	 *
-	 * @throws \Bitrix\Main\ArgumentException
-	 * @throws \Bitrix\Main\ObjectPropertyException
-	 * @throws \Bitrix\Main\SystemException
-	 * @throws \Exception
 	 */
 	public static function checkStores()
 	{
@@ -518,7 +592,6 @@ class Main
 			$neededStock = array_filter($arStores, function ($e) use ($arFieldsStore) {
 				return $e['CODE'] == $arFieldsStore['CODE'];
 			});
-
 			if (empty($neededStock)) {
 				StoreTable::add($arFieldsStore);
 			}
@@ -527,7 +600,6 @@ class Main
 
 	/**
 	 * Execute StoreProductTable
-	 *
 	 * @param $productId
 	 * @param $data
 	 * @param bool $upStock
@@ -535,7 +607,6 @@ class Main
 	 */
 	public static function executeStoreProduct($productId, $data, bool $upStock = false)
 	{
-		$moduleId = pathinfo(dirname(__DIR__))['basename'];
 		$stocks = [
 			'main'   => 0,
 			'remote' => 0,
@@ -557,20 +628,20 @@ class Main
 		try {
 			$stores = [
 				'main' => [
-					'ID'     => (int)Option::get($moduleId, 'main_stock'),
+					'ID'     => (int)Option::get(OasisConfig::MODULE_ID, 'main_stock'),
 					'AMOUNT' => $stocks['main'],
 				]
 			];
 
-			$multiStocks = Option::get($moduleId, 'stocks');
+			$multiStocks = Option::get(OasisConfig::MODULE_ID, 'stocks');
 
 			if ($upStock && !empty($multiStocks)) {
 				$stores['remote'] = [
-					'ID'     => (int)Option::get($moduleId, 'remote_stock'),
+					'ID'     => (int)Option::get(OasisConfig::MODULE_ID, 'remote_stock'),
 					'AMOUNT' => $stocks['remote'],
 				];
 				$stores['europe'] = [
-					'ID'     => (int)Option::get($moduleId, 'europe_stock'),
+					'ID'     => (int)Option::get(OasisConfig::MODULE_ID, 'europe_stock'),
 					'AMOUNT' => $stocks['europe'],
 				];
 
@@ -637,96 +708,70 @@ class Main
 
 	/**
 	 * Execute PriceTable
-	 *
 	 * @param $productId
 	 * @param $product
-	 * @param array $dataCalcPrice
-	 * @throws \Exception
 	 */
-	public static function executePriceProduct($productId, $product, array $dataCalcPrice)
+	public static function executePriceProduct($productId, $product)
 	{
-		try {
-			$dbPrice = PriceTable::getList([
-				'filter' => ['PRODUCT_ID' => $productId]
-			])->fetch();
+		if (empty(self::$catalog_group_id)) {
+			$rsGroup = GroupTable::getList([
+				'filter' => ['BASE' => 'Y']
+			]);
 
-			$price = !empty($dataCalcPrice['dealer']) ? $product->discount_price : $product->price;
-
-			if (!empty($dataCalcPrice['factor'])) {
-				$price = $price * (float)$dataCalcPrice['factor'];
-			}
-
-			if (!empty($dataCalcPrice['increase'])) {
-				$price = $price + (float)$dataCalcPrice['increase'];
-			}
-
-			$arField = [
-				'CATALOG_GROUP_ID' => self::getBaseCatalogGroupId(),
-				'PRODUCT_ID'       => $productId,
-				'PRICE'            => $price,
-				'PRICE_SCALE'      => $price,
-				'CURRENCY'         => 'RUB',
-			];
-
-			if ($dbPrice) {
-				PriceTable::update($dbPrice['ID'], $arField);
+			if ($arGroup = $rsGroup->fetch()) {
+				self::$catalog_group_id = (int)$arGroup['ID'];
 			} else {
-				PriceTable::add($arField);
+				self::$catalog_group_id = 1;
 			}
-		} catch (SystemException $e) {
-			echo $e->getMessage() . PHP_EOL;
+		}
+
+		$price = self::$cf->dealer ? $product->discount_price : $product->price;
+		if (!empty(self::$cf->factor)) {
+			$price = $price * (float)self::$cf->factor;
+		}
+		if (!empty(self::$cf->increase)) {
+			$price = $price + (float)self::$cf->increase;
+		}
+
+		$arField = [
+			'CATALOG_GROUP_ID' => self::$catalog_group_id,
+			'PRODUCT_ID'       => $productId,
+			'PRICE'            => $price,
+			'PRICE_SCALE'      => $price,
+			'CURRENCY'         => 'RUB',
+		];
+
+		$dbPrice = PriceTable::getList([
+			'filter' => ['PRODUCT_ID' => $productId]
+		])->fetch();
+
+		if (empty($dbPrice)) {
+			PriceTable::add($arField);
+		} else {
+			PriceTable::update($dbPrice['ID'], $arField);
 		}
 	}
 
 	/**
 	 * Execute MeasureRatio
-	 *
 	 * @param $productId
 	 * @throws Exception
 	 */
 	public static function executeMeasureRatioTable($productId)
 	{
-		try {
-			$result = MeasureRatioTable::add([
-				'PRODUCT_ID' => $productId,
-				'IS_DEFAULT' => 'Y',
-				'RATIO'      => 1,
-			]);
-
-			if (!$result->isSuccess()) {
-				throw new SystemException(sprintf('ErrorMessages: ' . print_r($result->getErrorMessages(), true) . 'Error add MeasureRatio PRODUCT_ID="%s".', $productId));
-			}
-		} catch (SystemException $e) {
-			echo $e->getMessage() . PHP_EOL;
-		}
-	}
-
-	/**
-	 * Get base catalog group id
-	 *
-	 * @return int
-	 * @throws ArgumentException
-	 * @throws ObjectPropertyException
-	 * @throws SystemException
-	 */
-	public static function getBaseCatalogGroupId(): int
-	{
-		$rsGroup = GroupTable::getList([
-			'filter' => ['BASE' => 'Y']
+		$result = MeasureRatioTable::add([
+			'PRODUCT_ID' => $productId,
+			'IS_DEFAULT' => 'Y',
+			'RATIO'      => 1,
 		]);
 
-		if ($arGroup = $rsGroup->fetch()) {
-			$result = (int)$arGroup['ID'];
-		} else {
-			$result = 1;
+		if (!$result->isSuccess()) {
+			throw new SystemException(sprintf('ErrorMessages: ' . print_r($result->getErrorMessages(), true) . 'Error add MeasureRatio PRODUCT_ID="%s".', $productId));
 		}
-
-		return $result;
 	}
 
 	/**
 	 * Get images product
-	 *
 	 * @param $product
 	 * @return array
 	 */
@@ -759,13 +804,9 @@ class Main
 
 	/**
 	 * Checking product images for relevance
-	 *
 	 * Usage:
-	 *
 	 * Check is good - true
-	 *
 	 * Check is bad - false
-	 *
 	 * @param $productId
 	 * @param $product
 	 * @return bool
@@ -796,13 +837,10 @@ class Main
 			while ($dbResFile = $dbResFiles->Fetch()) {
 				$dbFiles[] = $dbResFile;
 			}
-			unset($dbResFiles, $dbResFile);
-
 			foreach ($product->images as $image) {
 				if (empty($image->superbig)) {
 					return false;
 				}
-
 				$keyNeeded = array_search(basename($image->superbig), array_column($dbFiles, 'ORIGINAL_NAME'));
 
 				if ($keyNeeded === false || $image->updated_at > strtotime($dbFiles[$keyNeeded]['TIMESTAMP_X'])) {
@@ -815,28 +853,24 @@ class Main
 	}
 
 	/**
-	 * Delete images in product
-	 *
-	 * @param $ID
+	 * Delete images
+	 * @param $iblockElementId
 	 * @return void
 	 */
-	private static function deleteImgInProduct($ID): void
+	private static function deleteImages($iblockElementId): void
 	{
 		$res = CIBlockElement::GetList([], [
-			'ID' => $ID
+			'ID' => $iblockElementId
 		]);
 
 		while ($ob = $res->GetNextElement()) {
 			if (!empty($ob->fields['DETAIL_PICTURE'])) {
 				CFile::Delete($ob->fields['DETAIL_PICTURE']);
 			}
-
 			if (!empty($ob->fields['PREVIEW_PICTURE'])) {
 				CFile::Delete($ob->fields['PREVIEW_PICTURE']);
 			}
-
 			$props = $ob->GetProperties();
-
 			if (!empty($props['MORE_PHOTO']['VALUE'])) {
 				foreach ($props['MORE_PHOTO']['VALUE'] as $oldImg) {
 					CFile::Delete($oldImg);
@@ -846,92 +880,52 @@ class Main
 	}
 
 	/**
-	 * Get images product
-	 *
-	 * @param $product
-	 * @param $products
-	 * @return string
-	 */
-	public static function getUrlFirstImageProductForParentColorId($product, $products): string
-	{
-		$needed = self::searchObject($products, $product->color_group_id);
-
-		if ($needed) {
-			$firstImg = reset($needed->images);
-		} else {
-			$firstImg = reset($product->images);
-		}
-
-		if (!empty($firstImg) && !empty($firstImg->small)) {
-			return $firstImg->small;
-		}
-
-		return '';
-	}
-
-	/**
-	 * Get first image product
-	 *
-	 * @param $image
+	 * @param $imgUrl
 	 * @param $product
 	 * @return int
 	 */
-	public static function getIDImageForHL($image, $product): int
+	public static function getIDImageForHLColor($imgUrl, $product): int
 	{
-		if (empty($image)) {
+		if (empty($imgUrl)) {
 			return 0;
 		}
 
-		$HLNameImg = self::getImageNameHL($image, $product);
-		$resizeImage = CFile::GetList([], ['ORIGINAL_NAME' => $HLNameImg])->Fetch();
+		$dataImage = pathinfo(basename($imgUrl));
+		if (!empty($product->parent_volume_id)) {
+			$HLNameImg = $product->parent_volume_id . '_hl.' . $dataImage['extension'];
+		}
+		elseif (!empty($product->color_group_id)) {
+			$HLNameImg = $product->color_group_id . '_hl.' . $dataImage['extension'];
+		}
+		else {
+			$HLNameImg = $product->id . '_hl.' . $dataImage['extension'];
+		}
 
-		if (empty($resizeImage)) {
-			$dataMake = self::getDataMakeFileArray($image, $HLNameImg);
-
-			if ($dataMake) {
-				return CFile::SaveFile($dataMake, 'iblock');
-			} else {
-				return 0;
-			}
+		$row = CFile::GetList([], ['ORIGINAL_NAME' => $HLNameImg])->Fetch();
+		if (empty($row)) {
+			$dataMake = self::getDataMakeFileArray($imgUrl, $HLNameImg);
+			return empty($dataMake) ? 0 : CFile::SaveFile($dataMake, 'iblock');
 		} else {
-			return intval($resizeImage['ID']);
+			return intval($row['ID']);
 		}
-	}
-
-	/**
-	 * Get image name for HL block
-	 *
-	 * @param $image
-	 * @param $product
-	 * @return string
-	 */
-	public static function getImageNameHL($image, $product): string
-	{
-		$dataImageName = pathinfo(basename($image));
-
-		if (!empty($product->color_group_id)) {
-			return $product->color_group_id . '_hl.' . $dataImageName['extension'];
-		}
-
-		return $product->id . '_hl.' . $dataImageName['extension'];
 	}
 
 	/**
 	 * Fix upload file in MakeFileArray
 	 *
-	 * @param $image
+	 * @param $imgUrl
 	 * @param $HLNameImg
 	 * @param int $i
 	 * @return bool|array|null
 	 */
-	static public function getDataMakeFileArray($image, $HLNameImg, int $i = 0): bool|array|null
+	static public function getDataMakeFileArray($imgUrl, $HLNameImg, int $i = 0): bool|array|null
 	{
-		$result = CFile::MakeFileArray($image);
+		$result = CFile::MakeFileArray($imgUrl);
 
 		if (!empty($result['type']) && $result['type'] === 'unknown') {
 			$i++;
 			if ($i < 6) {
-				$result = self::getDataMakeFileArray($image, $HLNameImg, $i);
+				$result = self::getDataMakeFileArray($imgUrl, $HLNameImg, $i);
 			} else {
 				return [];
 			}
@@ -971,22 +965,23 @@ class Main
 
 	/**
 	 * Get iblock section product
-	 *
 	 * @param $product
-	 * @param $oasisCategories
-	 * @param $iblockId
 	 * @return array
 	 */
-	public static function getIblockSectionProduct($product, $oasisCategories, $iblockId): array
+	public static function getIblockSectionProduct($product): array
 	{
 		$categories = [];
 		foreach ($product->categories as $categoryId) {
-			if (in_array($categoryId, CLI::$catSelected)) {
-				$categories[] = self::getCategoryId($oasisCategories, $categoryId, $iblockId);
+			if (in_array($categoryId, self::$catSelected)) {
+				$categories[] = self::getCategoryId($categoryId);
 			}
 		}
 
-		if (count($categories) > 1) {
+		if (count($categories) == 0) {
+			self::$cf->log('Раздел товара не определен');
+			throw new Exception('Раздел товара не определен');
+		}
+		elseif (count($categories) > 1) {
 			$result['IBLOCK_SECTION'] = $categories;
 		} else {
 			$result['IBLOCK_SECTION_ID'] = reset($categories);
@@ -997,14 +992,16 @@ class Main
 
 	/**
 	 * Checking properties product and create if absent
-	 *
 	 * @throws LoaderException
 	 * @throws Exception
 	 */
-	public static function checkProperties($iblockIdCatalog, $iblockIdOffers)
+	public static function checkProperties()
 	{
+		if (empty(self::$cf->iblock_catalog) || empty(self::$cf->iblock_offers)) {
+			throw new Exception('Infoblocks not selected');
+		}
 		$arProperties = [
-			$iblockIdCatalog => [
+			self::$cf->iblock_catalog => [
 				[
 					'CODE'             => 'MORE_PHOTO',
 					'NAME'             => 'Картинки',
@@ -1219,7 +1216,7 @@ class Main
 					],
 				],
 			],
-			$iblockIdOffers  => [
+			self::$cf->iblock_offers  => [
 				[
 					'CODE'             => 'MORE_PHOTO',
 					'NAME'             => 'Картинки',
@@ -1834,7 +1831,7 @@ class Main
 		foreach ($tables as $tableName => &$table) {
 			$tableId = null;
 
-			$res = Highloadblock\HighloadBlockTable::getList([
+			$res = HighloadBlockTable::getList([
 				'select' => ['ID', 'NAME', 'TABLE_NAME'],
 				'filter' => [
 					'=NAME'       => $table['name'],
@@ -1846,7 +1843,7 @@ class Main
 			unset($res);
 
 			if (empty($row)) {
-				$result = Highloadblock\HighloadBlockTable::add([
+				$result = HighloadBlockTable::add([
 					'NAME'       => $table['name'],
 					'TABLE_NAME' => $tableName
 				]);
@@ -1878,8 +1875,8 @@ class Main
 			}
 
 			if (!empty($tableId)) {
-				$hldata = Highloadblock\HighloadBlockTable::getById($tableId)->fetch();
-				$hlentity = Highloadblock\HighloadBlockTable::compileEntity($hldata);
+				$hldata = HighloadBlockTable::getById($tableId)->fetch();
+				$hlentity = HighloadBlockTable::compileEntity($hldata);
 				$entityClass = $hlentity->getDataClass();
 
 				foreach ($table['values'] as $item) {
@@ -1900,33 +1897,37 @@ class Main
 
 	/**
 	 * High load block
-	 *
-	 * @param $arrImg
+	 * @param $imageId
 	 * @param $name
-	 * @return array|int|string
-	 * @throws ArgumentException
-	 * @throws ObjectPropertyException
 	 * @throws SystemException
-	 * @throws Exception
 	 */
-	public static function checkRowHLBlock($arrImg, $name): int|array|string
+	public static function getHLColorXmlId($imageId, $name): string
 	{
-		$result = '';
-		$row = Highloadblock\HighloadBlockTable::getList([
-			'select' => ['ID', 'NAME', 'TABLE_NAME'],
+		if (empty($imageId)) {
+			return '';
+		}
+
+		if (empty(self::$hl_edc_color)) {
+			self::$hl_edc_color = self::getHlEntityClass('ExColorReference', 'ex_color_reference');
+
+			if (empty(self::$hl_edc_color)) {
+				self::$cf->log('HighloadBlockTable ExColorReference not found');
+				throw new SystemException('HighloadBlockTable ExColorReference not found');
+			}
+		}
+
+		$arrImg = CFile::MakeFileArray($imageId);
+
+		$uf_xml_id = pathinfo($arrImg['name'])['filename'];
+		$row = self::$hl_edc_color::getList([
+			'select' => ['ID'],
 			'filter' => [
-				'=NAME'       => 'ExColorReference',
-				'=TABLE_NAME' => 'ex_color_reference'
-			]
+				'=UF_XML_ID' => $uf_xml_id
+			],
 		])->fetch();
 
-		if (!empty($row)) {
-			$tableId = (int)$row['ID'];
-			$hldata = Highloadblock\HighloadBlockTable::getById($tableId)->fetch();
-			$hlentity = Highloadblock\HighloadBlockTable::compileEntity($hldata);
-			$entityClass = $hlentity->getDataClass();
-
-			$item = [
+		if (empty($row)) {
+			self::$hl_edc_color::add([
 				'UF_NAME'     => $name,
 				'UF_FILE'     => [
 					'name'     => $arrImg['name'],
@@ -1935,37 +1936,15 @@ class Main
 				],
 				'UF_SORT'     => 0,
 				'UF_DEF'      => '0',
-				'UF_XML_ID'   => pathinfo($arrImg['name'])['filename'],
-				'UF_COLOR_ID' => pathinfo($arrImg['name'])['filename']
-			];
-
-			$rowColor = $entityClass::getList([
-				'select' => ['ID'],
-				'filter' => [
-					'=UF_XML_ID' => $item['UF_XML_ID']
-				],
-			])->fetch();
-
-			if (empty($rowColor)) {
-				$result = $entityClass::add($item)->getId();
-			} else {
-				// override
-				if(true){
-					$result = $rowColor['ID'];
-				}
-				else{
-					$entityClass::delete($rowColor['ID']); 
-					$result = $entityClass::add($item)->getId();
-				}
-			}
+				'UF_XML_ID'   => $uf_xml_id,
+				'UF_COLOR_ID' => $uf_xml_id
+			]);
 		}
-
-		return $result;
+		return $uf_xml_id;
 	}
 
 	/**
 	 * Set features class PropertyFeature
-	 *
 	 * @param int $propertyId
 	 * @param array $data
 	 */
@@ -1992,7 +1971,6 @@ class Main
 
 	/**
 	 * Add section property table
-	 *
 	 * @param int $iblockId
 	 * @param int $propertyId
 	 * @param array $data
@@ -2000,19 +1978,15 @@ class Main
 	 */
 	private static function addSectionProperty(int $iblockId, int $propertyId, array $data)
 	{
-		try {
-			SectionPropertyTable::add([
-				'IBLOCK_ID'        => $iblockId,
-				'SECTION_ID'       => 0,
-				'PROPERTY_ID'      => $propertyId,
-				'SMART_FILTER'     => $data['smartFilter'],
-				'DISPLAY_TYPE'     => $data['displayType'],
-				'DISPLAY_EXPANDED' => $data['displayExpanded'],
-				'FILTER_HINT'      => $data['filterHint'] ?? '',
-			]);
-		} catch (SystemException $e) {
-			echo $e->getMessage() . PHP_EOL;
-		}
+		SectionPropertyTable::add([
+			'IBLOCK_ID'        => $iblockId,
+			'SECTION_ID'       => 0,
+			'PROPERTY_ID'      => $propertyId,
+			'SMART_FILTER'     => $data['smartFilter'],
+			'DISPLAY_TYPE'     => $data['displayType'],
+			'DISPLAY_EXPANDED' => $data['displayExpanded'],
+			'FILTER_HINT'      => $data['filterHint'] ?? '',
+		]);
 	}
 
 	/**
@@ -2025,37 +1999,31 @@ class Main
 	 */
 	public static function checkPropertyEnum($propertyCode, $value, $iblockId)
 	{
-		try {
-			Loader::includeModule('iblock');
+		Loader::includeModule('iblock');
 
-			$dbProperty = PropertyTable::getList([
-				'filter' => [
-					'CODE'      => $propertyCode,
-					'IBLOCK_ID' => $iblockId
-				],
-			])->fetch();
+		$dbProperty = PropertyTable::getList([
+			'filter' => [
+				'CODE'      => $propertyCode,
+				'IBLOCK_ID' => $iblockId
+			],
+		])->fetch();
 
-			$dbPropertyEnum = PropertyEnumerationTable::getList([
-				'filter' => [
-					'PROPERTY_ID' => $dbProperty['ID'],
-					'VALUE'       => $value,
-				],
-			])->fetch();
+		$dbPropertyEnum = PropertyEnumerationTable::getList([
+			'filter' => [
+				'PROPERTY_ID' => $dbProperty['ID'],
+				'VALUE'       => $value,
+			],
+		])->fetch();
 
-			if (!$dbPropertyEnum) {
-				return self::addPropertyEnum($dbProperty['ID'], $value);
-			} else {
-				return (int)$dbPropertyEnum['ID'];
-			}
-
-		} catch (SystemException|Exception $e) {
-			echo $e->getMessage() . PHP_EOL;
+		if (!$dbPropertyEnum) {
+			return self::addPropertyEnum($dbProperty['ID'], $value);
+		} else {
+			return (int)$dbPropertyEnum['ID'];
 		}
 	}
 
 	/**
 	 * Add property product
-	 *
 	 * @param $propertyId
 	 * @param $value
 	 * @return array|int
@@ -2063,32 +2031,22 @@ class Main
 	 */
 	public static function addPropertyEnum($propertyId, $value)
 	{
-		$propertyEnumId = null;
+		$res = PropertyEnumerationTable::add([
+			'PROPERTY_ID' => $propertyId,
+			'VALUE'       => $value,
+			'XML_ID'      => md5($propertyId . $value),
+			'SORT'        => 1000,
+		]);
 
-		try {
-			$res = PropertyEnumerationTable::add([
-				'PROPERTY_ID' => $propertyId,
-				'VALUE'       => $value,
-				'XML_ID'      => md5($propertyId . $value),
-				'SORT'        => 1000,
-			]);
-
-			if (!$res->isSuccess()) {
-				throw new SystemException(sprintf('Error add property enumeration value "%s" not list type.', $value));
-			} else {
-				$propertyEnumId = $res->getId();
-			}
-
-		} catch (SystemException $e) {
-			echo $e->getMessage();
+		if (!$res->isSuccess()) {
+			throw new SystemException(sprintf('Error add property enumeration value "%s" not list type.', $value));
+		} else {
+			return $res->getId();
 		}
-
-		return $propertyEnumId;
 	}
 
 	/**
 	 * Get array properties products
-	 *
 	 * @param $product
 	 * @return array
 	 */
@@ -2099,7 +2057,7 @@ class Main
 		];
 
 		foreach ($product->attributes as $attribute) {
-			if (isset($attribute->id) && $attribute->id === 1000000002) {
+			if (isset($attribute->id) && $attribute->id === self::ATTR_MATERIAL_ID) {
 				$result['MATERIAL'] = $attribute->value;
 			}
 		}
@@ -2143,7 +2101,7 @@ class Main
 					}
 				}
 				if(!empty($brand['XML_ID'])){
-	 				$result['BRAND_REF'] = $brand['XML_ID'];
+					$result['BRAND_REF'] = $brand['XML_ID'];
 				}
 			}
 		}
@@ -2153,24 +2111,22 @@ class Main
 
 	/**
 	 * Highloadblock Entity Class
-	 * 
 	 * @param $name
 	 * @param $table_name
-	 * @param $select
 	 * @return DataManager | null
 	 */
-	public static function getHlEntityClass(string $name, string $table_name, array $select = ['ID'])
+	public static function getHlEntityClass(string $name, string $table_name)
 	{
-		$row = Highloadblock\HighloadBlockTable::getList([
-			'select' => $select,
+		$row = HighloadBlockTable::getList([
+			'select' => ['ID'],
 			'filter' => [
 				'=NAME'       => $name,
 				'=TABLE_NAME' => $table_name
 			]
 		])->fetch();
 		if (!empty($row)) {
-			$hldata = Highloadblock\HighloadBlockTable::getById((int)$row['ID'])->fetch();
-			$hlentity = Highloadblock\HighloadBlockTable::compileEntity($hldata);
+			$hldata = HighloadBlockTable::getById((int)$row['ID'])->fetch();
+			$hlentity = HighloadBlockTable::compileEntity($hldata);
 			return $hlentity->getDataClass();
 		}
 		return null;
@@ -2178,48 +2134,38 @@ class Main
 
 	/**
 	 * Update product offers properties for filter
-	 *
 	 * @param $productId
 	 * @param $firstProduct
 	 * @param $products
-	 * @param $iblockId
 	 */
-	public static function upPropertiesFilterOffers($productId, $firstProduct, $products, $iblockId)
+	public static function upPropertiesFilterOffers($productId, $firstProduct, $products)
 	{
 		$properties = [];
-
 		foreach ($products as $product) {
 			$properties = self::preparePropertiesFilter($product, $properties);
 		}
-
-		self::upPropertiesFilter($productId, $firstProduct, $iblockId, $properties);
+		self::upPropertiesFilter($productId, $firstProduct, $properties);
 	}
 
 	/**
 	 * Update product properties for filter
-	 *
 	 * @param $productId
 	 * @param $product
-	 * @param $iblockId
 	 * @param array $properties
 	 */
-	public static function upPropertiesFilter($productId, $product, $iblockId, array $properties = [])
+	public static function upPropertiesFilter($productId, $product, array $properties = [])
 	{
 		if (empty($properties)) {
 			$properties = self::preparePropertiesFilter($product);
 		}
-
 		foreach ($properties as $code => $dataProperty) {
-			self::checkPropertyValues($productId, $product, $iblockId, $code, $dataProperty);
+			self::checkPropertyValues($productId, $product, $code, $dataProperty);
 		}
-		unset($code, $dataProperty);
-
-		Manager::updateElementIndex($iblockId, $productId);
+		Manager::updateElementIndex(self::$cf->iblock_catalog, $productId);
 	}
 
 	/**
 	 * Prepare properties for filter
-	 *
 	 * @param $product
 	 * @param array $properties
 	 * @return array
@@ -2232,7 +2178,6 @@ class Main
 					$properties['COLOR_OA_REF'][] = $color->parent_id;
 				}
 			}
-			unset($color);
 		}
 
 		foreach ($product->attributes as $attribute) {
@@ -2269,29 +2214,23 @@ class Main
 				}
 			}
 		}
-		unset($attribute);
 
 		return $properties;
 	}
 
 	/**
 	 * Check and set property values for filter
-	 *
 	 * @param $productId
 	 * @param $product
-	 * @param $iblockId
 	 * @param $code
 	 * @param array $properties
 	 */
-
-	public static function checkPropertyValues($productId, $product, $iblockId, $code, array $properties = [])
+	public static function checkPropertyValues($productId, $product, $code, array $properties)
 	{
-		$statusProduct = self::getStatusProduct($product);
 		$result = [];
-
 		CIBlockElement::GetPropertyValuesArray(
 			$result,
-			$iblockId,
+			self::$cf->iblock_catalog,
 			[
 				'ID' => [$productId]
 			],
@@ -2299,31 +2238,28 @@ class Main
 				'CODE' => $code
 			]
 		);
-
 		$arValues = !empty($result[$productId][$code]['VALUE']) ? $result[$productId][$code]['VALUE'] : [];
-		unset($result);
 
-		if ($statusProduct === 'Y') {
-			if (empty($arValues)) {
-				CIBlockElement::SetPropertyValuesEx($productId, $iblockId, [$code => $properties]);
-			} else {
-				CIBlockElement::SetPropertyValuesEx($productId, $iblockId, [$code => array_unique(array_merge($arValues, $properties))]);
-			}
-		} elseif (!empty($arValues)) {
-			CIBlockElement::SetPropertyValuesEx($productId, $iblockId, [$code => array_values(array_diff($arValues, $properties))]);
+		$new_properties = null;
+		if (self::getStatusProduct($product) === 'Y') {
+			$new_properties = empty($arValues) ? $properties : array_unique(array_merge($arValues, $properties));
+		}
+		elseif (!empty($arValues)) {
+			$new_properties = array_values(array_diff($arValues, $properties));
+		}
+		if (isset($new_properties)) {
+			CIBlockElement::SetPropertyValuesEx($productId, self::$cf->iblock_catalog, [$code => $new_properties]);
 		}
 	}
 
 	/**
 	 * Get array properties product offer
-	 *
 	 * @param $productId
 	 * @param $product
-	 * @param $imageHL
-	 * @param $iblockId
+	 * @param $products
 	 * @return array
 	 */
-	public static function getPropertiesArrayOffer($productId, $product, $imageHL, $iblockId): array
+	public static function getPropertiesArrayOffer($productId, $product, $products): array
 	{
 		$result = [
 			'CML2_LINK' => $productId,
@@ -2331,28 +2267,31 @@ class Main
 		];
 
 		if (!is_null($product->size) && in_array(3070, $product->full_categories)) {
-			$result['SIZES_CLOTHES'] = self::checkPropertyEnum('SIZES_CLOTHES', $product->size, $iblockId);
+			$result['SIZES_CLOTHES'] = self::checkPropertyEnum('SIZES_CLOTHES', $product->size, self::$cf->iblock_offers);
 		}
 
-		$sizeFlash = self::searchObject($product->attributes, 219);
+		$sizeFlash = self::searchObject($product->attributes, self::ATTR_FLASH_ID);
 
 		if ($sizeFlash) {
-			$result['SIZES_FLASH'] = self::checkPropertyEnum('SIZES_FLASH', $product->size, $iblockId);
+			$result['SIZES_FLASH'] = self::checkPropertyEnum('SIZES_FLASH', $product->size, self::$cf->iblock_offers);
 		}
 
-		if(!self::$cf->is_fast_import){
+		if (!self::$cf->is_fast_import){
 			$result += self::getProductImages($product);
 		}
 
-		$dataName = pathinfo(basename(self::getImageNameHL($imageHL, $product)));
-		$result['COLOR_ES_REF'] = $dataName['filename'];
+		$parenProduct 	= self::searchObject($products, $product->color_group_id);
+		$imgs 			= empty($parenProduct) ? $product->images : $parenProduct->images;
+		$img 			= reset($imgs);
+		$imgUrl			= (empty($img) || empty($img->small)) ? '' : $img->small;
+		$img_uf_xml_id	= self::getHLColorXmlId(self::getIDImageForHLColor($imgUrl, $product), $product->full_name);
+		$result['COLOR_ES_REF'] = $img_uf_xml_id;
 
 		return $result;
 	}
 
 	/**
 	 * Get detail text from properties
-	 *
 	 * @param $product
 	 * @return string
 	 */
@@ -2360,56 +2299,58 @@ class Main
 	{
 		$properties = [];
 
-		foreach ($product->attributes as $attribute) {
-			if ($attribute->name !== 'Размер' && $attribute->name !== 'Объем памяти') {
-				if (!(isset($attribute->id) && $attribute->id === 1000000001 || $attribute->id === 1000000002)) {
-					$dim = isset($attribute->dim) ? ' ' . $attribute->dim : '';
-					$needed = array_search($attribute->name, array_column($properties, 'name'));
+		foreach ($product->attributes as $attr) {
+			switch ($attr->id ?? null) {
+				case self::ATTR_COLOR_ID:
+				case self::ATTR_MATERIAL_ID:
+				case self::ATTR_BARCODE_ID:
+				case self::ATTR_FLASH_ID:
+				case self::ATTR_MARKING_ID:
+				case self::ATTR_REMOTE_ID:
+					continue 2;
 
+				case null:
+					if ($attr->name == self::ATTR_SIZE_NAME){
+						continue 2;
+					}
+
+				default:
+					$dim 	= isset($attr->dim) ? (' ' . $attr->dim) : '';
+					$value	= $attr->value . $dim;
+					$needed	= array_search($attr->name, array_column($properties, 'name'));
 					if ($needed === false) {
 						$properties[] = [
-							'name'  => htmlentities($attribute->name, ENT_QUOTES, 'UTF-8'),
-							'value' => htmlentities($attribute->value . $dim, ENT_QUOTES, 'UTF-8'),
+							'name'  => htmlentities($attr->name, ENT_QUOTES, 'UTF-8'),
+							'value' => htmlentities($value, ENT_QUOTES, 'UTF-8'),
 						];
 					} else {
-						$properties[$needed]['value'] .= ', ' . $attribute->value . $dim;
+						$properties[$needed]['value'] .= (', ' . $value);
 					}
-					unset($needed);
-				}
+					break;
 			}
 		}
-		unset($attribute);
 
-		$html = '';
-
+		$result = '';
+		if (!empty($product->defect)) {
+			$result .= ("\r\n<p>" . $product->defect . '</p>');
+		}
 		if ($properties) {
-			$html = '
-<p><b>Дополнительное описание:</b></p>
-<ul>';
-			foreach ($properties as $property) {
-				$html .= '
-	<li>
-		<b>' . $property['name'] . '</b>: ' . $property['value'] . '
-	</li>';
-			}
-			unset($property);
-			$html .= '
-</ul>';
+			$result .= "\r\n<p><b>Дополнительное описание:</b></p>\r\n<ul>"
+						. implode('', array_map(fn($p) => "\r\n<li><b>{$p['name']}</b>: {$p['value']}</li>", $properties))
+						. "\r\n</ul>";
 		}
-
-		return $html;
+		return $result;
 	}
 
 	/**
-	 * Get selected categories oasis
-	 *
-	 * @param array $oasisCategories
-	 * @return array
+	 * Load categories oasis
 	 */
-	public static function getSelectedCategories($oasisCategories): array
+	public static function prepareCategories()
 	{
+		self::$oasisCategories = Api::getCategoriesOasis();
+
 		if (empty(self::$cf->categories)) {
-			return array_map(fn($cat) => $cat->id, $oasisCategories);
+			self::$catSelected = array_map(fn($cat) => $cat->id, self::$oasisCategories);
 		}
 		else {
 			$result = [];
@@ -2419,7 +2360,7 @@ class Main
 				// все родительские
 				$_cat_id = $cat_id;
 				while (true) {
-					foreach ($oasisCategories as $cat) {
+					foreach (self::$oasisCategories as $cat) {
 						if ($cat->id == $_cat_id && !empty($cat->parent_id)) {
 							$result[] = $cat->parent_id;
 							$_cat_id = $cat->parent_id;
@@ -2435,7 +2376,7 @@ class Main
 					if ($parants) {
 						$_parants = [];
 						foreach ($parants as $parent_id) {
-							foreach ($oasisCategories as $cat) {
+							foreach (self::$oasisCategories as $cat) {
 								if ($cat->parent_id == $parent_id) {
 									$result[] = $cat->id;
 									$_parants[] = $cat->id;
@@ -2449,39 +2390,36 @@ class Main
 					}
 				}
 			}
-			return array_values(array_unique($result));
+			self::$catSelected = array_values(array_unique($result));
 		}
 	}
 
 	/**
 	 * Get iblock section id | add category and get iblock section id
-	 *
-	 * @param $oasisCategories
 	 * @param $categoryId
-	 * @param $iblockId
 	 * @return int
 	 */
-	public static function getCategoryId($oasisCategories, $categoryId, $iblockId): int
+	public static function getCategoryId($categoryId): int
 	{
-		$sectionCategory = self::getSectionByOasisCategoryId($iblockId, $categoryId);
+		$sectionCategory = self::getSectionByOasisCategoryId($categoryId);
 
 		if ($sectionCategory) {
 			$result = $sectionCategory['ID'];
 		} else {
 			$iblockSectionId = null;
-			$oasisCategory = self::searchObject($oasisCategories, $categoryId);
+			$oasisCategory = self::searchObject(self::$oasisCategories, $categoryId);
 
 			if (!is_null($oasisCategory->parent_id)) {
-				$parentSectionCategory = self::getSectionByOasisCategoryId($iblockId, $oasisCategory->parent_id);
+				$parentSectionCategory = self::getSectionByOasisCategoryId($oasisCategory->parent_id);
 
 				if ($parentSectionCategory) {
 					$iblockSectionId = $parentSectionCategory['ID'];
 				} else {
-					$iblockSectionId = self::getCategoryId($oasisCategories, $oasisCategory->parent_id, $iblockId);
+					$iblockSectionId = self::getCategoryId($oasisCategory->parent_id);
 				}
 			}
 
-			$result = self::addCategory($oasisCategory, $iblockSectionId, $iblockId);
+			$result = self::addCategory($oasisCategory, $iblockSectionId);
 		}
 
 		return (int)$result;
@@ -2489,19 +2427,17 @@ class Main
 
 	/**
 	 * Get iblock section id by user field UF_OASIS_ID_CATEGORY
-	 *
-	 * @param $iblockId
 	 * @param $categoryId
 	 * @return array|false|void
 	 */
-	public static function getSectionByOasisCategoryId($iblockId, $categoryId)
+	public static function getSectionByOasisCategoryId($categoryId)
 	{
 		$rel_id = self::$cf->getRelCategoryId($categoryId);
 		if(isset($rel_id)){
 			return ['ID' => $rel_id];
 		}
 		else{
-			$entity = Section::compileEntityByIblock($iblockId);
+			$entity = Section::compileEntityByIblock(self::$cf->iblock_catalog);
 			try {
 				return $entity::getList([
 					'select' => ['ID'],
@@ -2515,53 +2451,40 @@ class Main
 
 	/**
 	 * Add category
-	 *
 	 * @param $category
 	 * @param $iblockSectionId
-	 * @param $iblockId
 	 * @return false|int|mixed
 	 */
-	public static function addCategory($category, $iblockSectionId, $iblockId)
+	public static function addCategory($category, $iblockSectionId)
 	{
-		$result = false;
+		$objDateTime = new DateTime();
+		$iblockSection = new CIBlockSection;
 
-		try {
-			$objDateTime = new DateTime();
-			$iblockSection = new CIBlockSection;
+		$arFields = [
+			'DATE_CREATE'          => $objDateTime->format('Y-m-d H:i:s'),
+			'IBLOCK_ID'            => self::$cf->iblock_catalog,
+			'IBLOCK_SECTION_ID'    => $iblockSectionId,
+			'ACTIVE'               => 'Y',
+			'NAME'                 => $category->name,
+			'DEPTH_LEVEL'          => $category->level,
+			'DESCRIPTION_TYPE'     => 'text',
+			'CODE'                 => self::getUniqueCodeSection($category->slug),
+			'UF_OASIS_ID_CATEGORY' => $category->id,
+		];
 
-			$arFields = [
-				'DATE_CREATE'          => $objDateTime->format('Y-m-d H:i:s'),
-				'IBLOCK_ID'            => $iblockId,
-				'IBLOCK_SECTION_ID'    => $iblockSectionId,
-				'ACTIVE'               => 'Y',
-				'NAME'                 => $category->name,
-				'DEPTH_LEVEL'          => $category->level,
-				'DESCRIPTION_TYPE'     => 'text',
-				'CODE'                 => self::getUniqueCodeSection($category->slug),
-				'UF_OASIS_ID_CATEGORY' => $category->id,
-			];
+		$result = $iblockSection->Add($arFields);
 
-			$result = $iblockSection->Add($arFields);
-
-			if (!empty($iblockSection->LAST_ERROR)) {
-				throw new SystemException('ErrorMessages: ' . $iblockSection->LAST_ERROR . print_r($arFields, true));
-			}
-		} catch (SystemException $e) {
-			echo $e->getMessage() . PHP_EOL;
+		if (!empty($iblockSection->LAST_ERROR)) {
+			throw new SystemException('ErrorMessages: ' . $iblockSection->LAST_ERROR . print_r($arFields, true));
 		}
-
 		return $result;
 	}
 
 	/**
 	 * Get unique (not DB) section code (alias)
-	 *
 	 * @param $slug
 	 * @param int $i
 	 * @return string
-	 * @throws ArgumentException
-	 * @throws ObjectPropertyException
-	 * @throws SystemException
 	 */
 	public static function getUniqueCodeSection($slug, int $i = 0): string
 	{
@@ -2578,19 +2501,14 @@ class Main
 		if ($dbCode) {
 			$code = self::getUniqueCodeSection($slug, ++$i);
 		}
-
 		return $code;
 	}
 
 	/**
 	 * Get unique (not DB) element code (alias)
-	 *
 	 * @param $name
 	 * @param int $i
 	 * @return string
-	 * @throws ArgumentException
-	 * @throws ObjectPropertyException
-	 * @throws SystemException
 	 */
 	public static function getUniqueCodeElement($name, int $i = 0): string
 	{
@@ -2604,128 +2522,93 @@ class Main
 		if ($dbCode) {
 			$code = self::getUniqueCodeElement($name, ++$i);
 		}
-
 		return $code;
 	}
 
 	/**
-	 * Check user fields UF_OASIS_ID_CATEGORY and UF_OASIS_ID_PRODUCT
-	 *
-	 * @throws ArgumentException
-	 * @throws LoaderException
-	 * @throws ObjectPropertyException
-	 * @throws SystemException
+	 * Check user fields
 	 */
-	public static function checkUserFields($iblockIdCatalog)
+	public static function checkUserFields()
 	{
 		Loader::includeModule('iblock');
 
 		$dataFields = [
 			[
-				'ENTITY_ID'  => 'PRODUCT',
-				'FIELD_NAME' => 'UF_OASIS_ID_PRODUCT',
-				'LABEL'      => [
+				'ENTITY_ID'		=> 'PRODUCT',
+				'FIELD_NAME'	=> 'UF_OASIS_GROUP_ID',
+				'LABEL'			=> [
+					'ru' => 'Oasis группа',
+					'en' => 'Oasis group',
+				],
+			],[
+				'ENTITY_ID'		=> 'PRODUCT',
+				'FIELD_NAME'	=> 'UF_OASIS_PRODUCT_ID',
+				'LABEL'      	=> [
 					'ru' => 'Oasis ID товара',
-					'en' => 'Oasis ID product',
+					'en' => 'Oasis product ID',
 				],
-			],
-			[
-				'ENTITY_ID'  => 'PRODUCT',
-				'FIELD_NAME' => 'UF_OASIS_PRODUCT_ID',
-				'LABEL'      => [
-					'ru' => 'Oasis PRODUCT ID',
-					'en' => 'Oasis PRODUCT ID',
+			],[	
+				'ENTITY_ID'		=> 'PRODUCT',
+				'FIELD_NAME'	=> 'UF_OASIS_UPDATE_AT',
+				'SETTINGS_SIZE'	=> '20',
+				'LABEL'			=> [
+					'ru' => 'Oasis update',
+					'en' => 'Oasis update',
 				],
-			],
-			[
-				'ENTITY_ID'  => 'PRODUCT',
-				'FIELD_NAME' => 'UF_OASIS_GROUP_ID',
-				'LABEL'      => [
-					'ru' => 'Oasis GROUP ID',
-					'en' => 'Oasis GROUP ID',
-				],
-			],
-			[
-				'ENTITY_ID'  => 'IBLOCK_' . $iblockIdCatalog . '_SECTION',
-				'FIELD_NAME' => 'UF_OASIS_ID_CATEGORY',
-				'LABEL'      => [
+			],[
+				'ENTITY_ID'		=> 'IBLOCK_' . self::$cf->iblock_catalog . '_SECTION',
+				'FIELD_NAME'	=> 'UF_OASIS_ID_CATEGORY',
+				'LABEL'			=> [
 					'ru' => 'Oasis ID категории',
 					'en' => 'Oasis ID category',
 				],
 			],
 		];
 
-		foreach ($dataFields as $dataField) {
-			self::addUserField($dataField);
-		}
-	}
-
-	/**
-	 * Check user field or add user field
-	 *
-	 * @param $data
-	 * @return false|int
-	 * @throws ArgumentException
-	 * @throws ObjectPropertyException
-	 * @throws SystemException
-	 */
-	private static function addUserField($data)
-	{
-		$dbUserFields = UserFieldTable::getList([
-			'select' => ['ID'],
-			'filter' => [
-				'FIELD_NAME' => $data['FIELD_NAME'],
-				'ENTITY_ID'  => $data['ENTITY_ID']
-			],
-		])->fetch();
-
-		if (!$dbUserFields) {
-			$oUserTypeEntity = new CUserTypeEntity();
-
-			$aUserFields = [
-				'ENTITY_ID'         => $data['ENTITY_ID'],
-				'FIELD_NAME'        => $data['FIELD_NAME'],
-				'USER_TYPE_ID'      => 'string',
-				'XML_ID'            => $data['FIELD_NAME'],
-				'MULTIPLE'          => 'N',
-				'MANDATORY'         => 'N',
-				'SHOW_FILTER'       => 'N',
-				'SHOW_IN_LIST'      => 'N',
-				'EDIT_IN_LIST'      => 'N',
-				'IS_SEARCHABLE'     => 'N',
-				'SETTINGS'          => [
-					'DEFAULT_VALUE' => '',
-					'SIZE'          => '11',
-					'ROWS'          => '1',
-					'MIN_LENGTH'    => '0',
-					'MAX_LENGTH'    => '0',
-					'REGEXP'        => '',
+		foreach ($dataFields as $data) {
+			$result = UserFieldTable::getList([
+				'select' => ['ID'],
+				'filter' => [
+					'FIELD_NAME' => $data['FIELD_NAME'],
+					'ENTITY_ID'  => $data['ENTITY_ID']
 				],
-				'EDIT_FORM_LABEL'   => $data['LABEL'],
-				'LIST_COLUMN_LABEL' => $data['LABEL'],
-				'LIST_FILTER_LABEL' => $data['LABEL'],
-				'HELP_MESSAGE'      => [
-					'ru' => '',
-					'en' => '',
-				],
-			];
+			])->fetch();
 
-			$userFieldId = $oUserTypeEntity->Add($aUserFields);
-		} else {
-			$userFieldId = (int)$dbUserFields['ID'];
+			if (empty($result)) {
+				(new CUserTypeEntity())->Add([
+					'ENTITY_ID'			=> $data['ENTITY_ID'],
+					'FIELD_NAME'		=> $data['FIELD_NAME'],
+					'USER_TYPE_ID'		=> 'string',
+					'XML_ID'			=> $data['FIELD_NAME'],
+					'MULTIPLE'			=> 'N',
+					'MANDATORY'			=> 'N',
+					'SHOW_FILTER'		=> 'N',
+					'SHOW_IN_LIST'		=> 'N',
+					'EDIT_IN_LIST'		=> 'N',
+					'IS_SEARCHABLE'		=> 'N',
+					'SETTINGS'			=> [
+						'DEFAULT_VALUE'	=> '',
+						'SIZE'			=> $data['SETTINGS_SIZE'] ?? '11',
+						'ROWS'			=> '1',
+						'MIN_LENGTH'	=> '0',
+						'MAX_LENGTH'	=> '0',
+						'REGEXP'		=> '',
+					],
+					'EDIT_FORM_LABEL'	=> $data['LABEL'],
+					'LIST_COLUMN_LABEL'	=> $data['LABEL'],
+					'LIST_FILTER_LABEL'	=> $data['LABEL'],
+					'HELP_MESSAGE'		=> [
+						'ru' => '',
+						'en' => '',
+					],
+				]);
+			}
 		}
-
-		return $userFieldId;
 	}
 
 	/**
 	 * Get array active stores for selectbox in page options
-	 *
 	 * @return array
-	 * @throws \Bitrix\Main\ArgumentException
-	 * @throws \Bitrix\Main\LoaderException
-	 * @throws \Bitrix\Main\ObjectPropertyException
-	 * @throws \Bitrix\Main\SystemException
 	 */
 	public static function getActiveStoresForOptions(): array
 	{
@@ -2739,18 +2622,12 @@ class Main
 		foreach ($arStores as $arStore) {
 			$result[$arStore['ID']] = '(ID=' . $arStore['ID'] . ') ' . $arStore['TITLE'];
 		}
-
 		return $result;
 	}
 
 	/**
 	 * Get array active iblocks for selectbox in page options
-	 *
 	 * @return array
-	 * @throws \Bitrix\Main\ArgumentException
-	 * @throws \Bitrix\Main\LoaderException
-	 * @throws \Bitrix\Main\ObjectPropertyException
-	 * @throws \Bitrix\Main\SystemException
 	 */
 	public static function getActiveIblocksForOptions(): array
 	{
@@ -2765,16 +2642,12 @@ class Main
 		foreach ($arIblocks as $arIblock) {
 			$result[$arIblock['ID']] = '(ID=' . $arIblock['ID'] . ') ' . $arIblock['NAME'];
 		}
-
 		return $result;
 	}
 
 	/**
-	 * Get an array of categories for a tree
-	 *
+	 * Get Oasis array of categories for a tree
 	 * @return array
-	 * @throws ArgumentNullException
-	 * @throws ArgumentOutOfRangeException
 	 */
 	public static function getOasisCategoriesToTree(): array
 	{
@@ -2790,6 +2663,10 @@ class Main
 		return $result;
 	}
 
+	/**
+	 * Get an array of categories for a tree
+	 * @return array
+	 */
 	public static function getCategoriesToTree(): array
 	{
 		Loader::includeModule('iblock');
@@ -2811,7 +2688,6 @@ class Main
 
 	/**
 	 * Get categories level 1
-	 *
 	 * @return array
 	 * @throws ArgumentNullException
 	 * @throws ArgumentOutOfRangeException
@@ -2832,7 +2708,6 @@ class Main
 
 	/**
 	 * Get currencies array
-	 *
 	 * @return array
 	 * @throws ArgumentNullException
 	 * @throws ArgumentOutOfRangeException
@@ -2852,7 +2727,6 @@ class Main
 
 	/**
 	 * Search object by id
-	 *
 	 * @param $data
 	 * @param $id
 	 * @return false|mixed|null
@@ -2911,7 +2785,6 @@ class Main
 
 	/**
 	 * String transliteration for url
-	 *
 	 * @param $string
 	 * @return string
 	 */
@@ -3013,26 +2886,17 @@ class Main
 	}
 
 	/**
-	 * Get ids product by group_id
-	 *
-	 * @param string $groupId
-	 *
-	 * @return void
-	 * @throws ArgumentNullException
-	 * @throws ArgumentOutOfRangeException
+	 * @param $array
+	 * @param $keys
+	 * @return bool
 	 */
-	#[NoReturn] public static function getIdsByGroupId(string $groupId): void
+	public static function arrayKeysExists($array, $keys): bool
 	{
-		$products = Api::getProductsOasis();
-		$result = [];
-
-		foreach ($products as $product) {
-			if ($product->group_id == $groupId) {
-				$result[] = $product->id;
+		foreach ($keys as $key) {
+			if (array_key_exists($key, $array)) {
+				return true;
 			}
 		}
-
-		print_r('$args[\'ids\'] = \'' . implode(',', $result) . '\';');
-		exit();
-	}
+		return false;
+	}	
 }

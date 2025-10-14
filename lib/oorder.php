@@ -10,10 +10,11 @@ use Bitrix\Main\SystemException;
 use Bitrix\Sale\Order;
 use Bitrix\Sale\Basket;
 use Bitrix\Main\Localization\Loc;
+use Oasis\Import\Config as OasisConfig;
 
 Loc::loadMessages(__FILE__);
 
-class Oorder extends Main
+class Oorder
 {
     /**
      * Preparing data and submitting an order
@@ -25,19 +26,22 @@ class Oorder extends Main
      */
     public static function setOrder($products, $orderId)
     {
-        $data['userId'] = Option::get(pathinfo(dirname(__DIR__))['basename'], 'api_user_id');
+        $data['userId'] = Option::get(OasisConfig::MODULE_ID, 'api_user_id');
 
         if (!empty($data['userId']) && $products) {
-            foreach ($products as $productId => $quantity) {
-                $data['items'][] = [
+            foreach ($products as $productId => $item) {
+                $data_item = [
                     'productId' => $productId,
-                    'quantity'  => $quantity,
+                    'quantity'  => $item['quantity'],
                 ];
+
+                if (!empty($item['branding'])) {
+                    $data_item['branding'] = json_encode($item['branding']);
+                }
+
+                $data['items'][] = $data_item;
             }
-            unset($productId, $quantity);
-
             $request = Api::sendOrder($data);
-
             if ($request) {
                 $main = new Main();
                 $main->addOasisOrder(intval($orderId), intval($request->queueId));
@@ -97,15 +101,17 @@ class Oorder extends Main
         <div class="table_order_col">' . Loc::getMessage('OASIS_IMPORT_ORDERS_ID') . '</div>
         <div class="table_order_col">' . Loc::getMessage('OASIS_IMPORT_ORDERS_DATE_INSERT') . '</div>
         <div class="table_order_col">' . Loc::getMessage('OASIS_IMPORT_ORDERS_PRICE') . '</div>
+        <div class="table_order_col">' . Loc::getMessage('OASIS_IMPORT_ORDERS_BRANDING') . '</div>
         <div class="table_order_col">' . Loc::getMessage('OASIS_IMPORT_ORDERS_UPLOAD') . '</div>
     </div>';
 
         if ($orders) {
             foreach ($orders as $order) {
-                $ids = self::getOasisProductIds(intval($order['ID']));
+                $products = self::getOasisProducts(intval($order['ID']));
+                $count_branding = 0;
 
-                if ($ids) {
-                    $existOrder = parent::getOasisOrder(intval($order['ID']));
+                if ($products) {
+                    $existOrder = Main::getOasisOrder(intval($order['ID']));
                     if ($existOrder) {
                         $dataOrderOasis = Api::getOrder($existOrder['ID_QUEUE']);
 
@@ -125,6 +131,12 @@ class Oorder extends Main
                     } else {
                         $sendStr = '<input type="submit" class="adm-btn" name="send_order" onclick="sendHere(' . $order['ID'] . ');" value="' . Loc::getMessage('OASIS_IMPORT_ORDERS_SEND') . '" style="height: 20px;">';
                     }
+
+                    foreach ($products as $product) {
+                        if ($product['branding']) {
+                            $count_branding++;
+                        }
+                    }
                 } else {
                     $sendStr = Loc::getMessage('OASIS_IMPORT_ORDERS_NOT_PRODUCT');
                 }
@@ -134,6 +146,7 @@ class Oorder extends Main
         <div class="table_order_col">' . $order['ID'] . '</div>
         <div class="table_order_col">' . $order['DATE_INSERT']->toString() . '</div>
         <div class="table_order_col">' . $order['PRICE'] . '</div>
+        <div class="table_order_col">' . ($count_branding > 0 ? ($count_branding . ' шт.') : '') . '</div>
         <div class="table_order_col">' . $sendStr . '</div>
 	</div>';
             }
@@ -144,7 +157,7 @@ class Oorder extends Main
         $html .= '
 <script type="text/javascript">
     function sendHere(order) {
-        BX.ajax.runAction("oasis:import.api.orderajax.send", {
+        BX.ajax.runAction("oasis:import.api.Order.send", {
             data: {
                 orderId: order,
             },
@@ -166,12 +179,13 @@ class Oorder extends Main
      * @throws \Bitrix\Main\ArgumentException
      * @throws \Bitrix\Main\LoaderException
      */
-    public static function getOasisProductIds(int $orderId): ?array
+    public static function getOasisProducts(int $orderId): ?array
     {
+        global $USER_FIELD_MANAGER;
         Loader::includeModule('catalog');
         Loader::includeModule('sale');
 
-        $result = null;
+        $result = [];
         $basket = Basket::getList([
             'filter' => [
                 'ORDER_ID' => $orderId
@@ -180,25 +194,24 @@ class Oorder extends Main
 
         if ($basket) {
             foreach ($basket as $item) {
-                try {
-                    $product = ProductTable::getList([
-                        'filter' => [
-                            'ID' => intval($item['PRODUCT_ID']),
-                            '!UF_OASIS_ID_PRODUCT' => '',
-                        ],
-                        'select' => ['UF_OASIS_ID_PRODUCT'],
-                    ])->fetch();
-                } catch (SystemException $e) {
-                    echo $e->getMessage() . PHP_EOL;
-                }
+                $product = ProductTable::getList([
+                    'filter' => [
+                        'ID' => intval($item['PRODUCT_ID']),
+                        '!UF_OASIS_PRODUCT_ID' => '',
+                    ],
+                    'select' => ['UF_OASIS_PRODUCT_ID'],
+                ])->fetch();
 
-                if (!empty($product['UF_OASIS_ID_PRODUCT'])) {
-                    $result[$product['UF_OASIS_ID_PRODUCT']] = intval($item['QUANTITY']);
-                } else {
-                    return null;
+                if (!empty($product)) {
+                    $branding = $USER_FIELD_MANAGER->GetUserFieldValue('BASKET_ITEM', 'UF_OASIS_BRANDING', $item['ID']) ?? null;
+                    $result[$product['UF_OASIS_PRODUCT_ID']] = [
+                        'quantity' => intval($item['QUANTITY']),
+                        'branding' => $branding,
+                    ];
                 }
             }
         }
+
         return $result;
     }
 

@@ -20,6 +20,9 @@ class CustomFields
 			elseif ($option[0] === 'remote_stock' || $option[0] === 'europe_stock') {
 				self::HiddenSelect($cf::MODULE_ID, $option);
 			}
+			elseif ($option[0] === 'branding_box') {
+				self::HiddenInputText($option, $cf->branding_box, $cf->is_branding);
+			}
 			else {
 				self::SettingsDrawRow($cf::MODULE_ID, $option);
 			}
@@ -214,7 +217,20 @@ class CustomFields
 		<?
 	}
 
-	public static function HiddenSelect($module_id, $option)
+	private static function HiddenInputText($option, $value, $visible)
+	{
+		$style = $visible ? '' : 'display: none;';
+		?>
+		<tr id="<?= $option[0] ?>" style="<?= $style; ?>">
+			<?
+			self::renderLable($option);
+			renderInput($option, [], $option[0], $value);
+			?>
+		</tr>
+		<?
+	}
+
+	private static function HiddenSelect($module_id, $option)
 	{
 		$multiStocks = Option::get($module_id, 'stocks');
 		$siteValue = Option::get($module_id, $option[0]);

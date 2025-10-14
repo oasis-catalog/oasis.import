@@ -5,6 +5,7 @@ use Bitrix\Main\Localization\Loc;
 use Bitrix\Main\HttpApplication;
 use Bitrix\Main\Loader;
 use Bitrix\Main\Config\Option;
+use Bitrix\Main\EventManager;
 use Bitrix\Main\Page\Asset;
 use Oasis\Import\Main;
 use Oasis\Import\CustomFields;
@@ -106,8 +107,8 @@ $aTabs = [
 $currencies = Main::getCurrenciesOasisArray();
 
 if (!empty($currencies)) {
-	$cronType = Option::get($module_id, 'cron_type');
-	$apiKey = Option::get($module_id, 'api_key');
+	$cronType = OasisConfig::get('cron_type');
+	$apiKey = OasisConfig::get('api_key');
 
 	if ($cronType === 'custom') {
 		$cronPath = str_replace('\\', '/', realpath(dirname(__FILE__))) . '/cron.php --key=' . md5($apiKey);
@@ -159,6 +160,12 @@ if (!empty($currencies)) {
 		[
 			'not_on_order',
 			Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_NOT_ON_ORDER'),
+			'N',
+			['checkbox']
+		],
+		[
+			'not_defect',
+			Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_NOT_DEFECT'),
 			'N',
 			['checkbox']
 		],
@@ -265,6 +272,18 @@ if (!empty($currencies)) {
 			['checkbox']
 		],
 		[
+			'is_branding',
+			[Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_BRANDING'), Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_BRANDING_NOTE')],
+			'N',
+			['checkbox']
+		],
+		[
+			'branding_box',
+			Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_BRANDING_BOX'),
+			'',
+			['text', 50]
+		],
+		[
 			'is_fast_import',
 			[Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_FAST_IMPORT'), Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_FAST_IMPORT_NOTE')],
 			'N',
@@ -341,7 +360,7 @@ if ($request->isPost() && check_bitrix_sessid()) {
 				}
 				elseif ($key == 'categories') {
 					$categories_rel = $request->getPost('categories_rel') ?? [];
-					Option::set($module_id, 'categories_rel', implode(',', $categories_rel));
+					OasisConfig::set('categories_rel', implode(',', $categories_rel));
 
 					$optionValue = implode(',', Main::simplifyOptionCategories($optionValue ?? []));
 				}
@@ -349,12 +368,37 @@ if ($request->isPost() && check_bitrix_sessid()) {
 					$optionValue = is_array($optionValue) ? implode(',', $optionValue) : $optionValue;
 				}
 
-				Option::set($module_id, $key, $optionValue);
+				OasisConfig::set($key, $optionValue);
 			} elseif ($request['default']) {
-				Option::set($module_id, $key, $arOption[2]);
-				Option::set($module_id, 'categories_rel', '');
+				OasisConfig::set($key, $arOption[2]);
+				OasisConfig::set('categories_rel', '');
 			}
 		}
+
+		$eventManager = EventManager::getInstance();
+		if (OasisConfig::get('is_branding') === 'Y') {
+			$eventManager->registerEventHandler('sale', 'OnSaleBasketItemSaved', $module_id, 'Oasis\Import\Cli', 'OnSaleBasketItemSaved');
+			$eventManager->registerEventHandler('sale', 'OnSaleBasketBeforeSaved', $module_id, 'Oasis\Import\Cli', 'OnSaleBasketBeforeSaved');
+		}
+		else {
+			$eventManager->unRegisterEventHandler('sale', 'OnSaleBasketItemSaved', $module_id, 'Oasis\Import\Cli', 'OnSaleBasketItemSaved');
+			$eventManager->unRegisterEventHandler('sale', 'OnSaleBasketBeforeSaved', $module_id, 'Oasis\Import\Cli', 'OnSaleBasketBeforeSaved');
+		}
+
+		if (OasisConfig::get('is_branding') === 'Y' || OasisConfig::get('is_cdn_photo') === 'Y') {
+			$eventManager->registerEventHandler('main', 'OnEpilog', $module_id, 'Oasis\Import\Cli', 'OnEpilog');
+		}
+		else {
+			$eventManager->unRegisterEventHandler('main', 'OnEpilog', $module_id, 'Oasis\Import\Cli', 'OnEpilog');
+		}
+
+		if (OasisConfig::get('is_cdn_photo') === 'Y') {
+			$eventManager->registerEventHandler('main', 'OnGetFileSRC', $module_id, 'Oasis\Import\Cli', 'OnGetFileSRC');
+		}
+		else {
+			$eventManager->unRegisterEventHandler('main', 'OnGetFileSRC', $module_id, 'Oasis\Import\Cli', 'OnGetFileSRC');
+		}
+
 		$cf->progressClear();
 	}
 

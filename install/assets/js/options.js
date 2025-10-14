@@ -15,6 +15,13 @@ jQuery(function ($) {
 		}
 	});
 
+	$('#is_branding').on('change', function() {
+		if (this.checked) {
+			BX.adjust(BX('branding_box'), {style: {display: "table-row"}});
+		} else {
+			BX.adjust(BX('branding_box'), {style: {display: "none"}});
+		}
+	});
 
 	$('#cf_opt_category_rel').on('click', function(){
 		let el_value = $(this).find('input[type="hidden"]'),

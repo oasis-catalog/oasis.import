@@ -35,8 +35,18 @@ class Config {
 
 	public int $limit;
 
-	public array $progress;
+	public string $currency;
+	public bool $is_no_vat;
+	public bool $is_not_on_order;
+	public bool $is_not_defect;
+	public ?float $price_from;
+	public ?float $price_to;
+	public ?int $rating;
+	public bool $is_wh_moscow;
+	public bool $is_wh_europe;
+	public bool $is_wh_remote;
 
+	public array $progress;
 	public float $factor;
 	public float $increase;
 	public bool $dealer;
@@ -45,6 +55,9 @@ class Config {
 	public bool $up_photo;
 	public bool $is_cdn_photo;
 	public bool $is_brands;
+	public bool $is_branding;
+	public string $branding_box;
+	
 	public bool $is_fast_import;
 
 	private bool $is_init = false;
@@ -92,26 +105,26 @@ class Config {
 
 		$opt = Option::getForModule($this::MODULE_ID);
 
-		$this->cron_type =			$opt['cron_type'] ?? '';
-		$this->api_key =			$opt['api_key'] ?? '';
-		$this->api_user_id =		$opt['api_user_id'] ?? '';
+		$this->cron_type      = $opt['cron_type'] ?? '';
+		$this->api_key        = $opt['api_key'] ?? '';
+		$this->api_user_id    = $opt['api_user_id'] ?? '';
 
-		$this->iblock_catalog = 	$opt['iblock_catalog'] ? intval($opt['iblock_catalog']) : null;
-		$this->iblock_offers =		$opt['iblock_offers'] ? intval($opt['iblock_offers']) : null;
+		$this->iblock_catalog = $opt['iblock_catalog'] ? intval($opt['iblock_catalog']) : null;
+		$this->iblock_offers  = $opt['iblock_offers'] ? intval($opt['iblock_offers']) : null;
 
 		$cat = [];
 		if (!empty($opt['categories']) || !$opt['categories'] === 'Y') {
 			$cat = explode(',', $opt['categories']);
 		}
-		$this->categories =			array_map(fn($x) => intval($x), $cat);
+		$this->categories = array_map(fn($x) => intval($x), $cat);
 
 		$cat_rel = [];
 		if (!empty($opt['categories_rel']) || !$opt['categories_rel'] === 'Y') {
 			$cat_rel = explode(',', $opt['categories_rel']);
 		}
 		$this->categories_rel = [];
-		foreach($cat_rel as $rel){
-			$rel = 	explode('_', $rel);
+		foreach ($cat_rel as $rel) {
+			$rel = explode('_', $rel);
 			$cat_id = (int)$rel[0];
 			$rel_id = (int)$rel[1];
 
@@ -121,32 +134,45 @@ class Config {
 			];
 		}
 
-		$this->category_rel = 		(isset($opt['category_rel']) && $opt['category_rel'] !== '') ? intval($opt['category_rel']) : null;
+		$this->category_rel       = (isset($opt['category_rel']) && $opt['category_rel'] !== '') ? intval($opt['category_rel']) : null;
 		$this->category_rel_label = '';
 
-		$this->delete_exclude = 	$opt['delete_exclude'] === 'Y';
+		$this->delete_exclude     = $opt['delete_exclude'] === 'Y';
 		$this->not_up_product_cat = $opt['not_up_product_cat'] === 'Y';
-		$this->import_anytime = 	$opt['import_anytime'] === 'Y';
-		$this->limit =				$opt['limit'] ? intval($opt['limit']) : 0;
+		$this->import_anytime     = $opt['import_anytime'] === 'Y';
+		$this->limit              = $opt['limit'] ? intval($opt['limit']) : 0;
+		$this->currency           = $opt['currency'] ?? 'rub';
+		$this->is_no_vat          = $opt['no_vat'] === 'Y';
+		$this->is_not_on_order    = $opt['not_on_order'] === 'Y';
+		$this->is_not_defect      = $opt['not_defect'] === 'Y';
+		$this->price_from         = $opt['price_from'] ? floatval(str_replace(',', '.', $opt['price_from'])) : null;
+		$this->price_to           = $opt['price_to'] ? floatval(str_replace(',', '.', $opt['price_to'])) : null;
+		$this->rating             = $opt['rating'] ? intval($opt['rating']) : null;
+		$this->is_wh_moscow       = $opt['warehouse_moscow'] === 'Y';
+		$this->is_wh_europe       = $opt['warehouse_europe'] === 'Y';
+		$this->is_wh_remote       = $opt['remote_warehouse'] === 'Y';
 
 		$this->progress = [
-			'item' =>		$opt['progress_item'] ?? 0,			// count updated products
-			'total' =>		$opt['progress_total'] ?? 0,		// count all products
-			'step' =>		$opt['progress_step'] ?? 0,			// step (for limit)
-			'step_item' =>	$opt['progress_step_item'] ?? 0,	// count updated products for step
-			'step_total' =>	$opt['progress_step_total'] ?? 0,	// count step total products
-			'date' =>		$opt['progress_date'] ?? '',		// date end import
-			'date_step' =>	$opt['progress_date_step'] ?? ''	// date end import for step
+			'item'       => $opt['progress_item'] ?? 0,			// count updated products
+			'total'      => $opt['progress_total'] ?? 0,		// count all products
+			'step'       => $opt['progress_step'] ?? 0,			// step (for limit)
+			'step_item'  => $opt['progress_step_item'] ?? 0,	// count updated products for step
+			'step_total' => $opt['progress_step_total'] ?? 0,	// count step total products
+			'date'       => $opt['progress_date'] ?? '',		// date end import
+			'date_step'  => $opt['progress_date_step'] ?? ''	// date end import for step
 		];
 
-		$this->factor =						$opt['factor'] ? floatval(str_replace(',', '.', $opt['factor'])) : 0;
-		$this->increase =					$opt['increase'] ? floatval(str_replace(',', '.', $opt['increase'])) : 0;
-		$this->dealer =						$opt['dealer'] === 'Y';
-		$this->move_first_img_to_detail =	$opt['move_first_img_to_detail'] === 'Y';
-		$this->up_photo	=					$opt['up_photo'] === 'Y';
-		$this->is_cdn_photo =				$opt['is_cdn_photo'] === 'Y';
-		$this->is_brands =					$opt['is_brands'] === 'Y';
-		$this->is_fast_import =				$opt['is_fast_import'] === 'Y';
+		$this->factor                   = $opt['factor'] ? floatval(str_replace(',', '.', $opt['factor'])) : 0;
+		$this->increase                 = $opt['increase'] ? floatval(str_replace(',', '.', $opt['increase'])) : 0;
+		$this->dealer                   = $opt['dealer'] === 'Y';
+		$this->move_first_img_to_detail = $opt['move_first_img_to_detail'] === 'Y';
+		$this->up_photo	                = $opt['up_photo'] === 'Y';
+		$this->is_cdn_photo             = $opt['is_cdn_photo'] === 'Y';
+		$this->is_brands                = $opt['is_brands'] === 'Y';
+		$this->is_branding              = $opt['is_branding'] === 'Y';
+		$this->branding_box             = $opt['branding_box'] ?? '';
+
+		$this->is_fast_import           = $opt['is_fast_import'] === 'Y';
 
 		$this->is_init = true;
 	}
@@ -230,18 +256,18 @@ class Config {
 	}
 
 	public function progressClear() {
-		$this->progress['total'] = 0;
-		$this->progress['step'] = 0;
-		$this->progress['item'] = 0;
-		$this->progress['step_item'] = 0;
+		$this->progress['total']      = 0;
+		$this->progress['step']       = 0;
+		$this->progress['item']       = 0;
+		$this->progress['step_item']  = 0;
 		$this->progress['step_total'] = 0;
-		$this->progress['date'] = '';
-		$this->progress['date_step'] = '';
+		$this->progress['date']       = '';
+		$this->progress['date_step']  = '';
 
 		$this->updateSettingProgress();
 	}
 
-	private function updateSettingProgress () {
+	private function updateSettingProgress() {
 		$p = $this->progress;
 		Option::set(self::MODULE_ID, 'progress_item',		$p['item']);
 		Option::set(self::MODULE_ID, 'progress_total',		$p['total']);
@@ -268,11 +294,11 @@ class Config {
 		}
 
 		return [
-			'p_total' =>	$p_total,
-			'p_step' =>		$p_step,
-			'step' =>		$opt['step'] ?? 0,
-			'steps' =>		($this->limit > 0 && !empty($opt['total'])) ? (ceil($opt['total'] / $this->limit)) : 0,
-			'date' =>		$opt['date_step'] ?? ''
+			'p_total' => $p_total,
+			'p_step'  => $p_step,
+			'step'    => $opt['step'] ?? 0,
+			'steps'   => ($this->limit > 0 && !empty($opt['total'])) ? (ceil($opt['total'] / $this->limit)) : 0,
+			'date'    => $opt['date_step'] ?? ''
 		];
 	}
 
@@ -321,13 +347,6 @@ class Config {
 		}
 	}
 
-	public function deleteLogFile() {
-		$filePath = $this->root_path . '/upload/module-oasis/oasis.log';
-		if (file_exists($filePath)) {
-			unlink($filePath);
-		}
-	}
-
 	public function getRelCategoryId($oasis_cat_id) {
 		if(isset($this->categories_rel[$oasis_cat_id])){
 			return $this->categories_rel[$oasis_cat_id]['id'];
@@ -336,5 +355,13 @@ class Config {
 			return $this->category_rel;
 		}
 		return null;
+	}
+
+	public static function get($key) {
+		return Option::get(self::MODULE_ID, $key);
+	}
+
+	public static function set($key, $val) {
+		return Option::set(self::MODULE_ID, $key, $val);
 	}
 }

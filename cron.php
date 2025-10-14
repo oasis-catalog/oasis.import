@@ -26,7 +26,7 @@ try {
 
 	$params = [
 		'short' => 'k:u',
-		'long'  => ['key:', 'oid:', 'up', 'up_image', 'add_image', 'debug', 'debug_log'],
+		'long'  => ['key:', 'oid:', 'sku:', 'up', 'up_image', 'add_image', 'debug', 'debug_log'],
 	];
 
 	$errors = '';
@@ -60,27 +60,22 @@ Errors: ' . $errors . PHP_EOL);
 		die('Error! Minimum PHP version 7.4, your PHP version ' . PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION);
 	}
 
+	$cron_opt = [
+		'oid' => $cliOptions['oid'] ?? '',
+		'sku' => $cliOptions['sku'] ?? '',
+	];
+
 	if(isset($cliOptions['up']) || isset($cliOptions['u'])){
-		$cron_opt = [
-			'task' => 'up'
-		];
+		$cron_opt['task'] = 'up';
 	}
 	else if(isset($cliOptions['up_image'])){
-		$cron_opt = [
-			'task' => 'up_image',
-			'oid' => $cliOptions['oid'] ?? ''
-		];
+		$cron_opt['task'] = 'up_image';
 	}
 	else if(isset($cliOptions['add_image'])){
-		$cron_opt = [
-			'task' => 'add_image',
-			'oid' => $cliOptions['oid'] ?? ''
-		];
+		$cron_opt['task'] = 'add_image';
 	}
 	else {
-		$cron_opt = [
-			'task' => 'import'
-		];
+		$cron_opt['task'] = 'import';
 	}
 
 	if (CModule::IncludeModule(OASIS_MODULE_ID)) {

@@ -5,7 +5,7 @@ use Bitrix\Main\Engine\Controller;
 use Bitrix\Main\Engine\ActionFilter;
 Use Oasis\Import\Oorder;
 
-class OrderAjax extends Controller
+class Order extends Controller
 {
 
     /**
@@ -37,12 +37,10 @@ class OrderAjax extends Controller
     public static function sendAction($orderId = null)
     {
         $result = false;
-
         if ($orderId)  {
-            Oorder::setOrder(Oorder::getOasisProductIds(intval($orderId)), $orderId);
+            Oorder::setOrder(Oorder::getOasisProducts(intval($orderId)), $orderId);
             $result = true;
         }
-
         return $result;
     }
 }

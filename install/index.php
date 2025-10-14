@@ -19,13 +19,13 @@ class oasis_import extends CModule
 			$arModuleVersion = [];
 			include_once(__DIR__ . '/version.php');
 
-			$this->MODULE_ID = str_replace('_', '.', get_class($this));
-			$this->MODULE_VERSION = $arModuleVersion['VERSION'];
+			$this->MODULE_ID           = str_replace('_', '.', get_class($this));
+			$this->MODULE_VERSION      = $arModuleVersion['VERSION'];
 			$this->MODULE_VERSION_DATE = $arModuleVersion['VERSION_DATE'];
-			$this->MODULE_NAME = Loc::getMessage('OASIS_IMPORT_NAME');
-			$this->MODULE_DESCRIPTION = Loc::getMessage('OASIS_IMPORT_DESCRIPTION');
-			$this->PARTNER_NAME = Loc::getMessage('OASIS_IMPORT_PARTNER_NAME');
-			$this->PARTNER_URI = Loc::getMessage('OASIS_IMPORT_PARTNER_URI');
+			$this->MODULE_NAME         = Loc::getMessage('OASIS_IMPORT_NAME');
+			$this->MODULE_DESCRIPTION  = Loc::getMessage('OASIS_IMPORT_DESCRIPTION');
+			$this->PARTNER_NAME        = Loc::getMessage('OASIS_IMPORT_PARTNER_NAME');
+			$this->PARTNER_URI         = Loc::getMessage('OASIS_IMPORT_PARTNER_URI');
 			$this->MODULE_GROUP_RIGHTS = 'Y';
 		}
 
@@ -97,7 +97,7 @@ class oasis_import extends CModule
 	{
 		global $DB;
 		$this->errors = false;
-		$this->errors = $DB->RunSQLBatch(Application::getDocumentRoot() . '/local/modules/oasis.import/install/db/mysql/install.sql');
+		$this->errors = $DB->RunSQLBatch($_SERVER['DOCUMENT_ROOT'].'/bitrix/modules/oasis.import/install/db/mysql/install.sql');
 		if (!$this->errors) {
 			return true;
 		} else {
@@ -107,44 +107,7 @@ class oasis_import extends CModule
 
 	public function InstallEvents()
 	{
-		EventManager::getInstance()->registerEventHandler(
-			'main',
-			'OnBeforeEndBufferContent',
-			$this->MODULE_ID,
-			'Oasis\Import\Main',
-		);
-
-		EventManager::getInstance()->registerEventHandler(
-			'api',
-			'OnBeforeEndBufferContent',
-			$this->MODULE_ID,
-			'Oasis\Import\Api',
-		);
-
-		EventManager::getInstance()->registerEventHandler(
-			'oorder',
-			'OnBeforeEndBufferContent',
-			$this->MODULE_ID,
-			'Oasis\Import\Oorder',
-		);
-
-		EventManager::getInstance()->registerEventHandler(
-			'main',
-			'OnGetFileSRC',
-			$this->MODULE_ID,
-			'Oasis\Import\Cli',
-			'OnGetFileSRC'
-		);
-
-		EventManager::getInstance()->registerEventHandler(
-			'main',
-			'OnEpilog',
-			$this->MODULE_ID,
-			'Oasis\Import\Cli',
-			'OnEpilog'
-		);
-
-		return false;
+		return true;
 	}
 
 	public function DoUninstall()
@@ -154,6 +117,7 @@ class oasis_import extends CModule
 		$this->UnInstallFiles();
 		$this->UnInstallDB();
 		$this->UnInstallEvents();
+		Option::delete($this->MODULE_ID);
 
 		\CAgent::RemoveModuleAgents('oasis.import');
 
@@ -169,14 +133,8 @@ class oasis_import extends CModule
 
 	public function UnInstallFiles()
 	{
-		Directory::deleteDirectory(
-			Application::getDocumentRoot() . '/bitrix/css/' . $this->MODULE_ID
-		);
-
-		Directory::deleteDirectory(
-			Application::getDocumentRoot() . '/bitrix/js/' . $this->MODULE_ID
-		);
-
+		Directory::deleteDirectory(Application::getDocumentRoot() . '/bitrix/css/' . $this->MODULE_ID);
+		Directory::deleteDirectory(Application::getDocumentRoot() . '/bitrix/js/' . $this->MODULE_ID);
 		return false;
 	}
 
@@ -184,9 +142,7 @@ class oasis_import extends CModule
 	{
 		global $DB;
 		$this->errors = false;
-		$this->errors = $DB->RunSQLBatch(Application::getDocumentRoot() . '/local/modules/oasis.import/install/db/mysql/uninstall.sql');
-		Option::delete($this->MODULE_ID);
-
+		$this->errors = $DB->RunSQLBatch($_SERVER['DOCUMENT_ROOT'].'/bitrix/modules/oasis.import/install/db/mysql/uninstall.sql');
 		if (!$this->errors) {
 			return true;
 		} else {
@@ -196,44 +152,6 @@ class oasis_import extends CModule
 
 	public function UnInstallEvents()
 	{
-		EventManager::getInstance()->unRegisterEventHandler(
-			'main',
-			'OnBeforeEndBufferContent',
-			$this->MODULE_ID,
-			'Oasis\Import\Main',
-		);
-
-		EventManager::getInstance()->unRegisterEventHandler(
-			'api',
-			'OnBeforeEndBufferContent',
-			$this->MODULE_ID,
-			'Oasis\Import\Api',
-		);
-
-		EventManager::getInstance()->unRegisterEventHandler(
-			'oorder',
-			'OnBeforeEndBufferContent',
-			$this->MODULE_ID,
-			'Oasis\Import\Oorder',
-		);
-
-		EventManager::getInstance()->unRegisterEventHandler(
-			'main',
-			'OnGetFileSRC',
-			$this->MODULE_ID,
-			'Oasis\Import\Cli',
-			'OnGetFileSRC'
-		);
-
-		EventManager::getInstance()->unRegisterEventHandler(
-			'main',
-			'OnEpilog',
-			$this->MODULE_ID,
-			'Oasis\Import\Cli',
-			'OnEpilog'
-		);
-
-		return false;
+		return true;
 	}
-
 }

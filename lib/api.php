@@ -13,7 +13,6 @@ class Api
 
 	/**
 	 * Get order data Oasiscatalog
-	 *
 	 * @param $queueId
 	 * @return array
 	 */
@@ -24,13 +23,12 @@ class Api
 
 	/**
 	 * Send order to Oasiscatalog
-	 *
 	 * @param $data
 	 * @return array|mixed
 	 */
 	public static function sendOrder($data): mixed
 	{
-		$apiKey = Option::get(pathinfo(dirname(__DIR__))['basename'], 'api_key');
+		$apiKey = Option::get(OasisConfig::MODULE_ID, 'api_key');
 
 		if (empty($apiKey)) {
 			return [];
@@ -58,18 +56,37 @@ class Api
 	}
 
 	/**
+	 * @param array $data
+	 * @param array $params
+	 * @return array|mixed
+	 */
+	public static function brandingCalc($data, $params) {
+		return self::curlSend('branding/calc', $data, $params);
+	}
+
+	/**
+	 * @param $id
+	 * @param $admin
+	 * @return array|mixed
+	 */
+	public static function getBrandingCoef($id, $admin = false) {
+		return self::curlQuery('branding/coef', [
+			'id' => $id 
+		], 'v4');
+	}
+
+	/**
 	 * Get stock oasis products
 	 *
 	 * @return array
 	 */
-	public static function getOasisStock(): array
+	public static function getStockOasis(): array
 	{
 		return self::curlQuery('stock', ['fields' => 'id,stock,stock-remote,is-europe']);
 	}
 
 	/**
 	 * Get brands
-	 *
 	 * @return array
 	 */
 	public static function getBrands(): array
@@ -79,118 +96,101 @@ class Api
 
 	/**
 	 * Get stat products
-	 *
+	 * @param array $args
 	 * @return array
-	 * @throws ArgumentNullException
-	 * @throws ArgumentOutOfRangeException
 	 */
-	public static function getStatProducts(): array
+	public static function getStatProducts(array $args = []): array
 	{
 		$data = [
-			'not_on_order' => (int)Option::get(OasisConfig::MODULE_ID, 'not_on_order'),
-			'price_from'   => (float)Option::get(OasisConfig::MODULE_ID, 'price_from'),
-			'price_to'     => (float)Option::get(OasisConfig::MODULE_ID, 'price_to'),
-			'rating'       => Option::get(OasisConfig::MODULE_ID, 'rating') ? (int)Option::get(OasisConfig::MODULE_ID, 'rating') : '0,1,2,3,4,5',
-			'moscow'       => (int)Option::get(OasisConfig::MODULE_ID, 'warehouse_moscow'),
-			'europe'       => (int)Option::get(OasisConfig::MODULE_ID, 'warehouse_europe'),
-			'remote'       => (int)Option::get(OasisConfig::MODULE_ID, 'remote_warehouse'),
+			'not_on_order'  => self::$cf->is_not_on_order,
+			'excludeDefect' => self::$cf->is_not_defect,
+			'price_from'    => self::$cf->price_from,
+			'price_to'      => self::$cf->price_to,
+			'rating'        => self::$cf->rating,
+			'moscow'        => self::$cf->is_wh_moscow,
+			'europe'        => self::$cf->is_wh_europe,
+			'remote'        => self::$cf->is_wh_remote,
+			'category'      => implode(',', self::$cf->categories ?: array_keys(Main::getOasisMainCategories())),
 		];
-
-		$categories = Option::get(OasisConfig::MODULE_ID, 'categories');
-
-		if (!$categories) {
-			$categories = implode(',', array_keys(Main::getOasisMainCategories()));
-		}
-
-		$args = [
-			'category' => $categories,
-		];
-
 		foreach ($data as $key => $value) {
 			if ($value) {
 				$args[$key] = $value;
 			}
 		}
-		unset($category, $data, $key, $value);
-
 		return self::curlQuery('stat', $args);
 	}
 
 	/**
 	 * Get oasis products by module settings
-	 *
 	 * @param array $args
 	 * @return array
 	 */
 	public static function getProductsOasis(array $args = []): array
 	{
-		try {
-			$args['fieldset'] = 'full';
-
-			$data = [
-				'currency'         => Option::get(OasisConfig::MODULE_ID, 'currency') ?? 'rub',
-				'no_vat'           => (bool)Option::get(OasisConfig::MODULE_ID, 'no_vat') ?? 0,
-				'not_on_order'     => (bool)Option::get(OasisConfig::MODULE_ID, 'not_on_order'),
-				'price_from'       => (float)Option::get(OasisConfig::MODULE_ID, 'price_from'),
-				'price_to'         => (float)Option::get(OasisConfig::MODULE_ID, 'price_to'),
-				'rating'           => (bool)Option::get(OasisConfig::MODULE_ID, 'rating'),
-				'warehouse_moscow' => (bool)Option::get(OasisConfig::MODULE_ID, 'warehouse_moscow'),
-				'warehouse_europe' => (bool)Option::get(OasisConfig::MODULE_ID, 'warehouse_europe'),
-				'remote_warehouse' => (bool)Option::get(OasisConfig::MODULE_ID, 'remote_warehouse'),
-			];
-
-			$categories = Option::get(OasisConfig::MODULE_ID, 'categories');
-
-			if (!$categories) {
-				$categories = implode(',', array_keys(Main::getOasisMainCategories()));
+		$data = [
+			'fieldset'      => 'full',
+			'not_on_order'  => self::$cf->is_not_on_order,
+			'excludeDefect' => self::$cf->is_not_defect,
+			'currency'      => self::$cf->currency,
+			'no_vat'        => self::$cf->is_no_vat,
+			'not_on_order'  => self::$cf->is_not_on_order,
+			'price_from'    => self::$cf->price_from,
+			'price_to'      => self::$cf->price_to,
+			'rating'        => self::$cf->rating,
+			'moscow'        => self::$cf->is_wh_moscow,
+			'europe'        => self::$cf->is_wh_europe,
+			'remote'        => self::$cf->is_wh_remote,
+		];
+		foreach ($data as $key => $value) {
+			if ($value) {
+				$args[$key] = $value;
 			}
-
-			$args += [
-				'category' => $categories,
-			];
-
-			foreach ($data as $key => $value) {
-				if ($value) {
-					$args[$key] = $value;
-				}
-			}
-			unset($category, $data, $key, $value);
-		} catch (\Exception $e) {
 		}
 
-		return self::curlQuery('products', $args);
+		$products = self::curlQuery('products', $args);
+
+		if (!empty($products) && Main::arrayKeysExists($args, ['limit', 'ids', 'articles'])) {
+			unset($args['limit'], $args['offset'], $args['ids'], $args['articles']);
+
+			$group_ids = [$products[array_key_first($products)]->group_id];
+
+			if (count($products) > 1) {
+				$group_ids[] = $products[array_key_last($products)]->group_id;
+			}
+
+			$args['group_id'] = implode(',', array_unique($group_ids));
+			$addProducts = self::curlQuery('products', $args);
+
+			foreach ($addProducts as $addProduct) {
+				if (!array_find($products, fn($item) => $item->id == $addProduct->id)) {
+					$products[] = $addProduct;
+				}
+			}
+		}
+		return $products;
 	}
 
 	/**
-	 * Get
-	 * @param array $IDS
+	 * @param array $ids
 	 * @return array
 	 */
-	public static function getProductsOasisOnlyFieldCategories(array $IDS = []): array
+	public static function getProductsOasisOnlyFieldCategories(array $ids = []): array
 	{
+		$products = [];
 		$args = [
 			'fields' => 'id,categories',
 			'strict' => true,
 		];
 
-		if (!empty($IDS)) {
-			$args['ids'] = implode(',', $IDS);
+		while (count($ids) > 0) {
+			$args['ids'] = implode(',', array_splice($ids, 0 , 20));
+			$products = array_merge($products, self::curlQuery('products', $args));
 		}
-
-		$products = self::curlQuery('products', $args);
-
-		if (!empty($products)) {
-			foreach ($products as $product) {
-				unset($product->included_branding, $product->full_categories);
-			}
-		}
-
 		return $products;
 	}
 
 	/**
 	 * Get categories oasis
-	 *
 	 * @param string $fields
 	 * @return array
 	 */
@@ -201,7 +201,6 @@ class Api
 
 	/**
 	 * Get currencies oasis
-	 *
 	 * @return array
 	 */
 	public static function getCurrenciesOasis(): array
@@ -210,11 +209,61 @@ class Api
 	}
 
 	/**
+	 * Send data by POST method
+	 * @param string $type
+	 * @param array $data
+	 * @return array|mixed
+	 */
+	public static function curlSend( string $type, array $data, array $params = []) {
+		if (empty(self::$cf->api_key)){
+			return [];
+		}
+
+		$args_pref = [
+			'key'    => self::$cf->api_key,
+			'format' => 'json',
+		];
+
+		try {
+			$ch = curl_init('https://api.oasiscatalog.com/v4/' . $type . '?' . http_build_query($args_pref));
+			curl_setopt_array($ch, [
+				CURLOPT_POST 			=> 1,
+				CURLOPT_POSTFIELDS 		=> http_build_query($data, '', '&'),
+				CURLOPT_RETURNTRANSFER	=> true,
+				CURLOPT_SSL_VERIFYPEER	=> false,
+				CURLOPT_HEADER			=> false,
+				CURLOPT_TIMEOUT			=> $params['timeout'] ?? 0
+			]);
+			$content = curl_exec($ch);
+
+			if ( $content === false ) {
+				throw new Exception( 'Error: ' . curl_error( $ch ) );
+			} else {
+				$result = json_decode( $content );
+			}
+
+			$http_code = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
+			curl_close( $ch );
+
+			if ( $http_code === 401 ) {
+				throw new Exception( 'Error Unauthorized. Invalid API key!' );
+			} elseif ( $http_code != 200 && $http_code != 500 ) {
+				throw new Exception( 'Error: ' . ( $result->error ?? '' ) . PHP_EOL . 'Code: ' . $http_code );
+			}
+		} catch ( Exception $e ) {
+			if (PHP_SAPI === 'cli') {
+				echo $e->getMessage() . PHP_EOL;
+			}
+			return [];
+		}
+
+		return $result;
+	}
+
+	/**
 	 * Get api data
-	 *
 	 * @param $type
 	 * @param array $args
-	 *
 	 * @return array
 	 */
 	public static function curlQuery($type, array $args = [], string $version = 'v4'): array
@@ -234,14 +283,12 @@ class Api
 		$result = json_decode(curl_exec($ch), false);
 		$http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 		curl_close($ch);
-		sleep(1);
 
 		if($http_code === 401){
-			return [];
-		}
-
-		if($http_code !== 200){
-			throw new \Exception('Error API');
+			throw new Exception('Error Unauthorized. Invalid API key!');
+		} elseif ($http_code != 200) {
+			self::$cf->log('Error API: http_code: ' . $http_code);
+			throw new Exception('Error. Code: ' . $http_code);
 		}
 
 		return (array)$result;
