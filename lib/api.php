@@ -162,7 +162,7 @@ class Api
 			$addProducts = self::curlQuery('products', $args);
 
 			foreach ($addProducts as $addProduct) {
-				if (!array_find($products, fn($item) => $item->id == $addProduct->id)) {
+				if (!Main::findItem($products, fn($item) => $item->id == $addProduct->id)) {
 					$products[] = $addProduct;
 				}
 			}

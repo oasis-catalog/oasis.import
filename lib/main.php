@@ -2266,17 +2266,17 @@ class Main
 			'ARTNUMBER' => $product->article,
 		];
 
-		if (!is_null($product->size) && in_array(3070, $product->full_categories)) {
-			$result['SIZES_CLOTHES'] = self::checkPropertyEnum('SIZES_CLOTHES', $product->size, self::$cf->iblock_offers);
+		if (!empty($product->size)) {
+			if (in_array(3070, $product->full_categories)) {
+				$result['SIZES_CLOTHES'] = self::checkPropertyEnum('SIZES_CLOTHES', $product->size, self::$cf->iblock_offers);
+			}
+
+			if (self::searchObject($product->attributes, self::ATTR_FLASH_ID)) {
+				$result['SIZES_FLASH'] = self::checkPropertyEnum('SIZES_FLASH', $product->size, self::$cf->iblock_offers);
+			}
 		}
 
-		$sizeFlash = self::searchObject($product->attributes, self::ATTR_FLASH_ID);
-
-		if ($sizeFlash) {
-			$result['SIZES_FLASH'] = self::checkPropertyEnum('SIZES_FLASH', $product->size, self::$cf->iblock_offers);
-		}
-
-		if (!self::$cf->is_fast_import){
+		if (!self::$cf->is_fast_import) {
 			$result += self::getProductImages($product);
 		}
 
@@ -2299,18 +2299,22 @@ class Main
 	{
 		$properties = [];
 
-		foreach ($product->attributes as $attr) {
+		foreach ($product->attributes ?? [] as $attr) {
 			switch ($attr->id ?? null) {
 				case self::ATTR_COLOR_ID:
 				case self::ATTR_MATERIAL_ID:
 				case self::ATTR_BARCODE_ID:
-				case self::ATTR_FLASH_ID:
 				case self::ATTR_MARKING_ID:
 				case self::ATTR_REMOTE_ID:
 					continue 2;
 
+				case self::ATTR_FLASH_ID:
+					if (!empty($product->size)) {
+						continue 2;
+					}
+
 				case null:
-					if ($attr->name == self::ATTR_SIZE_NAME){
+					if ($attr->name == self::ATTR_SIZE_NAME) {
 						continue 2;
 					}
 
@@ -2409,7 +2413,7 @@ class Main
 			$iblockSectionId = null;
 			$oasisCategory = self::searchObject(self::$oasisCategories, $categoryId);
 
-			if (!is_null($oasisCategory->parent_id)) {
+			if (!empty($oasisCategory->parent_id)) {
 				$parentSectionCategory = self::getSectionByOasisCategoryId($oasisCategory->parent_id);
 
 				if ($parentSectionCategory) {
@@ -2729,19 +2733,32 @@ class Main
 	 * Search object by id
 	 * @param $data
 	 * @param $id
-	 * @return false|mixed|null
+	 * @return mixed|null
 	 */
 	public static function searchObject($data, $id)
 	{
-		$neededObject = array_filter($data, function ($e) use ($id) {
-			return $e->id == $id;
-		});
-
-		if (!$neededObject) {
-			return false;
+		foreach ($data as $item) {
+			if (($item->id ?? null) == $id) {
+				return $item;
+			}
 		}
+		return null;
+	}
 
-		return array_shift($neededObject);
+	/**
+	 * Find item
+	 * @param $array
+	 * @param $callback
+	 * @return mixed|null
+	 */
+	public static function findItem(array $array, callable $callback)
+	{
+		foreach ($array as $key => $value) {
+			if ($callback($value, $key)) {
+				return $value;
+			}
+		}
+		return null;
 	}
 
 	public static function simplifyOptionCategories($values = []): array
@@ -2898,5 +2915,5 @@ class Main
 			}
 		}
 		return false;
-	}	
+	}
 }
