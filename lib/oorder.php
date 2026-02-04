@@ -3,12 +3,11 @@
 namespace Oasis\Import;
 
 use Bitrix\Catalog\ProductTable;
-use Bitrix\Main\Application;
 use Bitrix\Main\Config\Option;
 use Bitrix\Main\Loader;
-use Bitrix\Main\SystemException;
 use Bitrix\Sale\Order;
 use Bitrix\Sale\Basket;
+use Bitrix\Main\UserFieldTable;
 use Bitrix\Main\Localization\Loc;
 use Oasis\Import\Config as OasisConfig;
 
@@ -18,11 +17,8 @@ class Oorder
 {
     /**
      * Preparing data and submitting an order
-     *
      * @param $products
      * @param $orderId
-     * @throws \Bitrix\Main\ArgumentNullException
-     * @throws \Bitrix\Main\ArgumentOutOfRangeException
      */
     public static function setOrder($products, $orderId)
     {
@@ -51,12 +47,7 @@ class Oorder
 
     /**
      * Get html order list
-     *
      * @return string
-     * @throws \Bitrix\Main\ArgumentException
-     * @throws \Bitrix\Main\ArgumentNullException
-     * @throws \Bitrix\Main\ArgumentOutOfRangeException
-     * @throws \Bitrix\Main\LoaderException
      */
     public static function getOrdersHtml(): string
     {
@@ -173,14 +164,14 @@ class Oorder
 
     /**
      * Get oasis product ids by order id
-     *
      * @param int $orderId
      * @return array|null
-     * @throws \Bitrix\Main\ArgumentException
-     * @throws \Bitrix\Main\LoaderException
      */
     public static function getOasisProducts(int $orderId): ?array
     {
+        if (!self::checkActivate()) {
+            return [];
+        }
         global $USER_FIELD_MANAGER;
         Loader::includeModule('catalog');
         Loader::includeModule('sale');
@@ -217,10 +208,7 @@ class Oorder
 
     /**
      * Get orders
-     *
      * @return array
-     * @throws \Bitrix\Main\ArgumentException
-     * @throws \Bitrix\Main\LoaderException
      */
     public static function getOrders(): array
     {
@@ -231,4 +219,38 @@ class Oorder
         ])->fetchAll();
     }
 
+    /**
+     * Check activate
+     * @return bool
+     */
+    private static function checkActivate(): bool
+    {
+        $dataFields = [
+            [
+                'ENTITY_ID'     => 'PRODUCT',
+                'FIELD_NAME'    => 'UF_OASIS_GROUP_ID',
+            ],[
+                'ENTITY_ID'     => 'PRODUCT',
+                'FIELD_NAME'    => 'UF_OASIS_PRODUCT_ID',
+            ],[ 
+                'ENTITY_ID'     => 'PRODUCT',
+                'FIELD_NAME'    => 'UF_OASIS_UPDATE_AT',
+            ]
+        ];
+
+        foreach ($dataFields as $data) {
+            $result = UserFieldTable::getList([
+                'select' => ['ID'],
+                'filter' => [
+                    'FIELD_NAME' => $data['FIELD_NAME'],
+                    'ENTITY_ID'  => $data['ENTITY_ID']
+                ],
+            ])->fetch();
+
+            if (empty($result)) {
+                return false;
+            }
+        }
+        return true;
+    }
 }

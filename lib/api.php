@@ -127,8 +127,21 @@ class Api
 	 */
 	public static function getProductsOasis(array $args = []): array
 	{
+		$fields = 'id,article,group_id'
+					. ',is_deleted,is_stopped'
+					. ',name,full_name,description,defect'
+					. ',total_stock,size,colors,brand,rating'
+					. ',parent_volume_id,color_group_id'
+					. ',price,old_price'
+					. ',attributes,categories,full_categories,images'
+					. ',updated_at,images_updated_at';
+
+		if (self::$cf->is_brands) $fields .= ',brand_id';
+		if (self::$cf->dealer)    $fields .= ',discount_price';
+
 		$data = [
-			'fieldset'      => 'full',
+			'format'		=> 'json',
+			'fields'		=> $fields,
 			'not_on_order'  => self::$cf->is_not_on_order,
 			'excludeDefect' => self::$cf->is_not_defect,
 			'currency'      => self::$cf->currency,

@@ -326,25 +326,29 @@ class Cli
 				}
 			}
 
-			$stat      = Api::getStatProducts();
-			$groups    = [];
-			$totalStep = 0;
+			$groups = [];
+			$progressStep = 0;
 
 			foreach (Api::getProductsOasis($args) as $product) {
 				if (empty($product->is_deleted)) {
 					$groups[$product->group_id][$product->id] = $product;
-					$totalStep++;
+					$progressStep++;
 				} else {
 					Main::checkDeleteProduct($product->id);
 				}
 			}
+			array_walk($groups, fn(&$g) => ksort($g));
 
-			self::$cf->progressStart($stat['products'], $totalStep);
+			if (self::$cf->limit > 0) {
+				self::$cf->progressStart(Api::getStatProducts()['products'], $progressStep);
+			} else {
+				self::$cf->progressStart($progressStep, $progressStep);
+			}
 
 			$totalGroup = count($groups);
 			$itemGroup = 0;
 
-			foreach ($groups as $group_id => $products) {
+			foreach ($groups as $groupId => $products) {
 				if (count($products) === 1) {
 					$product	= reset($products);
 					$dbProducts = Main::checkProducts($product->id);
@@ -354,79 +358,69 @@ class Cli
 					} else {
 						$dbProduct = reset($dbProducts);
 					}
-					$is_need_up = true;
 
 					if ($dbProduct) {
-						$productId	= (int)$dbProduct['ID'];
-						$is_need_up	= Main::getNeedUp($product, $dbProduct);
-						Main::upIblockElementProduct($dbProduct, $product, $is_need_up);
+						$dbProductId = (int)$dbProduct['ID'];
+						Main::upIblockElementProduct($dbProduct, $product);
+						Main::upProductTable($dbProduct, $product);
 					} else {
 						$properties = Main::getPropertiesArray($product);
 						if(!self::$cf->is_fast_import){
 							$properties += Main::getProductImages($product);
 						}
-						$productId = Main::addIblockElementProduct($product, $properties, ProductTable::TYPE_PRODUCT);
-						Main::executeStoreProduct($productId, $product);
+						$dbProductId = Main::addIblockElementProduct($product, $properties, ProductTable::TYPE_PRODUCT);
+						Main::executeStoreProduct($dbProductId, $product);
+						Main::addProductTable($dbProductId, $product, $groupId, ProductTable::TYPE_PRODUCT);
 					}
 
-					if ($is_need_up) {
-						Main::upPropertiesFilter($productId, $product);
-						Main::executeProduct($productId, $product, $group_id, ProductTable::TYPE_PRODUCT);
+					if (Main::getNeedUp($dbProduct, $product)) {
+						Main::upPropertiesFilter($dbProductId, $product);
 					}
-					Main::executePriceProduct($productId, $product);
+					Main::executePriceProduct($dbProductId, $product);
 
-					self::ProcessLog($product->id, empty($dbProducts), $is_need_up);
+					self::ProcessLog($product->id, empty($dbProducts));
 					self::$cf->progressUp();
 				} else {
 					$firstProduct = reset($products);
 					$dbProduct    = Main::checkProduct($firstProduct->id, ProductTable::TYPE_SKU);
-					$is_need_up   = true;
 
 					if ($dbProduct) {
-						$productId = (int)$dbProduct['ID'];
-						$is_need_up = Main::getNeedUp($firstProduct, $dbProduct);
-						Main::upIblockElementProduct($dbProduct, $firstProduct, $is_need_up, ProductTable::TYPE_SKU);
+						$dbProductId = (int)$dbProduct['ID'];
+						Main::upIblockElementProduct($dbProduct, $firstProduct, ProductTable::TYPE_SKU);
+						Main::upProductTable($dbProduct, $firstProduct);
 					} else {
-						Main::checkDeleteGroup($group_id);
+						Main::checkDeleteGroup($groupId);
 						$properties = Main::getPropertiesArray($firstProduct);
 						if(!self::$cf->is_fast_import){
 							$properties += Main::getProductImages($firstProduct);
 						}
-						$productId = Main::addIblockElementProduct($firstProduct, $properties, ProductTable::TYPE_SKU);
+						$dbProductId = Main::addIblockElementProduct($firstProduct, $properties, ProductTable::TYPE_SKU);
+						Main::addProductTable($dbProductId, $firstProduct, $groupId, ProductTable::TYPE_SKU);
 					}
-
-					if ($is_need_up) {
-						Main::executeProduct($productId, $firstProduct, $group_id, ProductTable::TYPE_SKU);
-					}
-					Main::executePriceProduct($productId, $firstProduct);
+					Main::executePriceProduct($dbProductId, $firstProduct);
 
 					foreach ($products as $product) {
 						$dbOffer = Main::checkProduct($product->id, ProductTable::TYPE_OFFER);
-						$is_need_offer_up = true;
-
 						if ($dbOffer) {
-							$productOfferId = (int)$dbOffer['ID'];
-							$is_need_offer_up = Main::getNeedUp($product, $dbOffer);
-							Main::upIblockElementProduct($dbOffer, $product, $is_need_offer_up, ProductTable::TYPE_OFFER);
+							$dbOfferId = (int)$dbOffer['ID'];
+							Main::upIblockElementProduct($dbOffer, $product, ProductTable::TYPE_OFFER);
+							Main::upProductTable($dbOffer, $product);
 						} else {
-							$propertiesOffer = Main::getPropertiesArrayOffer($productId, $product, $products);
-							$productOfferId = Main::addIblockElementProduct($product, $propertiesOffer, ProductTable::TYPE_OFFER);
-							Main::executeMeasureRatioTable($productOfferId);
-							Main::executeStoreProduct($productOfferId, $product);
+							$propertiesOffer = Main::getPropertiesArrayOffer($dbProductId, $product, $products);
+							$dbOfferId = Main::addIblockElementProduct($product, $propertiesOffer, ProductTable::TYPE_OFFER);
+							Main::executeMeasureRatioTable($dbOfferId);
+							Main::executeStoreProduct($dbOfferId, $product);
+							Main::addProductTable($dbOfferId, $product, $groupId, ProductTable::TYPE_OFFER);
 						}
+						Main::executePriceProduct($dbOfferId, $product);
 
-						if ($is_need_offer_up) {
-							Main::executeProduct($productOfferId, $product, $group_id, ProductTable::TYPE_OFFER);
-						}
-						Main::executePriceProduct($productOfferId, $product);
-
-						self::ProcessLog($product->id, empty($dbOffer), $is_need_offer_up, true);
+						self::ProcessLog($product->id, empty($dbOffer), true);
 						self::$cf->progressUp();
 					}
 
-					Main::upPropertiesFilterOffers($productId, $firstProduct, $products);
-					Main::upStatusSku($productId, $dbProduct, $products);
-					self::ProcessLog($firstProduct->id, empty($dbProduct), $is_need_up);
+					Main::upPropertiesFilterOffers($dbProductId, $firstProduct, $products);
+					Main::upStatusSku($dbProductId, $dbProduct, $products);
+					self::ProcessLog($firstProduct->id, empty($dbProduct));
 				}
 				self::ClearTempCDNFile();
 				self::$cf->log('Done ' . ++$itemGroup . ' from ' . $totalGroup);
@@ -440,21 +434,13 @@ class Cli
 		}
 	}
 
-	private static function ProcessLog($id, $is_new, $is_up, $is_offer = false)
+	private static function ProcessLog($id, $isNew, $isOffer = false)
 	{
-		if ($is_offer) {
-			if ($is_new) {
-				self::$cf->log(' add offer id ' . $id);
-			} else {
-				self::$cf->log(($is_up ? ' up offer id ' : ' actual offer id ') . $id);
-			}
+		if ($isOffer) {
+			self::$cf->log(($isNew ? ' add offer id ' : ' up offer id ') . $id);
 		}
 		else {
-			if ($is_new) {
-				self::$cf->log('Add product id ' . $id);
-			} else {
-				self::$cf->log(($is_up ? 'Up product id ' : 'Actual product id ') . $id);
-			}
+			self::$cf->log(($isNew ? 'Add product id ' : 'Up product id ') . $id);
 		}
 	}
 
@@ -531,6 +517,8 @@ class Cli
 		Loader::includeModule('catalog');
 
 		try {
+			self::$cf->log('Начало обновления остатков');
+
 			Main::checkStores();
 			$oasisProducts = [];
 			foreach (Main::getAllOaProducts() as $row) {
@@ -555,6 +543,7 @@ class Cli
 					self::$cf->log('Удаление OAId=' . $product_id . ' BID='. $bx_id);
 				}
 			}
+			self::$cf->log('Окончание обновления остатков');
 		} catch (SystemException $e) {
 			echo $e->getMessage() . PHP_EOL;
 		}
@@ -599,8 +588,7 @@ class Cli
 					}
 
 					if ($dbProduct) {
-						$productId = (int)$dbProduct['ID'];
-						Main::iblockElementProductAddImage($productId, $product, $is_up);
+						Main::iblockElementProductAddImage($dbProduct, $product, $is_up);
 						self::$cf->log('Up product image id ' . $product->id);
 					}
 				} else {
@@ -608,15 +596,13 @@ class Cli
 					$dbProduct    = Main::checkProduct($firstProduct->id, ProductTable::TYPE_SKU);
 
 					if ($dbProduct) {
-						$productId = (int)$dbProduct['ID'];
-						Main::IblockElementProductAddImage($productId, $firstProduct, $is_up);
+						Main::IblockElementProductAddImage($dbProduct, $firstProduct, $is_up);
 						self::$cf->log('Up product image id ' . $firstProduct->id);
 					}
 					foreach ($products as $product) {
 						$dbOffer = Main::checkProduct($product->id, ProductTable::TYPE_OFFER);
 						if ($dbOffer) {
-							$productOfferId = (int)$dbOffer['ID'];
-							Main::IblockElementProductAddImage($productOfferId, $product, $is_up);
+							Main::IblockElementProductAddImage($dbOffer, $product, $is_up);
 							self::$cf->log('Up offer image id ' . $product->id);
 						}
 					}
