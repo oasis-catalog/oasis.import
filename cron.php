@@ -1,7 +1,7 @@
 <?php
 
 use Bitrix\Main\Config\Option;
-use Oasis\Import\Cli;
+use OasisCatalog\Import\Cli;
 
 
 $_SERVER['DOCUMENT_ROOT'] = realpath(dirname(__FILE__) . '/../../..');
@@ -13,15 +13,14 @@ const CHK_EVENT = true;
 
 require($_SERVER['DOCUMENT_ROOT'] . '/bitrix/modules/main/include/prolog_before.php');
 
-if(!defined('OASIS_MODULE_ID')){
-	define('OASIS_MODULE_ID', 'oasis.import');
-}
+$module_id = 'stronglink.oasiscatalog';
+
 
 try {
-	$cronType = Option::get(OASIS_MODULE_ID, 'cron_type');
+	$cronType = Option::get($module_id, 'cron_type');
 
 	if ($cronType !== 'custom') {
-		die('Error: In "' . OASIS_MODULE_ID . '" module settings, Cron parameter is selected as "System (agents)"');
+		die('Error: In "' . $module_id . '" module settings, Cron parameter is selected as "System (agents)"');
 	}
 
 	$params = [
@@ -42,7 +41,7 @@ try {
 		die('
 usage:  php ' . __DIR__ . '/cron.php [-k|--key=secret] [-u|--up]
 Options:
--k  --key      substitute your secret key from the Oasis module
+-k  --key      substitute your secret key from the OasisCatalog module
 -u  --up       specify this key to use the update
 --add_image    add image if empty
 --up_image     update only image
@@ -78,7 +77,7 @@ Errors: ' . $errors . PHP_EOL);
 		$cron_opt['task'] = 'import';
 	}
 
-	if (CModule::IncludeModule(OASIS_MODULE_ID)) {
+	if (CModule::IncludeModule($module_id)) {
 		Cli::RunCron($cron_key, $cron_opt, [
 			'debug' => isset($cliOptions['debug']),
 			'debug_log' => isset($cliOptions['debug_log'])

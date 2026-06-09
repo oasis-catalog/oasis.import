@@ -1,12 +1,12 @@
 <?php
 CModule::AddAutoloadClasses(
-	'oasis.import',
+	'stronglink.oasiscatalog',
 	[
-		'Oasis\\Import\\CustomFields'	=> 'lib/form/custom_fields.php',
-		'Oasis\\Import\\Main'			=> 'lib/main.php',
-		'Oasis\\Import\\Api'			=> 'lib/api.php',
-		'Oasis\\Import\\Oorder'			=> 'lib/oorder.php',
-		'Oasis\\Import\\Cli'			=> 'lib/cli.php',
-		'Oasis\\Import\\Config'			=> 'lib/config.php',
+		'OasisCatalog\\Import\\CustomFields' => 'lib/form/custom_fields.php',
+		'OasisCatalog\\Import\\Main'         => 'lib/main.php',
+		'OasisCatalog\\Import\\Api'          => 'lib/api.php',
+		'OasisCatalog\\Import\\Oorder'       => 'lib/oorder.php',
+		'OasisCatalog\\Import\\Cli'          => 'lib/cli.php',
+		'OasisCatalog\\Import\\Config'       => 'lib/config.php',
 	]
 );

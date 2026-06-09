@@ -1,9 +1,9 @@
 <?php
-namespace Oasis\Import\Controller;
+namespace OasisCatalog\Import\Controller;
 
 use Bitrix\Main\Engine\Controller;
 use Bitrix\Main\Engine\ActionFilter;
-Use Oasis\Import\Oorder;
+Use OasisCatalog\Import\Oorder;
 
 class Order extends Controller
 {

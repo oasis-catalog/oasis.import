@@ -1,11 +1,11 @@
 <?php
-namespace Oasis\Import\Controller;
+namespace OasisCatalog\Import\Controller;
 
 use Bitrix\Catalog\ProductTable;
 use Bitrix\Main\Engine\Controller;
 use Bitrix\Main\Engine\ActionFilter;
 use Bitrix\Main\Loader;
-Use Oasis\Import\Main;
+Use OasisCatalog\Import\Main;
 
 class Branding extends Controller
 {

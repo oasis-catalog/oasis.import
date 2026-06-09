@@ -1,6 +1,6 @@
 <?php
 
-namespace Oasis\Import;
+namespace OasisCatalog\Import;
 
 use Bitrix\Catalog\ProductTable;
 use Bitrix\Currency\CurrencyManager;
@@ -10,7 +10,7 @@ use Bitrix\Main\Loader;
 use Bitrix\Main\LoaderException;
 use Bitrix\Main\SystemException;
 use Bitrix\Sale\BasketItem;
-use Oasis\Import\Config as OasisConfig;
+use OasisCatalog\Import\Config as OasisConfig;
 use CFile;
 use Exception;
 
@@ -162,7 +162,7 @@ class Cli
 		if ($price > 0) {
 			$basketItem = self::getBrandingBasketItem($basket);
 			if (empty($basketItem)) {
-				$basketItem = $basket->createItem('oasis.import', 0);
+				$basketItem = $basket->createItem(OasisConfig::MODULE_ID, 0);
 			}
 			$basketItem->setFields([
 				'NAME'                   => 'Услуги нанесения',
@@ -263,7 +263,7 @@ class Cli
 		}
 		catch (Exception $e) { }
 
-		return "\\Oasis\\Import\\Cli::ImportAgent();";
+		return "\\OasisCatalog\\Import\\Cli::ImportAgent();";
 	}
 
 	public static function UpStockAgent()
@@ -281,7 +281,7 @@ class Cli
 		}
 		catch (Exception $e) { }
 
-		return "\\Oasis\\Import\\Cli::UpStockAgent();";
+		return "\\OasisCatalog\\Import\\Cli::UpStockAgent();";
 	}
 
 	public static function Import($opt = [])
@@ -465,8 +465,8 @@ class Cli
 				]));
 				$arUrl = parse_url($url);
 				$arPath = pathinfo($arUrl['path']);
-				mkdir(self::$cf->root_path.'/upload/module-oasis/http_image_tmp/', BX_DIR_PERMISSIONS, true);
-				$temp_path = self::$cf->root_path.'/upload/module-oasis/http_image_tmp/'.$arPath['basename'];
+				mkdir(self::$cf->root_path . '/upload/' . OasisConfig::MODULE_ID . '/http_image_tmp/', BX_DIR_PERMISSIONS, true);
+				$temp_path = self::$cf->root_path . '/upload/' . OasisConfig::MODULE_ID . '/http_image_tmp/'.$arPath['basename'];
 
 				file_put_contents($temp_path, $image);
 

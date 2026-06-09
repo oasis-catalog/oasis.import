@@ -7,13 +7,13 @@ use Bitrix\Main\Loader;
 use Bitrix\Main\Config\Option;
 use Bitrix\Main\EventManager;
 use Bitrix\Main\Page\Asset;
-use Oasis\Import\Main;
-use Oasis\Import\CustomFields;
-use Oasis\Import\Oorder;
-use Oasis\Import\Config as OasisConfig;
+use OasisCatalog\Import\Main;
+use OasisCatalog\Import\CustomFields;
+use OasisCatalog\Import\Oorder;
+use OasisCatalog\Import\Config as OasisConfig;
 
 
-$module_id = 'oasis.import';
+$module_id = 'stronglink.oasiscatalog';
 
 Loc::loadMessages(__FILE__);
 Loader::includeModule($module_id);
@@ -33,70 +33,70 @@ if ($request->getRequestMethod() == 'GET' && $request['action'] == 'getTreeRelat
 $aTabs = [
 	[
 		'DIV'     => 'edit',
-		'TAB'     => Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_NAME'),
-		'TITLE'   => Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_NAME'),
+		'TAB'     => Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_NAME'),
+		'TITLE'   => Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_NAME'),
 		'OPTIONS' => [
-			Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_AUTH'),
+			Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_AUTH'),
 			[
 				'api_key',
-				Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_API_KEY'),
+				Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_API_KEY'),
 				'',
 				['text', 40]
 			],
 			[
 				'api_user_id',
-				Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_API_USER_ID'),
+				Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_API_USER_ID'),
 				'',
 				['text', 20]
 			],
-			Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_IBLOCK'),
+			Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_IBLOCK'),
 			[
 				'iblock_catalog',
-				Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_IBLOCK_CATALOG'),
+				Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_IBLOCK_CATALOG'),
 				'',
-				['selectbox', ['' => Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_SELECT')] + Main::getActiveIblocksForOptions()]
+				['selectbox', ['' => Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_SELECT')] + Main::getActiveIblocksForOptions()]
 			],
 			[
 				'iblock_offers',
-				Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_IBLOCK_OFFERS'),
+				Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_IBLOCK_OFFERS'),
 				'',
-				['selectbox', ['' => Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_SELECT')] + Main::getActiveIblocksForOptions()]
+				['selectbox', ['' => Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_SELECT')] + Main::getActiveIblocksForOptions()]
 			],
-			Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_OPTIONS_STOCK'),
+			Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_OPTIONS_STOCK'),
 			[
 				'stocks',
-				Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_STOCKS'),
+				Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_STOCKS'),
 				'N',
 				['checkbox']
 			],
 			[
 				'main_stock',
-				Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_MAIN_STOCK'),
+				Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_MAIN_STOCK'),
 				'',
-				['selectbox', ['' => Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_SELECT')] + Main::getActiveStoresForOptions()]
+				['selectbox', ['' => Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_SELECT')] + Main::getActiveStoresForOptions()]
 			],
 			[
 				'remote_stock',
-				Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_REMOTE_STOCK'),
+				Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_REMOTE_STOCK'),
 				'',
-				['selectbox', ['' => Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_SELECT')] + Main::getActiveStoresForOptions()]
+				['selectbox', ['' => Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_SELECT')] + Main::getActiveStoresForOptions()]
 			],
 			[
 				'europe_stock',
-				Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_EUROPE_STOCK'),
+				Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_EUROPE_STOCK'),
 				'',
-				['selectbox', ['' => Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_SELECT')] + Main::getActiveStoresForOptions()]
+				['selectbox', ['' => Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_SELECT')] + Main::getActiveStoresForOptions()]
 			],
-			Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CRON_TITLE'),
+			Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_CRON_TITLE'),
 			[
 				'cron_type',
-				Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CRON_TYPE'),
+				Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_CRON_TYPE'),
 				'',
 				[
 					'selectbox',
 					[
-						'custom' => Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CRON_CUSTOM'),
-						'bitrix' => Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CRON_BITRIX'),
+						'custom' => Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_CRON_CUSTOM'),
+						'bitrix' => Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_CRON_BITRIX'),
 					]
 				]
 			],
@@ -118,174 +118,174 @@ if (!empty($currencies)) {
 
 	$aTabs[0]['OPTIONS'] = array_merge($aTabs[0]['OPTIONS'], [
 		[
-			'note' => $cronType === 'custom' ? sprintf(Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CRON_DESC_CUSTOM'), $cronPath, $cronPath) : sprintf(Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CRON_DESC'), $cronPath),
+			'note' => $cronType === 'custom' ? sprintf(Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_CRON_DESC_CUSTOM'), $cronPath, $cronPath) : sprintf(Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_CRON_DESC'), $cronPath),
 		],
-		Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_OPTIONS_IMPORT'),
+		Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_OPTIONS_IMPORT'),
 		[
 			'categories',
-			[Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CATEGORIES'), Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CATEGORIES_DESC')],
+			[Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_CATEGORIES'), Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_CATEGORIES_DESC')],
 			'',
 			['tree']
 		],
 		[
 			'category_rel',
-			[Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CATEGORY_REL'), Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CATEGORY_REL_DESC')],
+			[Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_CATEGORY_REL'), Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_CATEGORY_REL_DESC')],
 			'',
 			['category_rel']
 		],
 		[
 			'delete_exclude',
-			Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_DELETE_EXCLUDE'),
+			Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_DELETE_EXCLUDE'),
 			'N',
 			['checkbox']
 		],
 		[
 			'not_up_product_cat',
-			Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_NOT_UP_PRODUCT_CAT'),
+			Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_NOT_UP_PRODUCT_CAT'),
 			'N',
 			['checkbox']
 		],
 		[
 			'currency',
-			Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CURRENCY'),
+			Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_CURRENCY'),
 			'rub',
 			['selectbox', $currencies]
 		],
 		[
 			'no_vat',
-			Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_NO_VAT'),
+			Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_NO_VAT'),
 			'N',
 			['checkbox']
 		],
 		[
 			'not_on_order',
-			Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_NOT_ON_ORDER'),
+			Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_NOT_ON_ORDER'),
 			'N',
 			['checkbox']
 		],
 		[
 			'not_defect',
-			Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_NOT_DEFECT'),
+			Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_NOT_DEFECT'),
 			'N',
 			['checkbox']
 		],
 		[
 			'price_from',
-			Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_PRICE_FROM'),
+			Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_PRICE_FROM'),
 			'',
 			['text', 10]
 		],
 		[
 			'price_to',
-			Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_PRICE_TO'),
+			Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_PRICE_TO'),
 			'',
 			['text', 10]
 		],
 		[
 			'rating',
-			Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_RATING'),
+			Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_RATING'),
 			'',
 			['selectbox', [
-				''  => Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_SELECT'),
-				'1' => Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_RATING_NEW'),
-				'2' => Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_RATING_HITS'),
-				'3' => Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_RATING_DISCOUNT'),
+				''  => Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_SELECT'),
+				'1' => Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_RATING_NEW'),
+				'2' => Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_RATING_HITS'),
+				'3' => Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_RATING_DISCOUNT'),
 			]]
 		],
 		[
 			'warehouse_moscow',
-			Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_WAREHOUSE_MOSCOW'),
+			Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_WAREHOUSE_MOSCOW'),
 			'N',
 			['checkbox']
 		],
 		[
 			'warehouse_europe',
-			Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_WAREHOUSE_EUROPE'),
+			Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_WAREHOUSE_EUROPE'),
 			'N',
 			['checkbox']
 		],
 		[
 			'remote_warehouse',
-			Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_REMOTE_WAREHOUSE'),
+			Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_REMOTE_WAREHOUSE'),
 			'N',
 			['checkbox']
 		],
-		Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_LIMIT'),
+		Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_LIMIT'),
 		[
-			'note' => Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_LIMIT_NOTE'),
+			'note' => Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_LIMIT_NOTE'),
 		],
 		[
 			'limit',
-			Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_LIMIT_PRODUCT'),
+			Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_LIMIT_PRODUCT'),
 			'',
 			['text', 10]
 		],
 		[
 			'import_anytime',
-			[Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_IMPORT_ANYTIME'), Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_IMPORT_ANYTIME_NOTE')],
+			[Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_IMPORT_ANYTIME'), Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_IMPORT_ANYTIME_NOTE')],
 			'N',
 			['checkbox']
 		],
-		Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CALC'),
+		Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_CALC'),
 		[
 			'factor',
-			Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_FACTOR'),
+			Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_FACTOR'),
 			'',
 			['text', 10]
 		],
 		[
 			'increase',
-			Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_INCREASE'),
+			Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_INCREASE'),
 			'',
 			['text', 10]
 		],
 		[
 			'dealer',
-			Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_DEALER'),
+			Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_DEALER'),
 			'N',
 			['checkbox']
 		],
-		Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_PHOTO'),
+		Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_PHOTO'),
 		[
 			'move_first_img_to_detail',
-			Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_MOVE_FIRST_IMG_TO_DETAIL'),
+			Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_MOVE_FIRST_IMG_TO_DETAIL'),
 			'N',
 			['checkbox']
 		],
 		[
 			'up_photo',
-			Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_UP_PHOTO'),
+			Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_UP_PHOTO'),
 			'N',
 			['checkbox']
 		],
 		[
 			'is_cdn_photo',
-			[Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CDN_PHOTO'), Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_CDN_PHOTO_NOTE')],
+			[Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_CDN_PHOTO'), Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_CDN_PHOTO_NOTE')],
 			'N',
 			['checkbox']
 		],
-		Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_EXTRA'),
+		Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_EXTRA'),
 		[
 			'is_brands',
-			Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_BRANDS'),
+			Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_BRANDS'),
 			'N',
 			['checkbox']
 		],
 		[
 			'is_branding',
-			[Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_BRANDING'), Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_BRANDING_NOTE')],
+			[Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_BRANDING'), Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_BRANDING_NOTE')],
 			'N',
 			['checkbox']
 		],
 		[
 			'branding_box',
-			Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_BRANDING_BOX'),
+			Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_BRANDING_BOX'),
 			'',
 			['text', 50]
 		],
 		[
 			'is_fast_import',
-			[Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_FAST_IMPORT'), Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_FAST_IMPORT_NOTE')],
+			[Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_FAST_IMPORT'), Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_FAST_IMPORT_NOTE')],
 			'N',
 			['checkbox']
 		],
@@ -293,12 +293,12 @@ if (!empty($currencies)) {
 
 	$aTabs[] = [
 		'DIV'   => 'orders',
-		'TAB'   => Loc::getMessage('OASIS_IMPORT_ORDERS_TAB_NAME'),
-		'TITLE' => Loc::getMessage('OASIS_IMPORT_ORDERS_TAB_AUTH'),
+		'TAB'   => Loc::getMessage('OASIS_CATALOG_ORDERS_TAB_NAME'),
+		'TITLE' => Loc::getMessage('OASIS_CATALOG_ORDERS_TAB_AUTH'),
 	];
 } else {
 	array_unshift($aTabs[0]['OPTIONS'], [
-		'note' => Loc::getMessage('OASIS_IMPORT_OPTIONS_ERROR_API_KEY'),
+		'note' => Loc::getMessage('OASIS_CATALOG_OPTIONS_ERROR_API_KEY'),
 	]);
 }
 
@@ -333,7 +333,7 @@ if ($request->isPost() && check_bitrix_sessid()) {
 				} elseif ($arOption[0] === 'cron_type') {
 					$optionValue = $request->getPost($arOption[0]);
 					$arFields = $optionValue === 'custom' ? ['ACTIVE' => 'N'] : ['ACTIVE' => 'Y'];
-					$agents = \CAgent::GetList([], ['MODULE_ID' => 'oasis.import']);
+					$agents = \CAgent::GetList([], ['MODULE_ID' => $module_id]);
 
 					while ($agent = $agents->Fetch()) {
 						\CAgent::Update($agent['ID'], $arFields);
@@ -377,26 +377,26 @@ if ($request->isPost() && check_bitrix_sessid()) {
 
 		$eventManager = EventManager::getInstance();
 		if (OasisConfig::get('is_branding') === 'Y') {
-			$eventManager->registerEventHandler('sale', 'OnSaleBasketItemSaved', $module_id, 'Oasis\Import\Cli', 'OnSaleBasketItemSaved');
-			$eventManager->registerEventHandler('sale', 'OnSaleBasketBeforeSaved', $module_id, 'Oasis\Import\Cli', 'OnSaleBasketBeforeSaved');
+			$eventManager->registerEventHandler('sale', 'OnSaleBasketItemSaved', $module_id, 'OasisCatalog\Import\Cli', 'OnSaleBasketItemSaved');
+			$eventManager->registerEventHandler('sale', 'OnSaleBasketBeforeSaved', $module_id, 'OasisCatalog\Import\Cli', 'OnSaleBasketBeforeSaved');
 		}
 		else {
-			$eventManager->unRegisterEventHandler('sale', 'OnSaleBasketItemSaved', $module_id, 'Oasis\Import\Cli', 'OnSaleBasketItemSaved');
-			$eventManager->unRegisterEventHandler('sale', 'OnSaleBasketBeforeSaved', $module_id, 'Oasis\Import\Cli', 'OnSaleBasketBeforeSaved');
+			$eventManager->unRegisterEventHandler('sale', 'OnSaleBasketItemSaved', $module_id, 'OasisCatalog\Import\Cli', 'OnSaleBasketItemSaved');
+			$eventManager->unRegisterEventHandler('sale', 'OnSaleBasketBeforeSaved', $module_id, 'OasisCatalog\Import\Cli', 'OnSaleBasketBeforeSaved');
 		}
 
 		if (OasisConfig::get('is_branding') === 'Y' || OasisConfig::get('is_cdn_photo') === 'Y') {
-			$eventManager->registerEventHandler('main', 'OnEpilog', $module_id, 'Oasis\Import\Cli', 'OnEpilog');
+			$eventManager->registerEventHandler('main', 'OnEpilog', $module_id, 'OasisCatalog\Import\Cli', 'OnEpilog');
 		}
 		else {
-			$eventManager->unRegisterEventHandler('main', 'OnEpilog', $module_id, 'Oasis\Import\Cli', 'OnEpilog');
+			$eventManager->unRegisterEventHandler('main', 'OnEpilog', $module_id, 'OasisCatalog\Import\Cli', 'OnEpilog');
 		}
 
 		if (OasisConfig::get('is_cdn_photo') === 'Y') {
-			$eventManager->registerEventHandler('main', 'OnGetFileSRC', $module_id, 'Oasis\Import\Cli', 'OnGetFileSRC');
+			$eventManager->registerEventHandler('main', 'OnGetFileSRC', $module_id, 'OasisCatalog\Import\Cli', 'OnGetFileSRC');
 		}
 		else {
-			$eventManager->unRegisterEventHandler('main', 'OnGetFileSRC', $module_id, 'Oasis\Import\Cli', 'OnGetFileSRC');
+			$eventManager->unRegisterEventHandler('main', 'OnGetFileSRC', $module_id, 'OasisCatalog\Import\Cli', 'OnGetFileSRC');
 		}
 
 		$cf->progressClear();
@@ -419,12 +419,12 @@ if ((!empty($values['errorIblock']) && $values['errorIblock'] == 1) || (!empty($
 	\Bitrix\Main\UI\Extension::load('ui.alerts');
 	\Bitrix\Main\UI\Extension::load('ui.dialogs.messagebox');
 
-	$title = Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_IBLOCK_ERROR_TITLE');
+	$title = Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_IBLOCK_ERROR_TITLE');
 
 	if (!empty($values['errorIblock'])) {
-		$desc = Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_IBLOCK_ERROR_DESC');
+		$desc = Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_IBLOCK_ERROR_DESC');
 	} else {
-		$desc = Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_STOCKS_ERROR_DESC');
+		$desc = Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_STOCKS_ERROR_DESC');
 	}
 	?>
 	<script type="application/javascript">
@@ -458,7 +458,7 @@ if ((!empty($values['errorIblock']) && $values['errorIblock'] == 1) || (!empty($
 						<div class="progress-notice">
 							<div class="progress-row">
 								<div class="progress-label">
-									<h3><?php echo Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_PROGRESS_TOTAL'); ?></h3>
+									<h3><?php echo Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_PROGRESS_TOTAL'); ?></h3>
 								</div>
 								<div class="progress-container">
 									<div class="ui-progressbar">
@@ -472,7 +472,7 @@ if ((!empty($values['errorIblock']) && $values['errorIblock'] == 1) || (!empty($
 							<?php if (!empty($cf->limit)) { ?>
 								<div class="progress-row">
 									<div class="progress-label">
-										<h3><?php echo sprintf(Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_PROGRESS_STEP'), ($optBar['step'] + 1), $optBar['steps']); ?></h3>
+										<h3><?php echo sprintf(Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_PROGRESS_STEP'), ($optBar['step'] + 1), $optBar['steps']); ?></h3>
 									</div>
 									<div class="progress-container">
 										<div class="ui-progressbar">
@@ -484,7 +484,7 @@ if ((!empty($values['errorIblock']) && $values['errorIblock'] == 1) || (!empty($
 									</div>
 								</div>
 							<?php } ?>
-							<p><?php echo Loc::getMessage('OASIS_IMPORT_OPTIONS_TAB_PROGRESS_DATE'); ?><?php echo $optBar['date'] ?? ''; ?></p>
+							<p><?php echo Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_PROGRESS_DATE'); ?><?php echo $optBar['date'] ?? ''; ?></p>
 						</div>
 						<?php
 					}
@@ -499,8 +499,8 @@ if ((!empty($values['errorIblock']) && $values['errorIblock'] == 1) || (!empty($
 		$tabControl->Buttons();
 		?>
 
-		<input type="submit" name="apply" value="<? echo(Loc::GetMessage('OASIS_IMPORT_OPTIONS_INPUT_APPLY')); ?>" class="adm-btn-save"/>
-		<input type="submit" name="default" value="<? echo(Loc::GetMessage('OASIS_IMPORT_OPTIONS_INPUT_DEFAULT')); ?>"/>
+		<input type="submit" name="apply" value="<? echo(Loc::GetMessage('OASIS_CATALOG_OPTIONS_INPUT_APPLY')); ?>" class="adm-btn-save"/>
+		<input type="submit" name="default" value="<? echo(Loc::GetMessage('OASIS_CATALOG_OPTIONS_INPUT_DEFAULT')); ?>"/>
 
 		<?php
 		echo(bitrix_sessid_post());

@@ -10,26 +10,22 @@ use Bitrix\Main\Type\DateTime;
 
 Loc::loadMessages(__FILE__);
 
-class oasis_import extends CModule
+class stronglink_oasiscatalog extends CModule
 {
+	public $MODULE_ID = 'stronglink.oasiscatalog';
+
 	public function __construct()
 	{
-		if (file_exists(__DIR__ . '/version.php')) {
+		$arModuleVersion = [];
+		include(__DIR__.'/version.php');
 
-			$arModuleVersion = [];
-			include_once(__DIR__ . '/version.php');
-
-			$this->MODULE_ID           = str_replace('_', '.', get_class($this));
-			$this->MODULE_VERSION      = $arModuleVersion['VERSION'];
-			$this->MODULE_VERSION_DATE = $arModuleVersion['VERSION_DATE'];
-			$this->MODULE_NAME         = Loc::getMessage('OASIS_IMPORT_NAME');
-			$this->MODULE_DESCRIPTION  = Loc::getMessage('OASIS_IMPORT_DESCRIPTION');
-			$this->PARTNER_NAME        = Loc::getMessage('OASIS_IMPORT_PARTNER_NAME');
-			$this->PARTNER_URI         = Loc::getMessage('OASIS_IMPORT_PARTNER_URI');
-			$this->MODULE_GROUP_RIGHTS = 'Y';
-		}
-
-		return false;
+		$this->MODULE_VERSION      = $arModuleVersion['VERSION'];
+		$this->MODULE_VERSION_DATE = $arModuleVersion['VERSION_DATE'];
+		$this->MODULE_NAME         = Loc::getMessage('OASIS_CATALOG_NAME');
+		$this->MODULE_DESCRIPTION  = Loc::getMessage('OASIS_CATALOG_DESCRIPTION');
+		$this->PARTNER_NAME        = Loc::getMessage('OASIS_CATALOG_PARTNER_NAME');
+		$this->PARTNER_URI         = Loc::getMessage('OASIS_CATALOG_PARTNER_URI');
+		$this->MODULE_GROUP_RIGHTS = 'Y';
 	}
 
 	public function DoInstall()
@@ -51,16 +47,16 @@ class oasis_import extends CModule
 			Option::set('main', 'agents_use_crontab', 'N');
 			Option::set('main', 'check_agents', 'N');
 			Option::set($this->MODULE_ID, 'step', 0);
-			\CAgent::AddAgent('\\Oasis\\Import\\Cli::ImportAgent();', 'oasis.import', 'N', 24 * 60 * 60, '', 'Y', $dateImport);
-			\CAgent::AddAgent('\\Oasis\\Import\\Cli::UpStockAgent();', 'oasis.import', 'N', 30 * 60, '', 'Y', $dateUpStock);
+			\CAgent::AddAgent('\\OasisCatalog\\Import\\Cli::ImportAgent();', $this->MODULE_ID, 'N', 24 * 60 * 60, '', 'Y', $dateImport);
+			\CAgent::AddAgent('\\OasisCatalog\\Import\\Cli::UpStockAgent();', $this->MODULE_ID, 'N', 30 * 60, '', 'Y', $dateUpStock);
 		} else {
 			$APPLICATION->ThrowException(
-				Loc::getMessage('OASIS_IMPORT_INSTALL_ERROR_VERSION')
+				Loc::getMessage('OASIS_CATALOG_INSTALL_ERROR_VERSION')
 			);
 		}
 
 		$APPLICATION->IncludeAdminFile(
-			Loc::getMessage('OASIS_IMPORT_INSTALL_TITLE') . ' "' . Loc::getMessage('OASIS_IMPORT_NAME') . '"',
+			Loc::getMessage('OASIS_CATALOG_INSTALL_TITLE') . ' "' . Loc::getMessage('OASIS_CATALOG_NAME') . '"',
 			__DIR__ . '/step.php'
 		);
 
@@ -69,13 +65,6 @@ class oasis_import extends CModule
 
 	public function InstallFiles()
 	{
-		CopyDirFiles(
-			__DIR__ . '/assets/php',
-			Application::getDocumentRoot() . '/bitrix/php_interface/',
-			false,
-			true
-		);
-
 		CopyDirFiles(
 			__DIR__ . '/assets/css',
 			Application::getDocumentRoot() . '/bitrix/css/' . $this->MODULE_ID . '/',
@@ -97,7 +86,7 @@ class oasis_import extends CModule
 	{
 		global $DB;
 		$this->errors = false;
-		$this->errors = $DB->RunSQLBatch($_SERVER['DOCUMENT_ROOT'].'/bitrix/modules/oasis.import/install/db/mysql/install.sql');
+		$this->errors = $DB->RunSQLBatch($_SERVER['DOCUMENT_ROOT'] . '/bitrix/modules/' . $this->MODULE_ID . '/install/db/mysql/install.sql');
 		if (!$this->errors) {
 			return true;
 		} else {
@@ -119,12 +108,12 @@ class oasis_import extends CModule
 		$this->UnInstallEvents();
 		Option::delete($this->MODULE_ID);
 
-		\CAgent::RemoveModuleAgents('oasis.import');
+		\CAgent::RemoveModuleAgents($this->MODULE_ID);
 
 		ModuleManager::unRegisterModule($this->MODULE_ID);
 
 		$APPLICATION->IncludeAdminFile(
-			Loc::getMessage('OASIS_IMPORT_UNINSTALL_TITLE') . ' "' . Loc::getMessage('OASIS_IMPORT_NAME') . '"',
+			Loc::getMessage('OASIS_CATALOG_UNINSTALL_TITLE') . ' "' . Loc::getMessage('OASIS_CATALOG_NAME') . '"',
 			__DIR__ . '/unstep.php'
 		);
 
@@ -142,7 +131,7 @@ class oasis_import extends CModule
 	{
 		global $DB;
 		$this->errors = false;
-		$this->errors = $DB->RunSQLBatch($_SERVER['DOCUMENT_ROOT'].'/bitrix/modules/oasis.import/install/db/mysql/uninstall.sql');
+		$this->errors = $DB->RunSQLBatch($_SERVER['DOCUMENT_ROOT'] . '/bitrix/modules/' . $this->MODULE_ID . '/install/db/mysql/uninstall.sql');
 		if (!$this->errors) {
 			return true;
 		} else {

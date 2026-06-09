@@ -1,6 +1,6 @@
 <?php
 
-namespace Oasis\Import;
+namespace OasisCatalog\Import;
 
 use Bitrix\Catalog\ProductTable;
 use Bitrix\Main\Config\Option;
@@ -9,7 +9,7 @@ use Bitrix\Sale\Order;
 use Bitrix\Sale\Basket;
 use Bitrix\Main\UserFieldTable;
 use Bitrix\Main\Localization\Loc;
-use Oasis\Import\Config as OasisConfig;
+use OasisCatalog\Import\Config as OasisConfig;
 
 Loc::loadMessages(__FILE__);
 
@@ -89,11 +89,11 @@ class Oorder
 </style>
 <div class="table_order">
     <div class="table_order_row table_order_header">
-        <div class="table_order_col">' . Loc::getMessage('OASIS_IMPORT_ORDERS_ID') . '</div>
-        <div class="table_order_col">' . Loc::getMessage('OASIS_IMPORT_ORDERS_DATE_INSERT') . '</div>
-        <div class="table_order_col">' . Loc::getMessage('OASIS_IMPORT_ORDERS_PRICE') . '</div>
-        <div class="table_order_col">' . Loc::getMessage('OASIS_IMPORT_ORDERS_BRANDING') . '</div>
-        <div class="table_order_col">' . Loc::getMessage('OASIS_IMPORT_ORDERS_UPLOAD') . '</div>
+        <div class="table_order_col">' . Loc::getMessage('OASIS_CATALOG_ORDERS_ID') . '</div>
+        <div class="table_order_col">' . Loc::getMessage('OASIS_CATALOG_ORDERS_DATE_INSERT') . '</div>
+        <div class="table_order_col">' . Loc::getMessage('OASIS_CATALOG_ORDERS_PRICE') . '</div>
+        <div class="table_order_col">' . Loc::getMessage('OASIS_CATALOG_ORDERS_BRANDING') . '</div>
+        <div class="table_order_col">' . Loc::getMessage('OASIS_CATALOG_ORDERS_UPLOAD') . '</div>
     </div>';
 
         if ($orders) {
@@ -107,20 +107,20 @@ class Oorder
                         $dataOrderOasis = Api::getOrder($existOrder['ID_QUEUE']);
 
                         if (isset($dataOrderOasis['state'])) {
-                            $sendStr = Loc::getMessage('OASIS_IMPORT_ORDERS_SENT');
+                            $sendStr = Loc::getMessage('OASIS_CATALOG_ORDERS_SENT');
 
                             if ($dataOrderOasis['state'] == 'created') {
-                                $sendStr .= $dataOrderOasis['order']->statusText . Loc::getMessage('OASIS_IMPORT_ORDERS_ORDER_NUMBER') . $dataOrderOasis['order']->number;
+                                $sendStr .= $dataOrderOasis['order']->statusText . Loc::getMessage('OASIS_CATALOG_ORDERS_ORDER_NUMBER') . $dataOrderOasis['order']->number;
                             } elseif ($dataOrderOasis['state'] == 'pending') {
-                                $sendStr .= Loc::getMessage('OASIS_IMPORT_ORDERS_ORDER_PENDING');
+                                $sendStr .= Loc::getMessage('OASIS_CATALOG_ORDERS_ORDER_PENDING');
                             } elseif ($dataOrderOasis['state'] == 'error') {
-                                $sendStr .= Loc::getMessage('OASIS_IMPORT_ORDERS_ORDER_ERROR');
+                                $sendStr .= Loc::getMessage('OASIS_CATALOG_ORDERS_ORDER_ERROR');
                             }
                         } else {
-                            $sendStr = Loc::getMessage('OASIS_IMPORT_ORDERS_CONNECTION_ERROR');
+                            $sendStr = Loc::getMessage('OASIS_CATALOG_ORDERS_CONNECTION_ERROR');
                         }
                     } else {
-                        $sendStr = '<input type="submit" class="adm-btn" name="send_order" onclick="sendHere(' . $order['ID'] . ');" value="' . Loc::getMessage('OASIS_IMPORT_ORDERS_SEND') . '" style="height: 20px;">';
+                        $sendStr = '<input type="submit" class="adm-btn" name="send_order" onclick="sendHere(' . $order['ID'] . ');" value="' . Loc::getMessage('OASIS_CATALOG_ORDERS_SEND') . '" style="height: 20px;">';
                     }
 
                     foreach ($products as $product) {
@@ -129,7 +129,7 @@ class Oorder
                         }
                     }
                 } else {
-                    $sendStr = Loc::getMessage('OASIS_IMPORT_ORDERS_NOT_PRODUCT');
+                    $sendStr = Loc::getMessage('OASIS_CATALOG_ORDERS_NOT_PRODUCT');
                 }
 
                 $html .= '

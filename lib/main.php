@@ -1,6 +1,6 @@
 <?php
 
-namespace Oasis\Import;
+namespace OasisCatalog\Import;
 
 use Bitrix\Catalog\GroupTable;
 use Bitrix\Catalog\MeasureRatioTable;
@@ -44,7 +44,8 @@ use CIBlockSection;
 use CUserTypeEntity;
 use Exception;
 use JetBrains\PhpStorm\NoReturn;
-use Oasis\Import\Config as OasisConfig;
+use OasisCatalog\Import\Config as OasisConfig;
+
 
 
 class Main
@@ -62,7 +63,28 @@ class Main
 	public static array $catSelected;
 
 	private static array $oasisCategories;
-	private static $catalog_group_id;
+
+	private const OASIS_COLOR = [
+		1480 => ['XML_ID' => 'azure',      'FILE_NAME' => 'azure.jpg'],
+		1483 => ['XML_ID' => 'beige',      'FILE_NAME' => 'beige.jpg'],
+		1471 => ['XML_ID' => 'black',      'FILE_NAME' => 'black.jpg'],
+		1472 => ['XML_ID' => 'blue',       'FILE_NAME' => 'blue.jpg'],
+		1482 => ['XML_ID' => 'brown',      'FILE_NAME' => 'brown.jpg'],
+		1478 => ['XML_ID' => 'burgundy',   'FILE_NAME' => 'burgundy.jpg'],
+		1488 => ['XML_ID' => 'darkblue',   'FILE_NAME' => 'darkblue.jpg'],
+		1484 => ['XML_ID' => 'golden',     'FILE_NAME' => 'golden.jpg'],
+		1474 => ['XML_ID' => 'green',      'FILE_NAME' => 'green.jpg'],
+		1475 => ['XML_ID' => 'greenapple', 'FILE_NAME' => 'greenapple.jpg'],
+		1481 => ['XML_ID' => 'grey', '      FILE_NAME' => 'grey.jpg'],
+		1486 => ['XML_ID' => 'multicolor', 'FILE_NAME' => 'multicolor.jpg'],
+		1476 => ['XML_ID' => 'orange',     'FILE_NAME' => 'orange.jpg'],
+		1487 => ['XML_ID' => 'pink',       'FILE_NAME' => 'pink.jpg'],
+		1479 => ['XML_ID' => 'purple',     'FILE_NAME' => 'purple.jpg'],
+		1473 => ['XML_ID' => 'red',        'FILE_NAME' => 'red.jpg'],
+		1485 => ['XML_ID' => 'silver',     'FILE_NAME' => 'silver.jpg'],
+		1470 => ['XML_ID' => 'white',      'FILE_NAME' => 'white.jpg'],
+		1477 => ['XML_ID' => 'yellow',     'FILE_NAME' => 'yellow.png', 'FILE_TYPE' => 'image/png']
+	];
 
 	/**
 	 * Load and prepare brands
@@ -91,28 +113,25 @@ class Main
 	public static function getOasisOrder(int $orderId)
 	{
 		$result = false;
-
 		try {
-			$result = Application::getConnection()->query("SELECT * FROM b_oasis_import_orders  WHERE `ID_ORDER` = " . $orderId)->fetch();
+			$result = Application::getConnection()->query("SELECT * FROM b_oasis_catalog_orders  WHERE `ID_ORDER` = " . $orderId)->fetch();
 		} catch (SystemException $e) {
 			echo $e->getMessage() . PHP_EOL;
 		}
-
 		return $result;
 	}
 
 	/**
-	 * Insert order data in b_oasis_import_orders
+	 * Insert order data in b_oasis_catalog_orders
 	 * @param int $orderId
 	 * @param int $queueId
 	 */
 	protected function addOasisOrder(int $orderId, int $queueId)
 	{
 		try {
-			$queryRow = self::getOasisOrder($orderId);
-
-			if (!$queryRow) {
-				Application::getConnection()->queryExecute("INSERT INTO b_oasis_import_orders (ID_ORDER, ID_QUEUE) VALUES (" . $orderId . ", " . $queueId . ")");
+			$row = self::getOasisOrder($orderId);
+			if (!$row) {
+				Application::getConnection()->queryExecute("INSERT INTO b_oasis_catalog_orders (ID_ORDER, ID_QUEUE) VALUES (" . $orderId . ", " . $queueId . ")");
 			}
 		} catch (SystemException $e) {
 			echo $e->getMessage() . PHP_EOL;
@@ -561,7 +580,7 @@ class Main
 				],
 			])->fetchAll();
 			if (empty($resultAll)) {
-				$hl = self::getHlEntityClass('ExColorReference', 'ex_color_reference');
+				$hl = self::getHlEntityClass('OaExColorReference', 'oa_ex_color_reference');
 				$records = $hl::getList([
 					'select' => ['ID'],
 					'filter' => ['UF_XML_ID' => $result['PROP_VALUE']]
@@ -668,41 +687,37 @@ class Main
 	 */
 	public static function checkStores()
 	{
-		$arStores = StoreTable::getList()->fetchAll();
-
-		$arFieldsStores = [
+		$list = [
 			[
 				'TITLE'   => 'Москва',
 				'ACTIVE'  => 'Y',
 				'ADDRESS' => 'Москва',
-				'XML_ID'  => 'OASIS_STOCK_MOSCOW',
 				'SORT'    => 500,
-				'CODE'    => 'OASIS_STOCK_MOSCOW'
-			],
-			[
+				'XML_ID'  => 'OASIS_CATALOG_STOCK_MOSCOW',
+				'CODE'    => 'OASIS_CATALOG_STOCK_MOSCOW'
+			],[
 				'TITLE'   => 'Удаленый склад',
 				'ACTIVE'  => 'Y',
 				'ADDRESS' => 'Удаленый склад',
-				'XML_ID'  => 'OASIS_STOCK_REMOTE',
 				'SORT'    => 510,
-				'CODE'    => 'OASIS_STOCK_REMOTE'
-			],
-			[
+				'XML_ID'  => 'OASIS_CATALOG_STOCK_REMOTE',
+				'CODE'    => 'OASIS_CATALOG_STOCK_REMOTE'
+			],[
 				'TITLE'   => 'Европа',
 				'ACTIVE'  => 'Y',
 				'ADDRESS' => 'Европа',
-				'XML_ID'  => 'OASIS_STOCK_EUROPE',
 				'SORT'    => 520,
-				'CODE'    => 'OASIS_STOCK_EUROPE'
+				'XML_ID'  => 'OASIS_CATALOG_STOCK_EUROPE',
+				'CODE'    => 'OASIS_CATALOG_STOCK_EUROPE'
 			]
 		];
-
-		foreach ($arFieldsStores as $arFieldsStore) {
-			$neededStock = array_filter($arStores, function ($e) use ($arFieldsStore) {
-				return $e['CODE'] == $arFieldsStore['CODE'];
+		$stores = StoreTable::getList()->fetchAll();
+		foreach ($list as $row) {
+			$neededStock = array_filter($stores, function ($s) use ($row) {
+				return $s['CODE'] == $row['CODE'];
 			});
 			if (empty($neededStock)) {
-				StoreTable::add($arFieldsStore);
+				StoreTable::add($row);
 			}
 		}
 	}
@@ -822,15 +837,16 @@ class Main
 	 */
 	public static function executePriceProduct($dbProductId, $product)
 	{
-		if (empty(self::$catalog_group_id)) {
+		static $catalog_group_id;
+		if (empty($catalog_group_id)) {
 			$rsGroup = GroupTable::getList([
 				'filter' => ['BASE' => 'Y']
 			]);
 
 			if ($arGroup = $rsGroup->fetch()) {
-				self::$catalog_group_id = (int)$arGroup['ID'];
+				$catalog_group_id = (int)$arGroup['ID'];
 			} else {
-				self::$catalog_group_id = 1;
+				$catalog_group_id = 1;
 			}
 		}
 
@@ -846,7 +862,7 @@ class Main
 			'PRICE'            => $price,
 			'PRICE_SCALE'      => $price,
 			'CURRENCY'         => strtoupper(self::$cf->currency),
-			'CATALOG_GROUP_ID' => self::$catalog_group_id,
+			'CATALOG_GROUP_ID' => $catalog_group_id,
 		];
 
 		$dbPrice = PriceTable::getList([
@@ -962,14 +978,11 @@ class Main
 
 	/**
 	 * Checking properties product and create if absent
-	 * @throws LoaderException
-	 * @throws Exception
 	 */
 	public static function checkProperties()
 	{
-		if (empty(self::$cf->iblock_catalog) || empty(self::$cf->iblock_offers)) {
-			throw new Exception('Infoblocks not selected');
-		}
+		self::checkHLblock();
+
 		$arProperties = [
 			self::$cf->iblock_catalog => [
 				[
@@ -1074,7 +1087,7 @@ class Main
 						'width'      => 0,
 						'group'      => 'N',
 						'multiple'   => 'Y',
-						'TABLE_NAME' => 'oasis_color_reference'
+						'TABLE_NAME' => 'eshop_color_reference'
 					],
 					'extend'                  => [
 						'feature' => [
@@ -1225,7 +1238,7 @@ class Main
 						],
 					],
 				],
-				[
+				/*[
 					'CODE'          => 'COLOR_CLOTHES',
 					'NAME'          => 'Цвет',
 					'PROPERTY_TYPE' => 'L',
@@ -1238,7 +1251,7 @@ class Main
 							'DETAIL_PAGE_SHOW' => 'N',
 						],
 					],
-				],
+				],*/
 				[
 					'CODE'                    => 'COLOR_ES_REF',
 					'NAME'                    => 'Цвет',
@@ -1253,7 +1266,7 @@ class Main
 						'width'      => 0,
 						'group'      => 'N',
 						'multiple'   => 'N',
-						'TABLE_NAME' => 'ex_color_reference'
+						'TABLE_NAME' => 'oa_ex_color_reference'
 					],
 					'extend'                  => [
 						'feature' => [
@@ -1305,49 +1318,39 @@ class Main
 			],
 		];
 
-		self::checkHLblock();
+		foreach ($arProperties as $iblockId => $properties) {
+			foreach ($properties as $property) {
+				$dbProperty = PropertyTable::getList([
+					'filter' => [
+						'IBLOCK_ID' => $iblockId,
+						'CODE'      => $property['CODE']
+					],
+				])->fetch();
 
-		try {
-			Loader::includeModule('iblock');
+				if (!$dbProperty) {
+					if (!empty($property['extend'])) {
+						$extend = $property['extend'];
+						unset($property['extend']);
+					}
 
-			foreach ($arProperties as $iblockId => $properties) {
+					$arFields = array_merge([
+						'IBLOCK_ID' => $iblockId,
+						'XML_ID'    => $property['CODE'],
+					], $property);
 
-				foreach ($properties as $property) {
-					$dbProperty = PropertyTable::getList([
-						'filter' => [
-							'IBLOCK_ID' => $iblockId,
-							'CODE'      => $property['CODE']
-						],
-					])->fetch();
+					$propertyId = self::addProperty($arFields);
 
-					if (!$dbProperty) {
-						if (!empty($property['extend'])) {
-							$extend = $property['extend'];
-							unset($property['extend']);
+					if (!empty($extend)) {
+						if (!empty($extend['feature'])) {
+							self::propertySetFeatures($propertyId, $extend['feature']);
 						}
 
-						$arFields = array_merge([
-							'IBLOCK_ID' => $iblockId,
-							'XML_ID'    => $property['CODE'],
-						], $property);
-
-						$propertyId = self::addProperty($arFields);
-
-						if (!empty($extend)) {
-							if (!empty($extend['feature'])) {
-								self::propertySetFeatures($propertyId, $extend['feature']);
-							}
-
-							if (!empty($extend['section'])) {
-								self::addSectionProperty($iblockId, $propertyId, $extend['section']);
-							}
+						if (!empty($extend['section'])) {
+							self::addSectionProperty($iblockId, $propertyId, $extend['section']);
 						}
 					}
 				}
 			}
-
-		} catch (SystemException $e) {
-			echo $e->getMessage() . PHP_EOL;
 		}
 	}
 
@@ -1378,401 +1381,134 @@ class Main
 	}
 
 	/**
-	 * Check highloadblock OasisColorReference
-	 *
-	 * @throws \Bitrix\Main\ArgumentException
-	 * @throws \Bitrix\Main\LoaderException
-	 * @throws \Bitrix\Main\ObjectPropertyException
-	 * @throws \Bitrix\Main\SystemException
-	 * @throws \Exception
+	 * Check highloadblock
 	 */
 	private static function checkHLblock()
 	{
 		Loader::includeModule('highloadblock');
-		$imgPath = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR;
 
-		$sort = 0;
+		$sort = 2000;
 		$colorValues = [];
+		$imgPath = dirname(__DIR__) . '/assets/colors/';
 
-		$colors = [
-			'AZURE'      => [
-				'XML_ID'    => 1480,
-				'PATH'      => 'colors/azure.jpg',
-				'FILE_NAME' => 'azure.jpg',
-				'FILE_TYPE' => 'image/jpeg',
-				'TITLE'     => '',
-				'OASIS_ID'  => 1480
-			],
-			'BEIGE'      => [
-				'XML_ID'    => 1483,
-				'PATH'      => 'colors/beige.jpg',
-				'FILE_NAME' => 'beige.jpg',
-				'FILE_TYPE' => 'image/jpeg',
-				'TITLE'     => '',
-				'OASIS_ID'  => 1483
-			],
-			'BLACK'      => [
-				'XML_ID'    => 1471,
-				'PATH'      => 'colors/black.jpg',
-				'FILE_NAME' => 'black.jpg',
-				'FILE_TYPE' => 'image/jpeg',
-				'TITLE'     => '',
-				'OASIS_ID'  => 1471
-			],
-			'BLUE'       => [
-				'XML_ID'    => 1472,
-				'PATH'      => 'colors/blue.jpg',
-				'FILE_NAME' => 'blue.jpg',
-				'FILE_TYPE' => 'image/jpeg',
-				'TITLE'     => '',
-				'OASIS_ID'  => 1472
-			],
-			'BROWN'      => [
-				'XML_ID'    => 1482,
-				'PATH'      => 'colors/brown.jpg',
-				'FILE_NAME' => 'brown.jpg',
-				'FILE_TYPE' => 'image/jpeg',
-				'TITLE'     => '',
-				'OASIS_ID'  => 1482
-			],
-			'BURGUNDY'   => [
-				'XML_ID'    => 1478,
-				'PATH'      => 'colors/burgundy.jpg',
-				'FILE_NAME' => 'burgundy.jpg',
-				'FILE_TYPE' => 'image/jpeg',
-				'TITLE'     => '',
-				'OASIS_ID'  => 1478
-			],
-			'DARKBLUE'   => [
-				'XML_ID'    => 1488,
-				'PATH'      => 'colors/darkblue.jpg',
-				'FILE_NAME' => 'darkblue.jpg',
-				'FILE_TYPE' => 'image/jpeg',
-				'TITLE'     => '',
-				'OASIS_ID'  => 1488
-			],
-			'GOLDEN'     => [
-				'XML_ID'    => 1484,
-				'PATH'      => 'colors/golden.jpg',
-				'FILE_NAME' => 'golden.jpg',
-				'FILE_TYPE' => 'image/jpeg',
-				'TITLE'     => '',
-				'OASIS_ID'  => 1484
-			],
-			'GREEN'      => [
-				'XML_ID'    => 1474,
-				'PATH'      => 'colors/green.jpg',
-				'FILE_NAME' => 'green.jpg',
-				'FILE_TYPE' => 'image/jpeg',
-				'TITLE'     => '',
-				'OASIS_ID'  => 1474
-			],
-			'GREENAPPLE' => [
-				'XML_ID'    => 1475,
-				'PATH'      => 'colors/greenapple.jpg',
-				'FILE_NAME' => 'greenapple.jpg',
-				'FILE_TYPE' => 'image/jpeg',
-				'TITLE'     => '',
-				'OASIS_ID'  => 1475
-			],
-			'GREY'       => [
-				'XML_ID'    => 1481,
-				'PATH'      => 'colors/grey.jpg',
-				'FILE_NAME' => 'grey.jpg',
-				'FILE_TYPE' => 'image/jpeg',
-				'TITLE'     => '',
-				'OASIS_ID'  => 1481
-			],
-			'MULTICOLOR' => [
-				'XML_ID'    => 1486,
-				'PATH'      => 'colors/multicolor.jpg',
-				'FILE_NAME' => 'multicolor.jpg',
-				'FILE_TYPE' => 'image/jpeg',
-				'TITLE'     => '',
-				'OASIS_ID'  => 1486
-			],
-			'ORANGE'     => [
-				'XML_ID'    => 1476,
-				'PATH'      => 'colors/orange.jpg',
-				'FILE_NAME' => 'orange.jpg',
-				'FILE_TYPE' => 'image/jpeg',
-				'TITLE'     => '',
-				'OASIS_ID'  => 1476
-			],
-			'PINK'       => [
-				'XML_ID'    => 1487,
-				'PATH'      => 'colors/pink.jpg',
-				'FILE_NAME' => 'pink.jpg',
-				'FILE_TYPE' => 'image/jpeg',
-				'TITLE'     => '',
-				'OASIS_ID'  => 1487
-			],
-			'PURPLE'     => [
-				'XML_ID'    => 1479,
-				'PATH'      => 'colors/purple.jpg',
-				'FILE_NAME' => 'purple.jpg',
-				'FILE_TYPE' => 'image/jpeg',
-				'TITLE'     => '',
-				'OASIS_ID'  => 1479
-			],
-			'RED'        => [
-				'XML_ID'    => 1473,
-				'PATH'      => 'colors/red.jpg',
-				'FILE_NAME' => 'orangered.jpg',
-				'FILE_TYPE' => 'image/jpeg',
-				'TITLE'     => '',
-				'OASIS_ID'  => 1473
-			],
-			'SILVER'     => [
-				'XML_ID'    => 1485,
-				'PATH'      => 'colors/silver.jpg',
-				'FILE_NAME' => 'silver.jpg',
-				'FILE_TYPE' => 'image/jpeg',
-				'TITLE'     => '',
-				'OASIS_ID'  => 1485
-			],
-			'WHITE'      => [
-				'XML_ID'    => 1470,
-				'PATH'      => 'colors/white.jpg',
-				'FILE_NAME' => 'white.jpg',
-				'FILE_TYPE' => 'image/jpeg',
-				'TITLE'     => '',
-				'OASIS_ID'  => 1470
-			],
-			'YELLOW'     => [
-				'XML_ID'    => 1477,
-				'PATH'      => 'colors/yellow.png',
-				'FILE_NAME' => 'yellow.png',
-				'FILE_TYPE' => 'image/png',
-				'TITLE'     => '',
-				'OASIS_ID'  => 1477
-			]
-		];
-
-		foreach (array_keys($colors) as $index) {
-			$colors[$index]['TITLE'] = Loc::getMessage('FILTER_COLOR_' . $index);
-		}
-		unset($index);
-
-		foreach ($colors as $row) {
-			$sort += 100;
+		foreach (self::OASIS_COLOR as $row) {
 			$colorValues[] = [
-				'UF_NAME'   => $row['TITLE'],
+				'UF_NAME'   => Loc::getMessage('FILTER_COLOR_' . strtoupper($row['XML_ID'])),
 				'UF_FILE'   => [
 					'name'     => $row['FILE_NAME'],
-					'type'     => $row['FILE_TYPE'],
-					'tmp_name' => $imgPath . $row['PATH']
+					'type'     => $row['FILE_TYPE'] ?? 'image/jpeg',
+					'tmp_name' => $imgPath . $row['FILE_NAME']
 				],
-				'UF_SORT'   => $sort,
 				'UF_DEF'    => '0',
+				'UF_SORT'   => ++$sort,
 				'UF_XML_ID' => $row['XML_ID']
 			];
 		}
-		unset($row);
 
 		$tables = [
-			'oasis_color_reference' => [
-				'name'   => 'OasisColorReference',
+			'eshop_color_reference' => [
+				'name'   => 'ColorReference',
 				'fields' => [
 					[
 						'FIELD_NAME'        => 'UF_NAME',
 						'USER_TYPE_ID'      => 'string',
 						'XML_ID'            => 'UF_COLOR_NAME',
 						'IS_SEARCHABLE'     => 'Y',
-						'EDIT_FORM_LABEL'   => [
-							'ru' => 'Название',
-							'en' => 'Name',
-						],
-						'LIST_COLUMN_LABEL' => [
-							'ru' => 'Название',
-							'en' => 'Name',
-						],
-						'LIST_FILTER_LABEL' => [
-							'ru' => 'Название',
-							'en' => 'Name',
-						]
+						'EDIT_FORM_LABEL'   => ['ru' => 'Название', 'en' => 'Name'],
+						'LIST_COLUMN_LABEL' => ['ru' => 'Название', 'en' => 'Name'],
+						'LIST_FILTER_LABEL' => ['ru' => 'Название', 'en' => 'Name']
 					],
 					[
 						'FIELD_NAME'        => 'UF_FILE',
 						'USER_TYPE_ID'      => 'file',
 						'XML_ID'            => 'UF_COLOR_FILE',
 						'IS_SEARCHABLE'     => 'Y',
-						'EDIT_FORM_LABEL'   => [
-							'ru' => 'Файл',
-							'en' => 'File',
-						],
-						'LIST_COLUMN_LABEL' => [
-							'ru' => 'Файл',
-							'en' => 'File',
-						],
-						'LIST_FILTER_LABEL' => [
-							'ru' => 'Файл',
-							'en' => 'File',
-						]
+						'EDIT_FORM_LABEL'   => ['ru' => 'Файл', 'en' => 'File'],
+						'LIST_COLUMN_LABEL' => ['ru' => 'Файл', 'en' => 'File'],
+						'LIST_FILTER_LABEL' => ['ru' => 'Файл', 'en' => 'File']
 					],
 					[
 						'FIELD_NAME'        => 'UF_SORT',
 						'USER_TYPE_ID'      => 'double',
 						'XML_ID'            => 'UF_COLOR_SORT',
-						'EDIT_FORM_LABEL'   => [
-							'ru' => 'Сортировка',
-							'en' => 'Sort',
-						],
-						'LIST_COLUMN_LABEL' => [
-							'ru' => 'Сортировка',
-							'en' => 'Sort',
-						],
-						'LIST_FILTER_LABEL' => [
-							'ru' => 'Сортировка',
-							'en' => 'Sort',
-						]
+						'EDIT_FORM_LABEL'   => ['ru' => 'Сортировка', 'en' => 'Sort'],
+						'LIST_COLUMN_LABEL' => ['ru' => 'Сортировка', 'en' => 'Sort'],
+						'LIST_FILTER_LABEL' => ['ru' => 'Сортировка', 'en' => 'Sort']
 					],
 					[
 						'FIELD_NAME'        => 'UF_DEF',
 						'USER_TYPE_ID'      => 'boolean',
 						'XML_ID'            => 'UF_COLOR_DEF',
-						'EDIT_FORM_LABEL'   => [
-							'ru' => 'По умолчанию',
-							'en' => 'Default',
-						],
-						'LIST_COLUMN_LABEL' => [
-							'ru' => 'По умолчанию',
-							'en' => 'Default',
-						],
-						'LIST_FILTER_LABEL' => [
-							'ru' => 'По умолчанию',
-							'en' => 'Default',
-						]
+						'EDIT_FORM_LABEL'   => ['ru' => 'По умолчанию', 'en' => 'Default'],
+						'LIST_COLUMN_LABEL' => ['ru' => 'По умолчанию', 'en' => 'Default'],
+						'LIST_FILTER_LABEL' => ['ru' => 'По умолчанию', 'en' => 'Default']
 					],
 					[
 						'FIELD_NAME'        => 'UF_XML_ID',
 						'USER_TYPE_ID'      => 'string',
 						'XML_ID'            => 'UF_XML_ID',
 						'MANDATORY'         => 'Y',
-						'EDIT_FORM_LABEL'   => [
-							'ru' => 'XML ID',
-							'en' => 'XML ID',
-						],
-						'LIST_COLUMN_LABEL' => [
-							'ru' => 'XML ID',
-							'en' => 'XML ID',
-						],
-						'LIST_FILTER_LABEL' => [
-							'ru' => 'XML ID',
-							'en' => 'XML ID',
-						]
+						'EDIT_FORM_LABEL'   => ['ru' => 'XML ID', 'en' => 'XML ID'],
+						'LIST_COLUMN_LABEL' => ['ru' => 'XML ID', 'en' => 'XML ID'],
+						'LIST_FILTER_LABEL' => ['ru' => 'XML ID', 'en' => 'XML ID']
 					]
 				],
 				'values' => $colorValues
 			],
-			'ex_color_reference'    => [
-				'name'   => 'ExColorReference',
+			'oa_ex_color_reference' => [
+				'name'   => 'OaExColorReference',
 				'fields' => [
 					[
 						'FIELD_NAME'        => 'UF_NAME',
 						'USER_TYPE_ID'      => 'string',
 						'XML_ID'            => 'UF_COLOR_NAME',
 						'IS_SEARCHABLE'     => 'Y',
-						'EDIT_FORM_LABEL'   => [
-							'ru' => 'Название',
-							'en' => 'Name',
-						],
-						'LIST_COLUMN_LABEL' => [
-							'ru' => 'Название',
-							'en' => 'Name',
-						],
-						'LIST_FILTER_LABEL' => [
-							'ru' => 'Название',
-							'en' => 'Name',
-						]
+						'EDIT_FORM_LABEL'   => ['ru' => 'Название', 'en' => 'Name'],
+						'LIST_COLUMN_LABEL' => ['ru' => 'Название', 'en' => 'Name'],
+						'LIST_FILTER_LABEL' => ['ru' => 'Название', 'en' => 'Name']
 					],
 					[
 						'FIELD_NAME'        => 'UF_FILE',
 						'USER_TYPE_ID'      => 'file',
 						'XML_ID'            => 'UF_COLOR_FILE',
 						'IS_SEARCHABLE'     => 'Y',
-						'EDIT_FORM_LABEL'   => [
-							'ru' => 'Файл',
-							'en' => 'File',
-						],
-						'LIST_COLUMN_LABEL' => [
-							'ru' => 'Файл',
-							'en' => 'File',
-						],
-						'LIST_FILTER_LABEL' => [
-							'ru' => 'Файл',
-							'en' => 'File',
-						]
+						'EDIT_FORM_LABEL'   => ['ru' => 'Файл', 'en' => 'File'],
+						'LIST_COLUMN_LABEL' => ['ru' => 'Файл', 'en' => 'File'],
+						'LIST_FILTER_LABEL' => ['ru' => 'Файл', 'en' => 'File']
 					],
 					[
 						'FIELD_NAME'        => 'UF_LINK',
 						'USER_TYPE_ID'      => 'string',
 						'XML_ID'            => 'UF_COLOR_LINK',
 						'IS_SEARCHABLE'     => 'Y',
-						'EDIT_FORM_LABEL'   => [
-							'ru' => 'Ссылка',
-							'en' => 'Link',
-						],
-						'LIST_COLUMN_LABEL' => [
-							'ru' => 'Ссылка',
-							'en' => 'Link',
-						],
-						'LIST_FILTER_LABEL' => [
-							'ru' => 'Ссылка',
-							'en' => 'Link',
-						]
+						'EDIT_FORM_LABEL'   => ['ru' => 'Ссылка', 'en' => 'Link'],
+						'LIST_COLUMN_LABEL' => ['ru' => 'Ссылка', 'en' => 'Link'],
+						'LIST_FILTER_LABEL' => ['ru' => 'Ссылка', 'en' => 'Link']
 					],
 					[
 						'FIELD_NAME'        => 'UF_SORT',
 						'USER_TYPE_ID'      => 'double',
 						'XML_ID'            => 'UF_COLOR_SORT',
-						'EDIT_FORM_LABEL'   => [
-							'ru' => 'Сортировка',
-							'en' => 'Sort',
-						],
-						'LIST_COLUMN_LABEL' => [
-							'ru' => 'Сортировка',
-							'en' => 'Sort',
-						],
-						'LIST_FILTER_LABEL' => [
-							'ru' => 'Сортировка',
-							'en' => 'Sort',
-						]
+						'EDIT_FORM_LABEL'   => ['ru' => 'Сортировка', 'en' => 'Sort'],
+						'LIST_COLUMN_LABEL' => ['ru' => 'Сортировка', 'en' => 'Sort'],
+						'LIST_FILTER_LABEL' => ['ru' => 'Сортировка', 'en' => 'Sort']
 					],
 					[
 						'FIELD_NAME'        => 'UF_DEF',
 						'USER_TYPE_ID'      => 'boolean',
 						'XML_ID'            => 'UF_COLOR_DEF',
-						'EDIT_FORM_LABEL'   => [
-							'ru' => 'По умолчанию',
-							'en' => 'Default',
-						],
-						'LIST_COLUMN_LABEL' => [
-							'ru' => 'По умолчанию',
-							'en' => 'Default',
-						],
-						'LIST_FILTER_LABEL' => [
-							'ru' => 'По умолчанию',
-							'en' => 'Default',
-						]
+						'EDIT_FORM_LABEL'   => ['ru' => 'По умолчанию', 'en' => 'Default'],
+						'LIST_COLUMN_LABEL' => ['ru' => 'По умолчанию', 'en' => 'Default'],
+						'LIST_FILTER_LABEL' => ['ru' => 'По умолчанию', 'en' => 'Default']
 					],
 					[
 						'FIELD_NAME'        => 'UF_XML_ID',
 						'USER_TYPE_ID'      => 'string',
 						'XML_ID'            => 'UF_XML_ID',
 						'MANDATORY'         => 'Y',
-						'EDIT_FORM_LABEL'   => [
-							'ru' => 'XML ID',
-							'en' => 'XML ID',
-						],
-						'LIST_COLUMN_LABEL' => [
-							'ru' => 'XML ID',
-							'en' => 'XML ID',
-						],
-						'LIST_FILTER_LABEL' => [
-							'ru' => 'XML ID',
-							'en' => 'XML ID',
-						]
+						'EDIT_FORM_LABEL'   => ['ru' => 'XML ID', 'en' => 'XML ID'],
+						'LIST_COLUMN_LABEL' => ['ru' => 'XML ID', 'en' => 'XML ID'],
+						'LIST_FILTER_LABEL' => ['ru' => 'XML ID', 'en' => 'XML ID']
 					],
 					[
 						'FIELD_NAME'        => 'UF_COLOR_ID',
@@ -1781,18 +1517,9 @@ class Main
 						'MANDATORY'         => 'Y',
 						'SHOW_IN_LIST'      => 'N',
 						'EDIT_IN_LIST'      => 'N',
-						'EDIT_FORM_LABEL'   => [
-							'ru' => 'ID цвета',
-							'en' => 'ID color',
-						],
-						'LIST_COLUMN_LABEL' => [
-							'ru' => 'ID цвета',
-							'en' => 'ID color',
-						],
-						'LIST_FILTER_LABEL' => [
-							'ru' => 'ID цвета',
-							'en' => 'ID color',
-						]
+						'EDIT_FORM_LABEL'   => ['ru' => 'ID цвета', 'en' => 'ID color'],
+						'LIST_COLUMN_LABEL' => ['ru' => 'ID цвета', 'en' => 'ID color'],
+						'LIST_FILTER_LABEL' => ['ru' => 'ID цвета', 'en' => 'ID color']
 					]
 				],
 			]
@@ -1808,9 +1535,7 @@ class Main
 					'=TABLE_NAME' => $tableName
 				]
 			]);
-
 			$row = $res->fetch();
-			unset($res);
 
 			if (empty($row)) {
 				$result = HighloadBlockTable::add([
@@ -1819,11 +1544,11 @@ class Main
 				]);
 
 				if ($result->isSuccess()) {
-					$sort = 100;
+					$sort = 0;
 					$tableId = $result->getId();
-					$userField = new CUserTypeEntity;
 
 					foreach ($table['fields'] as $field) {
+						$sort += 100;
 						$field['ENTITY_ID'] = 'HLBLOCK_' . $tableId;
 						$res = CUserTypeEntity::getList(
 							[],
@@ -1835,31 +1560,30 @@ class Main
 
 						if (!$res->Fetch()) {
 							$field['SORT'] = $sort;
-							$userField->Add($field);
-							$sort += 100;
+							(new CUserTypeEntity())->Add($field);
 						}
 					}
+				}
+				else {
+					throw new Exception('Error create highloadblock');
 				}
 			} else {
 				$tableId = (int)$row['ID'];
 			}
 
-			if (!empty($tableId)) {
-				$hldata = HighloadBlockTable::getById($tableId)->fetch();
-				$hlentity = HighloadBlockTable::compileEntity($hldata);
-				$entityClass = $hlentity->getDataClass();
+			$hldata = HighloadBlockTable::getById($tableId)->fetch();
+			$hlentity = HighloadBlockTable::compileEntity($hldata);
+			$entityClass = $hlentity->getDataClass();
 
-				foreach ($table['values'] as $item) {
-					$rowColor = $entityClass::getList([
-						'select' => ['ID'],
-						'filter' => [
-							'=UF_XML_ID' => $item['UF_XML_ID']
-						],
-					])->fetch();
-
-					if (empty($rowColor)) {
-						$entityClass::add($item);
-					}
+			foreach ($table['values'] as $item) {
+				$rowColor = $entityClass::getList([
+					'select' => ['ID'],
+					'filter' => [
+						'=UF_XML_ID' => $item['UF_XML_ID']
+					],
+				])->fetch();
+				if (empty($rowColor)) {
+					$entityClass::add($item);
 				}
 			}
 		}
@@ -1885,7 +1609,7 @@ class Main
 			return '';
 		}
 		$uf_xml_id = pathinfo($arrImg['name'])['filename'];
-		$hl = self::getHlEntityClass('ExColorReference', 'ex_color_reference');
+		$hl = self::getHlEntityClass('OaExColorReference', 'oa_ex_color_reference');
 		$row = $hl::getList([
 			'select' => ['ID'],
 			'filter' => [
@@ -1977,21 +1701,18 @@ class Main
 	private static function propertySetFeatures(int $propertyId, array $data)
 	{
 		$arFields = [];
-
 		foreach ($data as $featureId => $isEnabled) {
 			if ($featureId === 'IN_BASKET' || $featureId === 'OFFER_TREE') {
 				$moduleId = 'catalog';
 			} elseif ($featureId === 'LIST_PAGE_SHOW' || $featureId === 'DETAIL_PAGE_SHOW') {
 				$moduleId = 'iblock';
 			}
-
 			$arFields[] = [
 				'MODULE_ID'  => $moduleId ?? '',
 				'FEATURE_ID' => $featureId,
 				'IS_ENABLED' => $isEnabled,
 			];
 		}
-
 		PropertyFeature::setFeatures($propertyId, $arFields);
 	}
 
@@ -2141,32 +1862,32 @@ class Main
 	/**
 	 * Highloadblock Entity Class
 	 * @param $name
-	 * @param $table_name
+	 * @param $tableName
 	 * @return DataManager
 	 * @throws Exception
 	 */
-	private static function getHlEntityClass(string $name, string $table_name)
+	private static function getHlEntityClass(string $name, string $tableName)
 	{
 		static $hls;
-		if (empty($hls[$name . $table_name])) {
+		if (empty($hls[$name . $tableName])) {
 			$row = HighloadBlockTable::getList([
 				'select' => ['ID'],
 				'filter' => [
 					'=NAME'       => $name,
-					'=TABLE_NAME' => $table_name
+					'=TABLE_NAME' => $tableName
 				]
 			])->fetch();
 			if (!empty($row)) {
 				$hldata = HighloadBlockTable::getById((int)$row['ID'])->fetch();
 				$hlentity = HighloadBlockTable::compileEntity($hldata);
-				$hls[$name . $table_name] = $hlentity->getDataClass();
+				$hls[$name . $tableName] = $hlentity->getDataClass();
 			}
 			else {
 				self::$cf->log('HighloadBlockTable not found');
 				throw new SystemException('HighloadBlockTable not found');
 			}
 		}
-		return $hls[$name . $table_name];
+		return $hls[$name . $tableName];
 	}
 
 	/**
@@ -2212,7 +1933,10 @@ class Main
 		if (!empty($product->colors)) {
 			foreach ($product->colors as $color) {
 				if (empty($properties['COLOR_OA_REF']) || array_search($color->parent_id, $properties['COLOR_OA_REF']) === false) {
-					$properties['COLOR_OA_REF'][] = $color->parent_id;
+					if (!empty(self::OASIS_COLOR[$color->parent_id])) {
+						$properties['COLOR_OA_REF'][] = self::OASIS_COLOR[$color->parent_id]['XML_ID'];
+					}
+					//else {}
 				}
 			}
 		}
@@ -2460,7 +2184,7 @@ class Main
 	}
 
 	/**
-	 * Get iblock section id by user field UF_OASIS_ID_CATEGORY
+	 * Get iblock section id by user field UF_OASIS_CATEGORY_ID
 	 * @param $categoryId
 	 * @return array|false|void
 	 */
@@ -2475,7 +2199,7 @@ class Main
 			try {
 				return $entity::getList([
 					'select' => ['ID'],
-					'filter' => ['UF_OASIS_ID_CATEGORY' => $categoryId]
+					'filter' => ['UF_OASIS_CATEGORY_ID' => $categoryId]
 				])->fetch();
 			} catch (ObjectPropertyException|ArgumentException|SystemException $e) {
 				echo $e->getMessage() . PHP_EOL;
@@ -2503,7 +2227,7 @@ class Main
 			'DEPTH_LEVEL'          => $category->level,
 			'DESCRIPTION_TYPE'     => 'text',
 			'CODE'                 => self::getUniqueCodeSection($category->slug),
-			'UF_OASIS_ID_CATEGORY' => $category->id,
+			'UF_OASIS_CATEGORY_ID' => $category->id,
 		];
 
 		$result = $iblockSection->Add($arFields);
@@ -2564,9 +2288,7 @@ class Main
 	 */
 	public static function checkUserFields()
 	{
-		Loader::includeModule('iblock');
-
-		$dataFields = [
+		$list = [
 			[
 				'ENTITY_ID'		=> 'PRODUCT',
 				'FIELD_NAME'	=> 'UF_OASIS_GROUP_ID',
@@ -2591,7 +2313,7 @@ class Main
 				],
 			],[
 				'ENTITY_ID'		=> 'IBLOCK_' . self::$cf->iblock_catalog . '_SECTION',
-				'FIELD_NAME'	=> 'UF_OASIS_ID_CATEGORY',
+				'FIELD_NAME'	=> 'UF_OASIS_CATEGORY_ID',
 				'LABEL'			=> [
 					'ru' => 'Oasis ID категории',
 					'en' => 'Oasis ID category',
@@ -2599,21 +2321,21 @@ class Main
 			],
 		];
 
-		foreach ($dataFields as $data) {
+		foreach ($list as $row) {
 			$result = UserFieldTable::getList([
 				'select' => ['ID'],
 				'filter' => [
-					'FIELD_NAME' => $data['FIELD_NAME'],
-					'ENTITY_ID'  => $data['ENTITY_ID']
+					'FIELD_NAME' => $row['FIELD_NAME'],
+					'ENTITY_ID'  => $row['ENTITY_ID']
 				],
 			])->fetch();
 
 			if (empty($result)) {
 				(new CUserTypeEntity())->Add([
-					'ENTITY_ID'			=> $data['ENTITY_ID'],
-					'FIELD_NAME'		=> $data['FIELD_NAME'],
+					'ENTITY_ID'			=> $row['ENTITY_ID'],
+					'FIELD_NAME'		=> $row['FIELD_NAME'],
+					'XML_ID'			=> $row['FIELD_NAME'],
 					'USER_TYPE_ID'		=> 'string',
-					'XML_ID'			=> $data['FIELD_NAME'],
 					'MULTIPLE'			=> 'N',
 					'MANDATORY'			=> 'N',
 					'SHOW_FILTER'		=> 'N',
@@ -2622,15 +2344,15 @@ class Main
 					'IS_SEARCHABLE'		=> 'N',
 					'SETTINGS'			=> [
 						'DEFAULT_VALUE'	=> '',
-						'SIZE'			=> $data['SETTINGS_SIZE'] ?? '11',
+						'SIZE'			=> $row['SETTINGS_SIZE'] ?? '11',
 						'ROWS'			=> '1',
 						'MIN_LENGTH'	=> '0',
 						'MAX_LENGTH'	=> '0',
 						'REGEXP'		=> '',
 					],
-					'EDIT_FORM_LABEL'	=> $data['LABEL'],
-					'LIST_COLUMN_LABEL'	=> $data['LABEL'],
-					'LIST_FILTER_LABEL'	=> $data['LABEL'],
+					'EDIT_FORM_LABEL'	=> $row['LABEL'],
+					'LIST_COLUMN_LABEL'	=> $row['LABEL'],
+					'LIST_FILTER_LABEL'	=> $row['LABEL'],
 					'HELP_MESSAGE'		=> [
 						'ru' => '',
 						'en' => '',

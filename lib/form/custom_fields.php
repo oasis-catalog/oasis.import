@@ -1,6 +1,6 @@
 <?php
 
-namespace Oasis\Import;
+namespace OasisCatalog\Import;
 
 use Bitrix\Main\Config\Option;
 

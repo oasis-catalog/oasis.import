@@ -1,11 +1,11 @@
 <?php
 
-namespace Oasis\Import;
+namespace OasisCatalog\Import;
 
 use Bitrix\Main\ArgumentNullException;
 use Bitrix\Main\ArgumentOutOfRangeException;
 use Bitrix\Main\Config\Option;
-use Oasis\Import\Config as OasisConfig;
+use OasisCatalog\Import\Config as OasisConfig;
 
 class Api
 {

@@ -1,15 +1,15 @@
 <?php
-namespace Oasis\Import;
+namespace OasisCatalog\Import;
 use Bitrix\Main\Application;
 use Bitrix\Main\Config\Option;
 use Bitrix\Main\Loader;
-use Oasis\Import\Cli;
-use Oasis\Import\Main;
-use Oasis\Import\Api;
+use OasisCatalog\Import\Cli;
+use OasisCatalog\Import\Main;
+use OasisCatalog\Import\Api;
 
 
 class Config {
-	public const MODULE_ID = 'oasis.import';
+	public const MODULE_ID = 'stronglink.oasiscatalog';
 	public const CATALOG_ROOT_NAME = 'Корень инфоблока';
 
 	public bool $debug = false;
@@ -103,7 +103,7 @@ class Config {
 			return;
 		}
 
-		$opt = Option::getForModule($this::MODULE_ID);
+		$opt = Option::getForModule(self::MODULE_ID);
 
 		$this->cron_type      = $opt['cron_type'] ?? '';
 		$this->api_key        = $opt['api_key'] ?? '';
@@ -308,7 +308,7 @@ class Config {
 	}
 
 	public function lock($fn, $fn_error) {
-		$path = $this->root_path . '/upload/module-oasis/';
+		$path = $this->root_path . '/upload/' . self::MODULE_ID . '/';
 
 		if (!is_dir($path)) {
 			if(!mkdir($path, 0777, true)){
@@ -340,7 +340,7 @@ class Config {
 			$str = date('H:i:s').' '.$str;
 
 			if ($this->debug_log) {
-				file_put_contents($this->root_path . '/upload/module-oasis/oasis_'.date('Y-m-d').'.log', $str . "\n", FILE_APPEND);
+				file_put_contents($this->root_path . '/upload/' . self::MODULE_ID . '/' . date('Y-m-d').'.log', $str . "\n", FILE_APPEND);
 			} else {
 				echo $str . PHP_EOL;
 			}
