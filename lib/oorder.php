@@ -234,7 +234,7 @@ class Oorder
                 'FIELD_NAME'    => 'UF_OASIS_PRODUCT_ID',
             ],[ 
                 'ENTITY_ID'     => 'PRODUCT',
-                'FIELD_NAME'    => 'UF_OASIS_UPDATE_AT',
+                'FIELD_NAME'    => 'UF_OASIS_DATA',
             ]
         ];
 

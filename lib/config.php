@@ -20,6 +20,9 @@ class Config {
 	public string $api_key;
 	public string $api_user_id;
 
+	public int $opt_version = 1;
+	public int $opt_bits;
+
 	public ?int $iblock_catalog;
 	public ?int $iblock_offers;
 
@@ -42,6 +45,7 @@ class Config {
 	public ?float $price_from;
 	public ?float $price_to;
 	public ?int $rating;
+	public ?int $grouping;
 	public bool $is_wh_moscow;
 	public bool $is_wh_europe;
 	public bool $is_wh_remote;
@@ -113,13 +117,13 @@ class Config {
 		$this->iblock_offers  = $opt['iblock_offers'] ? intval($opt['iblock_offers']) : null;
 
 		$cat = [];
-		if (!empty($opt['categories']) || !$opt['categories'] === 'Y') {
+		if (!empty($opt['categories']) || $opt['categories'] !== 'Y') {
 			$cat = explode(',', $opt['categories']);
 		}
 		$this->categories = array_map(fn($x) => intval($x), $cat);
 
 		$cat_rel = [];
-		if (!empty($opt['categories_rel']) || !$opt['categories_rel'] === 'Y') {
+		if (!empty($opt['categories_rel']) || $opt['categories_rel'] !== 'Y') {
 			$cat_rel = explode(',', $opt['categories_rel']);
 		}
 		$this->categories_rel = [];
@@ -148,6 +152,7 @@ class Config {
 		$this->price_from         = $opt['price_from'] ? floatval(str_replace(',', '.', $opt['price_from'])) : null;
 		$this->price_to           = $opt['price_to'] ? floatval(str_replace(',', '.', $opt['price_to'])) : null;
 		$this->rating             = $opt['rating'] ? intval($opt['rating']) : null;
+		$this->grouping           = $opt['grouping'] ? intval($opt['grouping']) : null;
 		$this->is_wh_moscow       = $opt['warehouse_moscow'] === 'Y';
 		$this->is_wh_europe       = $opt['warehouse_europe'] === 'Y';
 		$this->is_wh_remote       = $opt['remote_warehouse'] === 'Y';
@@ -171,9 +176,15 @@ class Config {
 		$this->is_brands                = $opt['is_brands'] === 'Y';
 		$this->is_branding              = $opt['is_branding'] === 'Y';
 		$this->branding_box             = $opt['branding_box'] ?? '';
-
 		$this->is_fast_import           = $opt['is_fast_import'] === 'Y';
 
+		$this->opt_bits = 0;
+		if ($this->is_cdn_photo) {
+			$this->opt_bits |= (1 << 0);
+		}
+		if ($this->grouping === 1) {
+			$this->opt_bits |= (1 << 1);
+		}
 		$this->is_init = true;
 	}
 

@@ -134,6 +134,15 @@ if (!empty($currencies)) {
 			['category_rel']
 		],
 		[
+			'grouping',
+			[Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_GROUPING'), Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_GROUPING_DESC')],
+			'rub',
+			['selectbox', [
+				0 => Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_GROUPING_DEFAULT'),
+				1 => Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_GROUPING_COLOR'),
+			]]
+		],
+		[
 			'delete_exclude',
 			Loc::getMessage('OASIS_CATALOG_OPTIONS_TAB_DELETE_EXCLUDE'),
 			'N',

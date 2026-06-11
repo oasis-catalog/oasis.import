@@ -8,7 +8,6 @@ use Bitrix\Main\Application;
 use Bitrix\Main\Config\Option;
 use Bitrix\Main\Loader;
 use Bitrix\Main\LoaderException;
-use Bitrix\Main\SystemException;
 use Bitrix\Sale\BasketItem;
 use OasisCatalog\Import\Config as OasisConfig;
 use CFile;
@@ -254,9 +253,10 @@ class Cli
 
 				if (!$cf->checkPermissionImport()) {
 					echo 'Import once day';
+				} else {
+					self::Import();
 				}
 
-				self::Import();
 			}, function(){
 				echo 'Already running';
 			});
@@ -326,32 +326,38 @@ class Cli
 				}
 			}
 
-			$groups = [];
-			$progressStep = 0;
+			[$groups, $stepTotal] = self::getGroupsProduct($args);
 
-			foreach (Api::getProductsOasis($args) as $product) {
-				if (empty($product->is_deleted)) {
-					$groups[$product->group_id][$product->id] = $product;
-					$progressStep++;
-				} else {
-					Main::checkDeleteProduct($product->id);
+			$dbDataGroup = [];
+			$dbDataProductType = [];
+			foreach (Main::getAllOaProducts() as $dbProduct) {
+				if (Main::getNeedOptUp($dbProduct, 0b10)) {
+					Main::checkDeleteProduct($dbProduct['UF_OASIS_PRODUCT_ID']);
+				}
+				else {
+					$type      = $dbProduct['TYPE'];
+					$groupId   = $dbProduct['UF_OASIS_GROUP_ID'];
+					$productId = $dbProduct['UF_OASIS_PRODUCT_ID'];
+
+					$dbDataGroup[$groupId][] = $dbProduct;
+					$dbDataProductType[$groupId][$productId][$type] = $dbProduct;
 				}
 			}
-			array_walk($groups, fn(&$g) => ksort($g));
 
 			if (self::$cf->limit > 0) {
-				self::$cf->progressStart(Api::getStatProducts()['products'], $progressStep);
+				self::$cf->progressStart(Api::getStatProducts()['products'], $stepTotal);
 			} else {
-				self::$cf->progressStart($progressStep, $progressStep);
+				self::$cf->progressStart($stepTotal, $stepTotal);
 			}
 
-			$totalGroup = count($groups);
-			$itemGroup = 0;
+			$total = count($groups);
+			$count = 0;
 
 			foreach ($groups as $groupId => $products) {
+				$dbProducts = $dbDataGroup[$groupId] ?? [];
+
 				if (count($products) === 1) {
 					$product	= reset($products);
-					$dbProducts = Main::checkProducts($product->id);
 					if (count($dbProducts) > 1) {
 						Main::checkDeleteProduct($product->id);
 						$dbProduct = null;
@@ -381,15 +387,24 @@ class Cli
 					self::ProcessLog($product->id, empty($dbProducts));
 					self::$cf->progressUp();
 				} else {
+					if (count($dbProducts) == 1) {
+						Main::checkDeleteGroup($groupId);
+						unset($dbDataProductType[$groupId]);
+					}
+
 					$firstProduct = reset($products);
-					$dbProduct    = Main::checkProduct($firstProduct->id, ProductTable::TYPE_SKU);
+					$dbProduct    = $dbDataProductType[$groupId][$firstProduct->id][ProductTable::TYPE_SKU] ?? null;
 
 					if ($dbProduct) {
 						$dbProductId = (int)$dbProduct['ID'];
 						Main::upIblockElementProduct($dbProduct, $firstProduct, ProductTable::TYPE_SKU);
 						Main::upProductTable($dbProduct, $firstProduct);
 					} else {
-						Main::checkDeleteGroup($groupId);
+						if (!empty($dbDataProductType[$groupId])) {
+							Main::checkDeleteGroup($groupId);
+							unset($dbDataProductType[$groupId]);
+						}
+
 						$properties = Main::getPropertiesArray($firstProduct);
 						if(!self::$cf->is_fast_import){
 							$properties += Main::getProductImages($firstProduct);
@@ -400,7 +415,7 @@ class Cli
 					Main::executePriceProduct($dbProductId, $firstProduct);
 
 					foreach ($products as $product) {
-						$dbOffer = Main::checkProduct($product->id, ProductTable::TYPE_OFFER);
+						$dbOffer = $dbDataProductType[$groupId][$product->id][ProductTable::TYPE_OFFER] ?? null;
 						if ($dbOffer) {
 							$dbOfferId = (int)$dbOffer['ID'];
 							Main::upIblockElementProduct($dbOffer, $product, ProductTable::TYPE_OFFER);
@@ -423,12 +438,12 @@ class Cli
 					self::ProcessLog($firstProduct->id, empty($dbProduct));
 				}
 				self::ClearTempCDNFile();
-				self::$cf->log('Done ' . ++$itemGroup . ' from ' . $totalGroup);
+				self::$cf->log('Done ' . ++$count . ' from ' . $total);
 			}
 
 			self::$cf->progressEnd();
 			self::$cf->log('Окончание обновления товаров');
-		} catch (SystemException $e) {
+		} catch (\Exception $e) {
 			echo $e->getMessage() . PHP_EOL;
 			exit();
 		}
@@ -451,7 +466,7 @@ class Cli
 			return;
 		}
 
-		AddEventHandler('main','OnMakeFileArray', function ($url, &$temp_path){
+		AddEventHandler('main','OnMakeFileArray', function ($url, &$temp_path) {
 			if (!self::$handlerCDN_disable
 				&& !is_array($url)
 				&& (stripos($url,'http://') === 0 || stripos($url,'https://') === 0)
@@ -463,6 +478,10 @@ class Cli
 						'ignore_errors' => false,
 					]
 				]));
+				if (empty($image)) {
+					self::$cf->log('CDN image download failed: ' . $url);
+					return false;
+				}
 				$arUrl = parse_url($url);
 				$arPath = pathinfo($arUrl['path']);
 				mkdir(self::$cf->root_path . '/upload/' . OasisConfig::MODULE_ID . '/http_image_tmp/', BX_DIR_PERMISSIONS, true);
@@ -485,7 +504,7 @@ class Cli
 			return false;
 		});
 
-		AddEventHandler('main','OnFileSave', function (&$arFile, $strFileName, $strSavePath, $bForceMD5 = false, $bSkipExt = false, $dirAdd = ''){
+		AddEventHandler('main','OnFileSave', function (&$arFile, $strFileName, $strSavePath, $bForceMD5 = false, $bSkipExt = false, $dirAdd = '') {
 			if(!self::$handlerCDN_disable
 				&& isset(self::$src_img_temp[$arFile['tmp_name']])
 			) {
@@ -505,10 +524,10 @@ class Cli
 
 	public static function ClearTempCDNFile()
 	{
-		foreach(self::$src_img_temp as $tmp_name => $data){
+		foreach (self::$src_img_temp as $tmp_name => $data) {
 			@unlink($tmp_name);
 		}
-		self::$src_img_temp  = [];
+		self::$src_img_temp = [];
 	}
 
 	public static function UpStock()
@@ -544,7 +563,7 @@ class Cli
 				}
 			}
 			self::$cf->log('Окончание обновления остатков');
-		} catch (SystemException $e) {
+		} catch (\Exception $e) {
 			echo $e->getMessage() . PHP_EOL;
 		}
 	}
@@ -609,9 +628,38 @@ class Cli
 				}
 				self::$cf->log('Done ' . ++$itemGroup . ' from ' . $totalGroup);
 			}
-		} catch (SystemException $e) {
+		} catch (\Exception $e) {
 			echo $e->getMessage() . PHP_EOL;
 			exit();
 		}
+	}
+
+	private static function getGroupsProduct($args)
+	{
+		$groups = [];
+		$stepTotal = 0;
+		if (self::$cf->grouping === 1) {
+			foreach (Api::getProductsOasis($args) as $product) {
+				if (!empty($product->color_group_id)) {
+					$groups[$product->color_group_id][$product->id] = $product;
+				} else {
+					$groups[$product->id][$product->id] = $product;
+				}
+				$stepTotal++;
+			}
+		}
+		else {
+			foreach (Api::getProductsOasis($args) as $product) {
+				if (empty($product->size) && empty($product->colors)) {
+					$groups[$product->id][$product->id] = $product;
+				} else {
+					$groups[$product->group_id][$product->id] = $product;
+				}
+				$stepTotal++;
+			}
+		}
+		array_walk($groups, fn(&$g) => ksort($g));
+
+		return [$groups, $stepTotal];
 	}
 }

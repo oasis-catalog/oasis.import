@@ -75,7 +75,7 @@ class Main
 		1484 => ['XML_ID' => 'golden',     'FILE_NAME' => 'golden.jpg'],
 		1474 => ['XML_ID' => 'green',      'FILE_NAME' => 'green.jpg'],
 		1475 => ['XML_ID' => 'greenapple', 'FILE_NAME' => 'greenapple.jpg'],
-		1481 => ['XML_ID' => 'grey', '      FILE_NAME' => 'grey.jpg'],
+		1481 => ['XML_ID' => 'grey',       'FILE_NAME' => 'grey.jpg'],
 		1486 => ['XML_ID' => 'multicolor', 'FILE_NAME' => 'multicolor.jpg'],
 		1476 => ['XML_ID' => 'orange',     'FILE_NAME' => 'orange.jpg'],
 		1487 => ['XML_ID' => 'pink',       'FILE_NAME' => 'pink.jpg'],
@@ -228,14 +228,13 @@ class Main
 	public static function getAllOaProducts(): array
 	{
 		return Application::getConnection()->query("
-		SELECT
-			P.ID, P.TYPE, U.UF_OASIS_PRODUCT_ID
-		FROM
-			 b_uts_product U
-				 JOIN b_catalog_product P 
-					 ON U.VALUE_ID=P.ID
-		WHERE U.UF_OASIS_PRODUCT_ID IS NOT NULL
-		")->fetchAll();
+			SELECT
+				P.ID, P.TYPE, U.UF_OASIS_PRODUCT_ID, U.UF_OASIS_GROUP_ID, U.UF_OASIS_DATA
+			FROM
+				b_uts_product U
+			JOIN b_catalog_product P ON U.VALUE_ID=P.ID
+			WHERE U.UF_OASIS_PRODUCT_ID IS NOT NULL
+			")->fetchAll();
 	}
 
 	/**
@@ -256,7 +255,7 @@ class Main
 	public static function checkProducts($productId, ?int $type = null)
 	{
 		$arFields = [
-			'select' => ['ID', 'TYPE', 'UF_OASIS_UPDATE_AT'],
+			'select' => ['ID', 'TYPE', 'UF_OASIS_DATA'],
 			'filter' => [
 				'UF_OASIS_PRODUCT_ID' => $productId,
 			],
@@ -417,8 +416,8 @@ class Main
 	 */
 	public static function getNeedUp($dbProduct, $product): bool
 	{
-		$date = explode(',', $dbProduct['UF_OASIS_UPDATE_AT'] ?? '')[0] ?? '';
-		return ($product->updated_at ?? '1') > $date;
+		$date = explode(';', $dbProduct['UF_OASIS_DATA'] ?? '')[2] ?? '';
+		return ($product->updated_at ?? '1') != $date;
 	}
 
 	/**
@@ -429,9 +428,26 @@ class Main
 	 */
 	public static function getNeedImagesUp($dbProduct, $product): bool
 	{
-		$date = explode(',', $dbProduct['UF_OASIS_UPDATE_AT'] ?? '')[1] ?? '';
-		return ($product->images_updated_at ?? '1') > $date;
+		$date = explode(';', $dbProduct['UF_OASIS_DATA'] ?? '')[3] ?? '';
+		return ($product->images_updated_at ?? '1') != $date || self::getNeedOptUp($dbProduct, 0b01);
 	}
+
+	/**
+	 * Check need update product for site options
+	 * @param $dbProduct
+	 * @param $mask
+	 * @return bool
+	 */
+	public static function getNeedOptUp($dbProduct, $mask): bool
+	{
+		$data = explode(';', $dbProduct['UF_OASIS_DATA'] ?? '');
+		if (($data[0] ?? 0) != self::$cf->opt_version) {
+			return true;
+		}
+		$bits = intval($data[1] ?? 0);
+		return (($bits & $mask) !== (self::$cf->opt_bits & $mask));
+	}
+	
 
 	/**
 	 * Check and delete group Oasis
@@ -628,7 +644,7 @@ class Main
 	public static function addProductTable($dbProductId, $product, $groupId, int $type)
 	{
 		$data = [
-			'UF_OASIS_UPDATE_AT'  => $product->updated_at . ',' . $product->images_updated_at,
+			'UF_OASIS_DATA'  => self::$cf->opt_version . ';' . self::$cf->opt_bits . ';' . $product->updated_at . ';' . $product->images_updated_at
 		];
 		if ($type == ProductTable::TYPE_SKU) {
 			$data['QUANTITY'] = 0;
@@ -677,7 +693,7 @@ class Main
 	{
 		if (self::getNeedUp($dbProduct, $product) || self::getNeedImagesUp($dbProduct, $product)) {
 			ProductTable::update($dbProduct['ID'], [
-				'UF_OASIS_UPDATE_AT'  => $product->updated_at . ',' . $product->images_updated_at,
+				'UF_OASIS_DATA'  => self::$cf->opt_version . ';' . self::$cf->opt_bits . ';' . $product->updated_at . ';' . $product->images_updated_at
 			]);
 		}
 	}
@@ -2305,7 +2321,7 @@ class Main
 				],
 			],[	
 				'ENTITY_ID'		=> 'PRODUCT',
-				'FIELD_NAME'	=> 'UF_OASIS_UPDATE_AT',
+				'FIELD_NAME'	=> 'UF_OASIS_DATA',
 				'SETTINGS_SIZE'	=> '50',
 				'LABEL'			=> [
 					'ru' => 'Oasis update',

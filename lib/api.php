@@ -2,10 +2,9 @@
 
 namespace OasisCatalog\Import;
 
-use Bitrix\Main\ArgumentNullException;
-use Bitrix\Main\ArgumentOutOfRangeException;
 use Bitrix\Main\Config\Option;
 use OasisCatalog\Import\Config as OasisConfig;
+use Exception;
 
 class Api
 {
@@ -227,7 +226,8 @@ class Api
 	 * @param array $data
 	 * @return array|mixed
 	 */
-	public static function curlSend( string $type, array $data, array $params = []) {
+	public static function curlSend(string $type, array $data, array $params = [])
+	{
 		if (empty(self::$cf->api_key)){
 			return [];
 		}
@@ -249,21 +249,21 @@ class Api
 			]);
 			$content = curl_exec($ch);
 
-			if ( $content === false ) {
-				throw new Exception( 'Error: ' . curl_error( $ch ) );
+			if ($content === false) {
+				throw new Exception('Error: ' . curl_error($ch));
 			} else {
-				$result = json_decode( $content );
+				$result = json_decode($content);
 			}
 
-			$http_code = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
-			curl_close( $ch );
+			$http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+			curl_close($ch);
 
-			if ( $http_code === 401 ) {
-				throw new Exception( 'Error Unauthorized. Invalid API key!' );
+			if ($http_code === 401) {
+				throw new Exception('Error Unauthorized. Invalid API key!');
 			} elseif ( $http_code != 200 && $http_code != 500 ) {
-				throw new Exception( 'Error: ' . ( $result->error ?? '' ) . PHP_EOL . 'Code: ' . $http_code );
+				throw new Exception('Error: ' . ($result->error ?? '') . PHP_EOL . 'Code: ' . $http_code);
 			}
-		} catch ( Exception $e ) {
+		} catch (Exception $e) {
 			if (PHP_SAPI === 'cli') {
 				echo $e->getMessage() . PHP_EOL;
 			}
@@ -282,7 +282,7 @@ class Api
 	public static function curlQuery($type, array $args = [], string $version = 'v4'): array
 	{
 		if (empty(self::$cf->api_key)){
-			return [];
+			throw new Exception('Empty API key');
 		}
 
 		$args = array_merge(['format' => 'json'], $args);
