@@ -14,7 +14,9 @@
 
 ## Usage
 
-Скачать архив oasis.import.zip из [свежего релиза](https://github.com/oasis-catalog/oasis.import/releases) и разархивировать в корень сайта.
+Уставновть из каталога [Маркетплейса](https://marketplace.1c-bitrix.ru/solutions/stronglink.oasiscatalog/)
+Либо Скачать архив oasis.import.zip из [свежего релиза](https://github.com/oasis-catalog/oasis.import/releases) и разархивировать в корень сайта.
+
 Активировать модуль **«Импорт товаров Oasis»** на вашем сайте в разделе: https://site.com/bitrix/admin/partner_modules.php
 
 Перейдите на страницу настроек модуля _«Настройки»_ -> _«Настройки продукта»_ -> _«Настройки модулей»_ -> _«Импорт товаров Oasis»_ и укажите действующий API ключ и User ID из [личного кабинета oasiscatalog](https://www.oasiscatalog.com/cabinet/integrations) и сохраните настройки модуля.
